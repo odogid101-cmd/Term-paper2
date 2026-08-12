@@ -47,7 +47,6 @@ body {
   overflow: hidden;
 }
 
-/* Custom Scrollbar for Smooth Scrolling Body */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -317,7 +316,7 @@ body {
   color: var(--danger);
 }
 
-/* Continuously Scrollable Chat Canvas */
+/* Chat Area */
 .chat-area {
   flex: 1;
   overflow-y: auto;
@@ -383,7 +382,7 @@ body {
   color: var(--text);
 }
 
-/* Input Floating Area */
+/* Input Area */
 .input-container {
   padding: 16px 24px;
   background: var(--bg);
@@ -479,45 +478,16 @@ body {
   transition: opacity 0.3s ease;
 }
 
-/* --- MOBILE RESPONSIVE DESIGN --- */
 @media (max-width: 900px) {
-  .sidebar {
-    transform: translateX(-100%);
-  }
-
-  .sidebar.open {
-    transform: translateX(0);
-  }
-
-  .overlay.show {
-    display: block;
-    opacity: 1;
-  }
-
-  .main {
-    margin-left: 0;
-    width: 100%;
-  }
-
-  .nav-toggle {
-    display: flex;
-  }
-
-  .topbar {
-    padding: 0 16px;
-  }
-
-  .chat-area {
-    padding: 16px;
-  }
-
-  .chat-msg {
-    max-width: 90%;
-  }
-
-  .input-container {
-    padding: 12px 16px;
-  }
+  .sidebar { transform: translateX(-100%); }
+  .sidebar.open { transform: translateX(0); }
+  .overlay.show { display: block; opacity: 1; }
+  .main { margin-left: 0; width: 100%; }
+  .nav-toggle { display: flex; }
+  .topbar { padding: 0 16px; }
+  .chat-area { padding: 16px; }
+  .chat-msg { max-width: 90%; }
+  .input-container { padding: 12px 16px; }
 }
 </style>
 </head>
@@ -558,10 +528,10 @@ body {
 
   <div class="sidebar-bottom">
     <div class="profile-box" onclick="window.location='settings.html'">
-      <div class="profile-avatar" id="profileAvatar">?</div>
+      <div class="profile-avatar" id="profileAvatar">G</div>
       <div class="profile-info">
-        <div class="name" id="profileName">Loading...</div>
-        <div class="email" id="profileEmail">...</div>
+        <div class="name" id="profileName">Guest User</div>
+        <div class="email" id="profileEmail">guest@tempaper.com</div>
       </div>
     </div>
   </div>
@@ -610,31 +580,42 @@ let isGenerating = false;
 let touchStartX = 0;
 let mediaRecorder, audioChunks = [];
 let isRecording = false;
-let activeChatHistory = []; // Keeps track of current ongoing session messages
+let activeChatHistory = [];
 
 document.addEventListener("DOMContentLoaded", async () => {
   loadAppSettings();
-  const userId = localStorage.getItem("user_id");
-  if (userId) {
-    const ok = await loadProfile(userId);
-    if(ok) loadChats();
-    else window.location.href = "setup-signin.html";
-  } else { window.location.href = "setup-signin.html"; }
 
+  // 1. Ensure user_id exists (use demo_user fallback for GitHub Pages live demo)
+  let userId = localStorage.getItem("user_id");
+  if (!userId) {
+    userId = "demo_user";
+    localStorage.setItem("user_id", userId);
+  }
+
+  // 2. Fetch profile with timeout, then load local chats
+  await loadProfile(userId);
+  loadChats();
+
+  // 3. Attach event handlers
   document.getElementById("sendBtn").onclick = handleSendOrRecord;
   document.getElementById("promptInput").oninput = handleInputChange;
-  document.getElementById("promptInput").onkeydown = (e)=>{ if(e.key==="Enter" && !e.shiftKey){e.preventDefault(); generatePaper()} };
+  document.getElementById("promptInput").onkeydown = (e) => { 
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); generatePaper(); } 
+  };
   document.getElementById("navToggle").onclick = toggleSidebar;
   document.getElementById("overlay").onclick = toggleSidebar;
-  document.getElementById("dotsBtn").onclick = (e)=>{e.stopPropagation();document.getElementById("dotsMenu").classList.toggle("show")};
+  document.getElementById("dotsBtn").onclick = (e) => { 
+    e.stopPropagation(); 
+    document.getElementById("dotsMenu").classList.toggle("show"); 
+  };
   document.getElementById("historyToggle").onclick = toggleHistory;
   document.getElementById("newChatBtn").onclick = startNewChat;
-  document.getElementById("menuNewChat").onclick = ()=>{startNewChat(); closeDots()};
+  document.getElementById("menuNewChat").onclick = () => { startNewChat(); closeDots(); };
   
-  document.addEventListener("click", (e)=>{ if(!e.target.closest('.top-actions')) closeDots() });
-  document.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX });
+  document.addEventListener("click", (e) => { if (!e.target.closest('.top-actions')) closeDots(); });
+  document.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; });
   document.addEventListener('touchend', e => {
-    if(touchStartX > 50 && e.changedTouches[0].screenX < touchStartX - 50){
+    if (touchStartX > 50 && e.changedTouches[0].screenX < touchStartX - 50) {
       document.getElementById("sidebar").classList.remove("open");
       document.getElementById("overlay").classList.remove("show");
     }
@@ -642,52 +623,56 @@ document.addEventListener("DOMContentLoaded", async () => {
   autoResizeTextarea();
 });
 
-function handleSendOrRecord(){
+function handleSendOrRecord() {
   const input = document.getElementById("promptInput");
-  if(input.value.trim().length > 0){
+  if (input.value.trim().length > 0) {
     generatePaper();
   } else {
     toggleRecording();
   }
 }
 
-async function toggleRecording(){
+async function toggleRecording() {
   const btn = document.getElementById("sendBtn");
-  if(isRecording){
-    mediaRecorder.stop();
+  if (isRecording) {
+    if (mediaRecorder && mediaRecorder.state !== "inactive") {
+      mediaRecorder.stop();
+    }
     return;
   }
   try {
-    if(!navigator.mediaDevices) throw new Error("Mic not supported");
-    const stream = await navigator.mediaDevices.getUserMedia({audio: true});
-    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')? 'audio/webm;codecs=opus' : 'audio/webm';
-    mediaRecorder = new MediaRecorder(stream, {mimeType});
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error("Microphone API not supported on this browser context.");
+    }
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
+    mediaRecorder = new MediaRecorder(stream, { mimeType });
     audioChunks = [];
-    mediaRecorder.ondataavailable = e => { if(e.data.size > 0) audioChunks.push(e.data) };
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
     mediaRecorder.onstop = uploadAudio;
-    mediaRecorder.onerror = e => { alert("Recording error"); console.error(e) };
+    mediaRecorder.onerror = e => { alert("Recording error: " + e.message); console.error(e); };
     mediaRecorder.start();
     isRecording = true;
     btn.classList.add("recording");
   } catch(e) {
-    alert("Microphone permission required: " + e.message);
+    alert("Microphone permission or support error: " + e.message);
   }
 }
 
-async function uploadAudio(){
+async function uploadAudio() {
   isRecording = false;
   const btn = document.getElementById("sendBtn");
   btn.classList.remove("recording");
 
-  const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')? 'audio/webm;codecs=opus' : 'audio/webm';
-  const audioBlob = new Blob(audioChunks, {type: mimeType});
+  const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
+  const audioBlob = new Blob(audioChunks, { type: mimeType });
   const formData = new FormData();
   formData.append('audio', audioBlob, 'voice.webm');
 
   try {
     const res = await fetch(`${API_URL}/transcribe`, { method: 'POST', body: formData });
     const data = await res.json();
-    if(data.text){
+    if (data.text) {
       document.getElementById("promptInput").value = data.text;
       handleInputChange();
       autoResizeTextarea();
@@ -695,39 +680,56 @@ async function uploadAudio(){
       alert("Failed to transcribe audio.");
     }
   } catch(e) { 
-    alert("Network error processing audio."); 
+    alert("Network or backend CORS error while processing audio."); 
   }
 
-  if(mediaRecorder && mediaRecorder.stream) mediaRecorder.stream.getTracks().forEach(track => track.stop());
+  if (mediaRecorder && mediaRecorder.stream) {
+    mediaRecorder.stream.getTracks().forEach(track => track.stop());
+  }
 }
 
-function closeDots(){ document.getElementById("dotsMenu").classList.remove("show") }
-function toggleSidebar(){ document.getElementById("sidebar").classList.toggle("open"); document.getElementById("overlay").classList.toggle("show"); }
-function loadAppSettings(){ const saved = localStorage.getItem("app_settings"); if(saved) appSettings = JSON.parse(saved); applyTheme(); document.documentElement.style.setProperty('--font-size', appSettings.fontSize + 'px'); }
-function applyTheme(){ if(appSettings.theme === 'system'){ const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches; document.documentElement.setAttribute('data-theme', prefersDark? 'dark' : 'light'); } else { document.documentElement.setAttribute('data-theme', appSettings.theme); } }
+function closeDots() { document.getElementById("dotsMenu").classList.remove("show"); }
+function toggleSidebar() { document.getElementById("sidebar").classList.toggle("open"); document.getElementById("overlay").classList.toggle("show"); }
+function loadAppSettings() { const saved = localStorage.getItem("app_settings"); if (saved) appSettings = JSON.parse(saved); applyTheme(); document.documentElement.style.setProperty('--font-size', appSettings.fontSize + 'px'); }
+function applyTheme() { if (appSettings.theme === 'system') { const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches; document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light'); } else { document.documentElement.setAttribute('data-theme', appSettings.theme); } }
 
 async function loadProfile(userId) {
   try {
-    const res = await fetch(`${API_URL}/me?user_id=${userId}`);
-    const data = await res.json();
-    if(res.ok && data.user){
-      currentUser = data.user;
-      currentUser.id = currentUser.id || currentUser.user_id;
-      const name = currentUser.username || currentUser.email.split('@')[0];
-      document.getElementById("profileAvatar").innerText = name[0].toUpperCase();
-      document.getElementById("profileName").innerText = name;
-      document.getElementById("profileEmail").innerText = currentUser.email;
-      return true;
-    } else { return false; }
-  } catch(e){ console.error(e); return false; }
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000); // 6s timeout to prevent UI hang
+
+    const res = await fetch(`${API_URL}/me?user_id=${userId}`, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.user) {
+        currentUser = data.user;
+        currentUser.id = currentUser.id || currentUser.user_id;
+        const name = currentUser.username || currentUser.email.split('@')[0];
+        document.getElementById("profileAvatar").innerText = name[0].toUpperCase();
+        document.getElementById("profileName").innerText = name;
+        document.getElementById("profileEmail").innerText = currentUser.email;
+        return true;
+      }
+    }
+  } catch(e) { 
+    console.warn("Backend slow or unreachable, using fallback profile info:", e); 
+  }
+
+  // Fallback profile presentation so page stays interactive
+  document.getElementById("profileAvatar").innerText = "G";
+  document.getElementById("profileName").innerText = "Guest User";
+  document.getElementById("profileEmail").innerText = "guest@tempaper.com";
+  return true;
 }
 
-function handleInputChange(){
+function handleInputChange() {
   const input = document.getElementById("promptInput");
   const micIcon = document.getElementById("micIcon");
   const sendIcon = document.getElementById("sendIcon");
   
-  if(input.value.trim().length > 0){
+  if (input.value.trim().length > 0) {
     micIcon.style.display = "none";
     sendIcon.style.display = "block";
   } else {
@@ -737,41 +739,159 @@ function handleInputChange(){
   autoResizeTextarea();
 }
 
-function autoResizeTextarea(){
+function autoResizeTextarea() {
   const textarea = document.getElementById("promptInput");
   textarea.style.height = 'auto';
   textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
 }
 
-/* Clears canvas and starts fresh from top */
-function startNewChat(){ 
+function startNewChat() { 
   document.getElementById("chatArea").innerHTML = `<div class="welcome-placeholder" id="welcomeMsg">What topic do you want to explore today?</div>`; 
   document.getElementById("promptInput").value = ""; 
   activeChatHistory = [];
   handleInputChange(); 
 }
 
-async function generatePaper(){
-  if(isGenerating) return;
+async function generatePaper() {
+  if (isGenerating) return;
   const input = document.getElementById("promptInput");
   const prompt = input.value.trim();
-  if(!prompt) return;
+  if (!prompt) return;
 
   isGenerating = true;
   document.getElementById("sendBtn").disabled = true;
 
-  // Add user prompt to existing continuous view
   addMessage("user", prompt);
   input.value = "";
   handleInputChange();
 
-  // Temporary loading state appended directly below
   addMessage("ai", "Generating response...", true);
 
-  // Simulated AI response append
-  setTimeout(()=>{
+  setTimeout(() => {
     const fakeResult = `Result for: "${prompt}"\n\nThis response appears right below your message and keeps appending as you type continuous prompts.`;
     updateLastAiMessage(fakeResult);
     
     activeChatHistory.push({ prompt, result: fakeResult });
-    saveChatSession(
+    saveChatSession();
+    
+    isGenerating = false;
+    document.getElementById("sendBtn").disabled = false;
+  }, 1500);
+}
+
+function addMessage(role, text, isTemp = false) {
+  const chatArea = document.getElementById("chatArea");
+  
+  const welcomeMsg = document.getElementById("welcomeMsg");
+  if (welcomeMsg) welcomeMsg.remove();
+
+  const div = document.createElement("div");
+  div.className = `chat-msg ${role}`;
+  div.style.whiteSpace = "pre-wrap";
+  div.innerText = text;
+
+  if (role === "ai") {
+    const speakBtn = document.createElement("button");
+    speakBtn.className = "speak-btn";
+    speakBtn.innerHTML = `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>`;
+    speakBtn.onclick = () => speakText(text);
+    div.appendChild(speakBtn);
+  }
+
+  if (isTemp) div.id = "tempAiMsg";
+  chatArea.appendChild(div);
+  chatArea.scrollTop = chatArea.scrollHeight;
+}
+
+function updateLastAiMessage(text) { 
+  const temp = document.getElementById("tempAiMsg"); 
+  if (temp) { 
+    temp.innerText = text; 
+    const speakBtn = document.createElement("button"); 
+    speakBtn.className = "speak-btn"; 
+    speakBtn.innerHTML = `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>`; 
+    speakBtn.onclick = () => speakText(text); 
+    temp.appendChild(speakBtn); 
+    temp.removeAttribute("id"); 
+  } 
+  const chatArea = document.getElementById("chatArea");
+  chatArea.scrollTop = chatArea.scrollHeight;
+}
+
+function speakText(text) { 
+  if ('speechSynthesis' in window) { 
+    window.speechSynthesis.cancel(); 
+    const utter = new SpeechSynthesisUtterance(text); 
+    utter.lang = 'en-US'; 
+    window.speechSynthesis.speak(utter); 
+  } else { 
+    alert("Speech synthesis is not supported on this browser."); 
+  } 
+}
+
+function getChatKey() { return "chats_" + (currentUser?.id || "guest"); }
+
+function saveChatSession() { 
+  if (activeChatHistory.length === 0) return;
+  let chats = JSON.parse(localStorage.getItem(getChatKey()) || "[]"); 
+  
+  const firstPrompt = activeChatHistory[0].prompt;
+  const existingIdx = chats.findIndex(c => c.id === activeChatHistory[0].id);
+
+  const sessionData = {
+    id: activeChatHistory[0].id || Date.now(),
+    title: firstPrompt,
+    messages: activeChatHistory,
+    time: Date.now()
+  };
+  activeChatHistory[0].id = sessionData.id;
+
+  if (existingIdx !== -1) {
+    chats[existingIdx] = sessionData;
+  } else {
+    chats.unshift(sessionData);
+  }
+
+  localStorage.setItem(getChatKey(), JSON.stringify(chats.slice(0, 20))); 
+  loadChats(); 
+}
+
+function loadChats() { 
+  let chats = JSON.parse(localStorage.getItem(getChatKey()) || "[]"); 
+  const submenu = document.getElementById("historySubmenu"); 
+  if (chats.length) { 
+    submenu.innerHTML = chats.map((c, i) => `<div class="submenu-item" onclick="openChatSession(${i})"><b>${(c.title || c.prompt || "Chat").substring(0,28)}...</b></div>`).join(""); 
+  } else { 
+    submenu.innerHTML = `<div class="submenu-item" style="color:var(--muted)">No history</div>`; 
+  } 
+}
+
+function openChatSession(index) { 
+  let chats = JSON.parse(localStorage.getItem(getChatKey()) || "[]"); 
+  const session = chats[index]; 
+  document.getElementById("chatArea").innerHTML = ""; 
+  
+  if (session.messages && session.messages.length) {
+    activeChatHistory = session.messages;
+    session.messages.forEach(m => {
+      addMessage("user", m.prompt);
+      addMessage("ai", m.result);
+    });
+  } else if (session.prompt) {
+    activeChatHistory = [{ prompt: session.prompt, result: session.result }];
+    addMessage("user", session.prompt);
+    addMessage("ai", session.result);
+  }
+  
+  toggleHistory(); 
+}
+
+function toggleHistory() { 
+  document.getElementById("historySubmenu").classList.toggle("show"); 
+}
+
+function logout() { localStorage.removeItem("user_id"); window.location.href="setup-signin.html"; }
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+</script>
+</body>
+</html>
