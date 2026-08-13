@@ -43,7 +43,7 @@ body {
   color: var(--text);
   display: flex;
   height: 100vh;
-  height: 100dvh; /* Adapts nicely to mobile browser bars */
+  height: 100dvh;
   width: 100vw;
   overflow: hidden;
 }
@@ -226,7 +226,6 @@ body {
 }
 
 /* Topbar */
-/* Topbar */
 .topbar {
   height: var(--topbar-height);
   display: flex;
@@ -237,10 +236,10 @@ body {
   background: rgba(11, 13, 26, 0.7);
   backdrop-filter: blur(12px);
   flex-shrink: 0;
-  position: relative; /* <-- ADD THIS */
-  z-index: 500;       /* <-- ADD THIS */
+  position: relative;
+  z-index: 500;
 }
-  
+
 .nav-toggle {
   display: none;
 }
@@ -297,10 +296,10 @@ body {
   visibility: hidden;
   transform: translateY(-8px);
   transition: all 0.2s ease;
-  z-index: 1000;      /* <-- CHANGE FROM 200 TO 1000 */
+  z-index: 1000;
   overflow: hidden;
 }
-  
+
 .dropdown-menu.show {
   opacity: 1;
   visibility: visible;
@@ -323,11 +322,11 @@ body {
   color: var(--danger);
 }
 
-/* Chat Area - Scrollable & Flexible Height */
+/* Chat Area */
 .chat-area {
   flex: 1;
   overflow-y: auto;
-  padding: 20px 24px 30px; /* Extra bottom padding so messages don't stick to the input bar */
+  padding: 20px 24px 30px;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -389,9 +388,9 @@ body {
   color: var(--text);
 }
 
-/* Input Area - Lifted Up with Padding Below */
+/* Input Area */
 .input-container {
-  padding: 12px 24px 28px; /* Extra bottom padding lifts input bar up */
+  padding: 12px 24px 28px;
   background: var(--bg);
   border-top: 1px solid var(--border);
   flex-shrink: 0;
@@ -494,7 +493,7 @@ body {
   .topbar { padding: 0 16px; }
   .chat-area { padding: 16px 16px 24px; }
   .chat-msg { max-width: 90%; }
-  .input-container { padding: 10px 16px 24px; } /* Clean lifted position on mobile */
+  .input-container { padding: 10px 16px 24px; }
 }
 </style>
 </head>
@@ -592,18 +591,16 @@ let activeChatHistory = [];
 document.addEventListener("DOMContentLoaded", async () => {
   loadAppSettings();
 
-  // Ensure user_id exists or set fallback
   let userId = localStorage.getItem("user_id");
   if (!userId) {
     userId = "demo_user";
     localStorage.setItem("user_id", userId);
   }
 
-  // Load profile with timeout to prevent hanging
   await loadProfile(userId);
   loadChats();
 
-  // Event handlers
+  // Handlers
   document.getElementById("sendBtn").onclick = handleSendOrRecord;
   document.getElementById("promptInput").oninput = handleInputChange;
   document.getElementById("promptInput").onkeydown = (e) => { 
@@ -686,7 +683,7 @@ function toggleRecording() {
 
     recognition.start();
   } catch (err) {
-    alert("Microphone permission or browser issue: " + err.message);
+    alert("Microphone issue: " + err.message);
     isRecording = false;
     btn.classList.remove("recording");
   }
@@ -721,7 +718,6 @@ async function loadProfile(userId) {
     console.warn("Backend slow or unreachable, using fallback profile info:", e); 
   }
 
-  // Fallback info if offline or Render is waking up
   document.getElementById("profileAvatar").innerText = "G";
   document.getElementById("profileName").innerText = "Guest User";
   document.getElementById("profileEmail").innerText = "guest@tempaper.com";
@@ -756,6 +752,7 @@ function startNewChat() {
   handleInputChange(); 
 }
 
+/* REAL BACKEND GENERATION FUNCTION */
 async function generatePaper() {
   if (isGenerating) return;
   const input = document.getElementById("promptInput");
@@ -769,18 +766,31 @@ async function generatePaper() {
   input.value = "";
   handleInputChange();
 
-  addMessage("ai", "Generating response...", true);
+  addMessage("ai", "Searching sources & writing paper...", true);
 
-  setTimeout(() => {
-    const fakeResult = `Result for: "${prompt}"\n\nThis response appears right below your message and keeps appending as you type continuous prompts.`;
-    updateLastAiMessage(fakeResult);
-    
-    activeChatHistory.push({ prompt, result: fakeResult });
-    saveChatSession();
-    
+  try {
+    const res = await fetch(`${API_URL}/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: prompt })
+    });
+
+    const data = await res.json();
+
+    if (res.ok && data.result) {
+      updateLastAiMessage(data.result);
+      activeChatHistory.push({ prompt, result: data.result });
+      saveChatSession();
+    } else {
+      updateLastAiMessage("Error: " + (data.error || "Failed to generate paper. Please try again."));
+    }
+  } catch (e) {
+    console.error(e);
+    updateLastAiMessage("Network error. Please check your connection or server status.");
+  } finally {
     isGenerating = false;
     document.getElementById("sendBtn").disabled = false;
-  }, 1500);
+  }
 }
 
 function addMessage(role, text, isTemp = false) {
@@ -794,7 +804,7 @@ function addMessage(role, text, isTemp = false) {
   div.style.whiteSpace = "pre-wrap";
   div.innerText = text;
 
-  if (role === "ai") {
+  if (role === "ai" && !isTemp) {
     const speakBtn = document.createElement("button");
     speakBtn.className = "speak-btn";
     speakBtn.innerHTML = `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>`;
