@@ -578,25 +578,25 @@ let currentUser = null;
 let appSettings = {theme: 'system', fontSize: 16, notifications: true};
 let isGenerating = false;
 let touchStartX = 0;
-let mediaRecorder, audioChunks = [];
+let recognition = null;
 let isRecording = false;
 let activeChatHistory = [];
 
 document.addEventListener("DOMContentLoaded", async () => {
   loadAppSettings();
 
-  // 1. Ensure user_id exists (use demo_user fallback for GitHub Pages live demo)
+  // Ensure user_id exists or set fallback
   let userId = localStorage.getItem("user_id");
   if (!userId) {
     userId = "demo_user";
     localStorage.setItem("user_id", userId);
   }
 
-  // 2. Fetch profile with timeout, then load local chats
+  // Load profile with timeout to prevent hanging
   await loadProfile(userId);
   loadChats();
 
-  // 3. Attach event handlers
+  // Event handlers
   document.getElementById("sendBtn").onclick = handleSendOrRecord;
   document.getElementById("promptInput").oninput = handleInputChange;
   document.getElementById("promptInput").onkeydown = (e) => { 
@@ -632,59 +632,56 @@ function handleSendOrRecord() {
   }
 }
 
-async function toggleRecording() {
+function toggleRecording() {
   const btn = document.getElementById("sendBtn");
-  if (isRecording) {
-    if (mediaRecorder && mediaRecorder.state !== "inactive") {
-      mediaRecorder.stop();
-    }
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (!SpeechRecognition) {
+    alert("Voice recognition is not supported on this browser.");
     return;
   }
-  try {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      throw new Error("Microphone API not supported on this browser context.");
-    }
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
-    mediaRecorder = new MediaRecorder(stream, { mimeType });
-    audioChunks = [];
-    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
-    mediaRecorder.onstop = uploadAudio;
-    mediaRecorder.onerror = e => { alert("Recording error: " + e.message); console.error(e); };
-    mediaRecorder.start();
-    isRecording = true;
-    btn.classList.add("recording");
-  } catch(e) {
-    alert("Microphone permission or support error: " + e.message);
+
+  if (isRecording) {
+    if (recognition) recognition.stop();
+    isRecording = false;
+    btn.classList.remove("recording");
+    return;
   }
-}
-
-async function uploadAudio() {
-  isRecording = false;
-  const btn = document.getElementById("sendBtn");
-  btn.classList.remove("recording");
-
-  const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
-  const audioBlob = new Blob(audioChunks, { type: mimeType });
-  const formData = new FormData();
-  formData.append('audio', audioBlob, 'voice.webm');
 
   try {
-    const res = await fetch(`${API_URL}/transcribe`, { method: 'POST', body: formData });
-    const data = await res.json();
-    if (data.text) {
-      document.getElementById("promptInput").value = data.text;
+    recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+
+    recognition.onstart = () => {
+      isRecording = true;
+      btn.classList.add("recording");
+    };
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      document.getElementById("promptInput").value = transcript;
       handleInputChange();
       autoResizeTextarea();
-    } else {
-      alert("Failed to transcribe audio.");
-    }
-  } catch(e) { 
-    alert("Network or backend CORS error while processing audio."); 
-  }
+    };
 
-  if (mediaRecorder && mediaRecorder.stream) {
-    mediaRecorder.stream.getTracks().forEach(track => track.stop());
+    recognition.onerror = (e) => {
+      alert("Voice error: " + e.error);
+      isRecording = false;
+      btn.classList.remove("recording");
+    };
+
+    recognition.onend = () => {
+      isRecording = false;
+      btn.classList.remove("recording");
+    };
+
+    recognition.start();
+  } catch (err) {
+    alert("Microphone permission or browser issue: " + err.message);
+    isRecording = false;
+    btn.classList.remove("recording");
   }
 }
 
@@ -696,7 +693,7 @@ function applyTheme() { if (appSettings.theme === 'system') { const prefersDark 
 async function loadProfile(userId) {
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000); // 6s timeout to prevent UI hang
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
 
     const res = await fetch(`${API_URL}/me?user_id=${userId}`, { signal: controller.signal });
     clearTimeout(timeoutId);
@@ -717,7 +714,7 @@ async function loadProfile(userId) {
     console.warn("Backend slow or unreachable, using fallback profile info:", e); 
   }
 
-  // Fallback profile presentation so page stays interactive
+  // Fallback info if offline or Render is waking up
   document.getElementById("profileAvatar").innerText = "G";
   document.getElementById("profileName").innerText = "Guest User";
   document.getElementById("profileEmail").innerText = "guest@tempaper.com";
