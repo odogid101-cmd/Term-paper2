@@ -280,19 +280,18 @@ body {
 .dots-btn:hover {
   background: var(--card-hover);
 }
-
 .dropdown-menu {
   position: absolute;
   right: 0;
-  top: 48px;
+  bottom: 48px; /* CHANGED: top -> bottom */
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 12px;
   min-width: 170px;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+  box-shadow: 0 -10px 25px rgba(0,0,0,0.3); /* CHANGED: shadow goes up */
   opacity: 0;
   visibility: hidden;
-  transform: translateY(-8px);
+  transform: translateY(8px); /* CHANGED: -8px -> 8px so it slides up */
   transition: all 0.2s ease;
   z-index: 200;
   overflow: hidden;
