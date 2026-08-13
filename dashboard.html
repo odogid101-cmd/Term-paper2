@@ -226,6 +226,7 @@ body {
 }
 
 /* Topbar */
+/* Topbar */
 .topbar {
   height: var(--topbar-height);
   display: flex;
@@ -236,8 +237,10 @@ body {
   background: rgba(11, 13, 26, 0.7);
   backdrop-filter: blur(12px);
   flex-shrink: 0;
+  position: relative; /* <-- ADD THIS */
+  z-index: 500;       /* <-- ADD THIS */
 }
-
+  
 .nav-toggle {
   display: none;
 }
@@ -280,23 +283,24 @@ body {
 .dots-btn:hover {
   background: var(--card-hover);
 }
+
 .dropdown-menu {
   position: absolute;
   right: 0;
-  bottom: 48px; /* CHANGED: top -> bottom */
+  top: 48px;
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 12px;
   min-width: 170px;
-  box-shadow: 0 -10px 25px rgba(0,0,0,0.3); /* CHANGED: shadow goes up */
+  box-shadow: 0 10px 25px rgba(0,0,0,0.3);
   opacity: 0;
   visibility: hidden;
-  transform: translateY(8px); /* CHANGED: -8px -> 8px so it slides up */
+  transform: translateY(-8px);
   transition: all 0.2s ease;
-  z-index: 200;
+  z-index: 1000;      /* <-- CHANGE FROM 200 TO 1000 */
   overflow: hidden;
 }
-
+  
 .dropdown-menu.show {
   opacity: 1;
   visibility: visible;
