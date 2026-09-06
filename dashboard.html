@@ -60,6 +60,108 @@ body {
   border-radius: 4px;
 }
 
+  /* --- FLOATING AI CHAT WIDGET --- */
+.ai-fab {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 56px;
+  height: 56px;
+  background: var(--accent-gradient);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4);
+  z-index: 2000;
+  transition: transform 0.2s;
+}
+.ai-fab:active { cursor: grabbing; transform: scale(0.95); }
+.ai-fab svg { width: 28px; height: 28px; fill: white; }
+
+.ai-chat-window {
+  position: fixed;
+  bottom: 90px;
+  right: 24px;
+  width: 360px;
+  height: 500px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+  display: none;
+  flex-direction: column;
+  z-index: 2001;
+  overflow: hidden;
+  resize: both;
+  min-width: 300px;
+  min-height: 400px;
+  max-width: 90vw;
+  max-height: 80vh;
+}
+.ai-chat-window.show { display: flex; animation: popIn 0.2s ease; }
+@keyframes popIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+.ai-chat-header {
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  cursor: move; /* for dragging */
+  background: rgba(0,0,0,0.1);
+  flex-shrink: 0;
+}
+.ai-chat-header .title { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; }
+.ai-chat-header .controls { display: flex; gap: 8px; }
+.ai-chat-header .controls button { background: none; border: none; color: var(--muted); cursor: pointer; padding: 4px; }
+.ai-chat-header .controls button:hover { color: var(--text); }
+
+.ai-chat-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ai-chat-input {
+  padding: 10px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.ai-chat-input input {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: var(--text);
+  outline: none;
+}
+.ai-chat-input button {
+  background: var(--accent-gradient);
+  border: none;
+  color: white;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.ai-chat-msg { padding: 8px 12px; border-radius: 12px; max-width: 85%; font-size: 14px; line-height: 1.5; }
+.ai-chat-msg.user { background: var(--accent); color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
+.ai-chat-msg.ai { background: var(--bg); align-self: flex-start; border-bottom-left-radius: 4px; }
+
+@media (max-width: 600px) {
+  .ai-chat-window { width: 90vw; height: 70vh; right: 5vw; bottom: 80px; }
+  .ai-fab { bottom: 16px; right: 16px; }
+}
+
 /* --- SIDEBAR --- */
 .sidebar {
   width: var(--sidebar-width);
@@ -578,6 +680,34 @@ body {
   </div>
 </div>
 
+  <!-- Floating AI Button -->
+<div class="ai-fab" id="aiFab">
+  <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10c1.19 0 2.34-.21 3.41-.59l4.17 1.38-1.38-4.17A9.957 9.957 0 0022 12c0-5.52-4.48-10-10-10zm-1 13H9v-2h2v2zm4 0h-2v-2h2v2zm2-4H7V9h10v2z"/></svg>
+</div>
+
+<!-- Draggable Chat Window -->
+<div class="ai-chat-window" id="aiChatWindow">
+  <div class="ai-chat-header" id="aiChatHeader">
+    <div class="title">
+      <div style="width:24px; height:24px; background:var(--accent-gradient); border-radius:6px;"></div>
+      Tempaper AI
+    </div>
+    <div class="controls">
+      <button id="aiMinimizeBtn">−</button>
+      <button id="aiCloseBtn">×</button>
+    </div>
+  </div>
+  <div class="ai-chat-body" id="aiChatBody">
+    <div class="ai-chat-msg ai">Hello! Ask me to write a paragraph or explain a topic.</div>
+  </div>
+  <div class="ai-chat-input">
+    <input type="text" id="aiChatInput" placeholder="Ask anything...">
+    <button id="aiChatSendBtn">
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+    </button>
+  </div>
+</div>
+
 <script>
 const API_URL = "https://term-paper-n4kl.onrender.com";
 let currentUser = null;
@@ -597,6 +727,89 @@ document.addEventListener("DOMContentLoaded", async () => {
     localStorage.setItem("user_id", userId);
   }
 
+// --- FLOATING AI CHAT LOGIC ---
+const aiFab = document.getElementById("aiFab");
+const aiChatWindow = document.getElementById("aiChatWindow");
+const aiChatHeader = document.getElementById("aiChatHeader");
+const aiChatBody = document.getElementById("aiChatBody");
+const aiChatInput = document.getElementById("aiChatInput");
+const aiChatSendBtn = document.getElementById("aiChatSendBtn");
+
+// Toggle open/close
+aiFab.onclick = () => aiChatWindow.classList.toggle("show");
+document.getElementById("aiCloseBtn").onclick = () => aiChatWindow.classList.remove("show");
+document.getElementById("aiMinimizeBtn").onclick = () => aiChatWindow.classList.remove("show");
+
+// Send message from floating chat
+aiChatSendBtn.onclick = sendFloatingMessage;
+aiChatInput.onkeydown = (e) => { if(e.key === "Enter") sendFloatingMessage(); }
+
+async function sendFloatingMessage() {
+  const text = aiChatInput.value.trim();
+  if(!text) return;
+  addFloatingMsg("user", text);
+  aiChatInput.value = "";
+  
+  addFloatingMsg("ai", "Thinking...");
+  
+  try {
+    const res = await fetch(`${API_URL}/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: text })
+    });
+    const data = await res.json();
+    // remove "Thinking..."
+    aiChatBody.lastChild.remove(); 
+    addFloatingMsg("ai", data.result || "Error generating response");
+  } catch(e) {
+    aiChatBody.lastChild.remove();
+    addFloatingMsg("ai", "Network error. Try again.");
+  }
+}
+
+function addFloatingMsg(role, text) {
+  const div = document.createElement("div");
+  div.className = `ai-chat-msg ${role}`;
+  div.innerText = text;
+  aiChatBody.appendChild(div);
+  aiChatBody.scrollTop = aiChatBody.scrollHeight;
+}
+
+// --- DRAGGABLE LOGIC ---
+let isDragging = false;
+let offsetX, offsetY;
+
+aiChatHeader.onmousedown = (e) => {
+  isDragging = true;
+  offsetX = e.clientX - aiChatWindow.getBoundingClientRect().left;
+  offsetY = e.clientY - aiChatWindow.getBoundingClientRect().top;
+  aiChatWindow.style.cursor = "grabbing";
+}
+document.onmousemove = (e) => {
+  if(!isDragging) return;
+  aiChatWindow.style.left = `${e.clientX - offsetX}px`;
+  aiChatWindow.style.top = `${e.clientY - offsetY}px`;
+  aiChatWindow.style.right = "auto"; // disable right positioning when dragging
+  aiChatWindow.style.bottom = "auto";
+}
+document.onmouseup = () => { 
+  isDragging = false; 
+  aiChatWindow.style.cursor = "default";
+}
+
+// Drag FAB too
+let isDraggingFab = false;
+aiFab.onmousedown = (e) => { isDraggingFab = true; }
+document.onmousemove = (e) => {
+  if(!isDraggingFab) return;
+  aiFab.style.left = `${e.clientX - 28}px`;
+  aiFab.style.top = `${e.clientY - 28}px`;
+  aiFab.style.right = "auto";
+  aiFab.style.bottom = "auto";
+}
+document.onmouseup = () => { isDraggingFab = false; }
+  
   await loadProfile(userId);
   loadChats();
 
