@@ -68,10 +68,10 @@ body {
   border-radius: 4px;
 }
 
-/* --- FLOATING AI CHAT WIDGET (REPOSITIONED & MOVABLE) --- */
+/* Floating AI Chat Widget */
 .ai-fab {
   position: fixed;
-  bottom: 110px; /* Lifted so it won't block the input area */
+  bottom: 110px;
   right: 28px;
   width: 52px;
   height: 52px;
@@ -175,7 +175,7 @@ body {
 .ai-chat-msg.user { background: var(--accent); color: white; align-self: flex-end; border-bottom-right-radius: 3px; }
 .ai-chat-msg.ai { background: var(--card); color: var(--text); border: 1px solid var(--border); align-self: flex-start; border-bottom-left-radius: 3px; }
 
-/* --- SIDEBAR --- */
+/* Sidebar */
 .sidebar {
   width: var(--sidebar-width);
   background: var(--sidebar);
@@ -311,7 +311,7 @@ body {
 .profile-info .name { font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .profile-info .email { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* --- MAIN CONTAINER --- */
+/* Main Section */
 .main {
   flex: 1;
   display: flex;
@@ -355,6 +355,8 @@ body {
 
 .dots-btn:hover { background: rgba(255, 255, 255, 0.1); }
 
+.top-actions { position: relative; }
+
 .dropdown-menu {
   position: absolute;
   right: 0;
@@ -377,7 +379,6 @@ body {
 .dropdown-menu div:hover { background: rgba(255, 255, 255, 0.05); }
 .dropdown-menu .danger { color: var(--danger); }
 
-/* Workspace / Content Area */
 .chat-area {
   flex: 1;
   overflow-y: auto;
@@ -426,7 +427,7 @@ body {
   line-height: 1.6;
 }
 
-/* --- MICROSOFT WORD A4 PAPER FORMATTING --- */
+/* Document Formatting */
 .a4-wrapper {
   width: 100%;
   display: flex;
@@ -440,10 +441,10 @@ body {
   width: 100%;
   max-width: 816px;
   min-height: 1056px;
-  padding: 1in; /* Standard Microsoft Word 1-inch margins */
+  padding: 1in;
   box-shadow: 0 12px 35px rgba(0, 0, 0, 0.4);
   border-radius: 2px;
-  font-family: 'Calibri', 'Inter', Arial, sans-serif; /* Microsoft Word style font */
+  font-family: 'Calibri', 'Inter', Arial, sans-serif;
   font-size: 15px;
   line-height: 1.6;
   position: relative;
@@ -452,7 +453,7 @@ body {
 
 .a4-paper h1 {
   font-size: 26px;
-  color: #1e3a8a; /* Word Title Accent Blue */
+  color: #1e3a8a;
   text-align: center;
   margin-bottom: 20px;
   font-weight: 700;
@@ -505,7 +506,6 @@ body {
 
 .speak-btn:hover { color: #0f172a; background: rgba(0,0,0,0.1); }
 
-/* Input Controls */
 .input-container {
   padding: 16px 24px 24px;
   background: var(--bg);
@@ -631,26 +631,6 @@ body {
   .input-container { padding: 12px 16px 16px; }
 }
 </style>
-
-  <style>
-  .scroll-container {
-    height: 100vh;
-    overflow-y: scroll;
-    scroll-snap-type: y mandatory;
-  }
-
-  .page {
-    height: 100vh;
-    scroll-snap-align: start;
-    scroll-snap-stop: always;
-  }
-</style>
-
-<div class="scroll-container">
-  <section class="page">Page 1</section>
-  <section class="page">Page 2</section>
-</div>
-  
 </head>
 <body>
 
@@ -737,11 +717,11 @@ body {
         </button>
       </div>
     </div>
-    <div class="input-hint">Press <b>Shift + Enter</b> for new line. Click Send button to submit.</div>
+    <div class="input-hint">Press <b>Enter</b> to send. Use <b>Shift + Enter</b> for a new line.</div>
   </div>
 </div>
 
-<!-- Movable Floating AI Assistant FAB -->
+<!-- Floating AI Assistant FAB -->
 <div class="ai-fab" id="aiFab" title="AI Copilot">
   <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10c1.19 0 2.34-.21 3.41-.59l4.17 1.38-1.38-4.17A9.957 9.957 0 0022 12c0-5.52-4.48-10-10-10zm-1 13H9v-2h2v2zm4 0h-2v-2h2v2zm2-4H7V9h10v2z"/></svg>
 </div>
@@ -788,7 +768,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     localStorage.setItem("user_id", userId);
   }
 
-  // --- FLOATING AI CHAT & FAB DRAG/DROP LOGIC ---
+  // Floating AI Chat Drag & Drop Logic
   const aiFab = document.getElementById("aiFab");
   const aiChatWindow = document.getElementById("aiChatWindow");
   const aiChatHeader = document.getElementById("aiChatHeader");
@@ -828,7 +808,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       aiChatBody.lastChild.remove(); 
       addFloatingMsg("ai", data.result || "Error generating response.");
     } catch(e) {
-      aiChatBody.lastChild.remove();
+      if (aiChatBody.lastChild) aiChatBody.lastChild.remove();
       addFloatingMsg("ai", "Network error. Try again.");
     }
   }
@@ -841,7 +821,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     aiChatBody.scrollTop = aiChatBody.scrollHeight;
   }
 
-  // Generic Drag Functionality for Mouse & Touch
   function makeElementDraggable(dragHandle, targetElement, isFab = false) {
     let startX, startY, initialLeft, initialTop;
 
@@ -898,15 +877,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   await loadProfile(userId);
   loadChats();
 
-  // Handlers
+  // Button Action Bindings
   document.getElementById("sendBtn").onclick = generatePaper;
   document.getElementById("micBtn").onclick = toggleRecording;
   document.getElementById("promptInput").oninput = autoResizeTextarea;
   
-  // KEYBOARD HANDLER: ENTER FOR NEWLINE
+  // Enter submits, Shift+Enter makes newline
   document.getElementById("promptInput").onkeydown = (e) => { 
     if (e.key === "Enter" && !e.shiftKey) { 
-      e.stopPropagation();
+      e.preventDefault();
+      generatePaper();
     } 
   };
 
@@ -1036,7 +1016,43 @@ function startNewChat() {
   autoResizeTextarea(); 
 }
 
-/* GENERATE PAPER FUNCTION */
+/* API Handler with automatic retry */
+async function generatePaperWithRetry(prompt, onStatusUpdate) {
+  const maxRetries = 5;
+  let delay = 2000;
+  
+  const statusTimer = setTimeout(() => {
+    onStatusUpdate("Response is taking longer than expected, still trying...");
+  }, 60000);
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const res = await fetch(`${API_URL}/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: prompt })
+      });
+      clearTimeout(statusTimer);
+
+      if (!res.ok) {
+        if (res.status === 503 && attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, delay));
+          delay *= 2;
+          continue;
+        }
+      }
+      return await res.json();
+    } catch (error) {
+      if (attempt >= maxRetries) {
+        clearTimeout(statusTimer);
+        throw error;
+      }
+      await new Promise(resolve => setTimeout(resolve, delay));
+      delay *= 2;
+    }
+  }
+}
+
 async function generatePaper() {
   if (isGenerating) return;
   const input = document.getElementById("promptInput");
@@ -1053,20 +1069,16 @@ async function generatePaper() {
   addMessage("ai-normal", "Searching academic databases & assembling paper...", true);
 
   try {
-    const res = await fetch(`${API_URL}/generate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt: prompt })
+    const data = await generatePaperWithRetry(prompt, (msg) => {
+      updateLastAiMessage(msg, false);
     });
 
-    const data = await res.json();
-
-    if (res.ok && data.result) {
+    if (data && data.result) {
       updateLastAiMessage(data.result, true);
       activeChatHistory.push({ prompt, result: data.result, isPaper: true });
       saveChatSession();
     } else {
-      updateLastAiMessage("Error: " + (data.error || "Failed to generate paper. Please try again."), false);
+      updateLastAiMessage("Error: " + (data?.error || "Failed to generate paper. Please try again."), false);
     }
   } catch (e) {
     console.error(e);
@@ -1148,10 +1160,9 @@ function updateLastAiMessage(text, asPaper = false) {
 function formatPaperText(text) {
   let formatted = text
     .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-    .replace(/^## (.*$)/gim, '2>$1</h2>')
+    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
     .replace(/^### (.*$)/gim, '<h3>$1</h3>')
     .replace(/\n\s*\n/g, '</p><p>');
-  formatted = formatted.replace(/2>(.*$)<\/h2>/gim, '<h2>$1</h2>');
   return `<p>${formatted}</p>`;
 }
 
@@ -1225,35 +1236,6 @@ function openChatSession(index) {
 function toggleHistory() { 
   document.getElementById("historySubmenu").classList.toggle("show"); 
 }
-
-  async function generatePaperWithRetry(prompt, onStatusUpdate) {
-  const maxRetries = 5;
-  let delay = 2000; // Start with a 2-second wait between retries
-  
-  // Notify the user if processing exceeds 1 minute
-  const statusTimer = setTimeout(() => {
-    onStatusUpdate("Response is taking longer than expected, still trying...");
-  }, 60000);
-
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      const response = await callGeminiAPI(prompt);
-      clearTimeout(statusTimer);
-      return response;
-    } catch (error) {
-      const is503 = error?.status === 503 || error?.code === 503;
-      
-      if (is503 && attempt < maxRetries) {
-        // Wait before trying again (exponential backoff)
-        await new Promise(resolve => setTimeout(resolve, delay));
-        delay *= 2; 
-      } else {
-        clearTimeout(statusTimer);
-        throw error;
-      }
-    }
-  }
-  }
 
 function logout() { localStorage.removeItem("user_id"); window.location.href="setup-signin.html"; }
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
