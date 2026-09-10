@@ -435,6 +435,17 @@ body {
   display: flex;
   justify-content: center;
   padding: 10px 0;
+  flex-direction: column;
+  align-items: center;
+}
+
+.page-container {
+  position: relative;
+  width: 100%;
+  max-width: 850px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
 .a4-paper {
@@ -509,6 +520,47 @@ body {
 }
 
 .speak-btn:hover { color: #0f172a; background: rgba(0,0,0,0.1); }
+
+/* Page Navigation */
+.page-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 20px;
+  width: 100%;
+  max-width: 850px;
+}
+
+.page-nav-btn {
+  background: var(--accent-gradient);
+  border: none;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+
+.page-nav-btn:hover:not(:disabled) { 
+  opacity: 0.9; 
+  transform: translateY(-1px);
+}
+
+.page-nav-btn:disabled { 
+  opacity: 0.4; 
+  cursor: not-allowed;
+}
+
+.page-counter {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  min-width: 80px;
+  text-align: center;
+}
 
 .input-container {
   padding: 16px 24px 24px;
@@ -671,7 +723,7 @@ body {
 
   <div class="menu-item" onclick="window.location='settings.html'">
     <div class="menu-left">
-      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.126 3.31 1.834 0 .896.54 1.674 1.32 2.04.784.369 1.39 1.159 1.39 2.057 0 .9-.606 1.688-1.39 2.057-.78.366-1.32 1.144-1.32 2.04 0 1.708-1.767 2.774-3.31 1.834a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.126-3.31-1.834 0-.896-.54-1.674-1.32-2.04C.92 15.854.314 15.064.314 14.166c0-.9.606-1.688 1.39-2.057.78-.366 1.32-1.144 1.32-2.04 0-1.708 1.767-2.774 3.31-1.834a1.724 1.724 0 002.573-1.066c.426-1.756 2.924-1.756 3.35 0zm-5.487 4.477a2.25 2.25 0 100-4.5 2.25 2.25 0 000 4.5z"/></svg>
       Settings
     </div>
   </div>
@@ -719,7 +771,7 @@ body {
       <textarea class="input" id="promptInput" rows="1" placeholder="Write a research paper outline on..."></textarea>
       <div class="action-buttons">
         <button class="btn-icon" id="micBtn" aria-label="Voice Input">
-          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/></svg>
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/></svg>
         </button>
         <button class="btn-icon" id="sendBtn" aria-label="Generate">
           <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
@@ -732,7 +784,7 @@ body {
 
 <!-- Floating AI Assistant FAB -->
 <div class="ai-fab" id="aiFab" title="AI Copilot">
-  <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10c1.19 0 2.34-.21 3.41-.59l4.17 1.38-1.38-4.17A9.957 9.957 0 0022 12c0-5.52-4.48-10-10-10zm-1 13H9v-2h2v2zm4 0h-2v-2h2v2zm2-4H7V9h10v2z"/></svg>
+  <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10c1.19 0 2.34-.21 3.41-.59l4.17 1.38-1.38-4.17A9.957 9.957 0 0022 12c0-5.52-4.48-10-10-10zm-1 13H9v-2h2v2zm4 0h-2v-2h2v2zm2-4H7v-2h10v2z" fill="white"/></svg>
 </div>
 
 <!-- Floating AI Assistant Chat Window -->
@@ -767,6 +819,8 @@ let touchStartX = 0;
 let recognition = null;
 let isRecording = false;
 let activeChatHistory = [];
+let paperPages = [];
+let currentPageIndex = 0;
 
 document.addEventListener("DOMContentLoaded", async () => {
   loadAppSettings();
@@ -998,256 +1052,204 @@ async function loadProfile(userId) {
         return true;
       }
     }
-  } catch(e) { 
-    console.warn("Backend offline or slow, using guest defaults."); 
+  } catch (e) {
+    console.log("Profile load skipped:", e.message);
   }
+  return false;
+}
 
-  document.getElementById("profileAvatar").innerText = "G";
-  document.getElementById("profileName").innerText = "Guest User";
-  document.getElementById("profileEmail").innerText = "guest@tempaper.com";
-  return true;
+function loadChats() {
+  const savedChats = localStorage.getItem("paper_history");
+  if (savedChats) {
+    const chats = JSON.parse(savedChats);
+    const submenu = document.getElementById("historySubmenu");
+    submenu.innerHTML = "";
+    chats.forEach((chat, i) => {
+      const item = document.createElement("div");
+      item.className = "submenu-item";
+      item.innerText = chat.title || `Paper ${i + 1}`;
+      item.onclick = () => loadChatHistory(i);
+      submenu.appendChild(item);
+    });
+  }
+}
+
+function toggleHistory() {
+  const submenu = document.getElementById("historySubmenu");
+  const arrow = document.getElementById("historyArrow");
+  submenu.classList.toggle("show");
+  arrow.innerText = submenu.classList.contains("show") ? "❯" : "❯";
+}
+
+function startNewChat() {
+  document.getElementById("chatArea").innerHTML = '<div class="welcome-placeholder" id="welcomeMsg"><h2>Academic Paper Generator</h2>Enter your topic or prompt below to research, structure, and generate a fully-formatted paper.</div>';
+  paperPages = [];
+  currentPageIndex = 0;
+  document.getElementById("promptInput").value = "";
+  autoResizeTextarea();
 }
 
 function autoResizeTextarea() {
   const textarea = document.getElementById("promptInput");
-  textarea.style.height = 'auto';
-  textarea.style.height = Math.min(textarea.scrollHeight, 160) + 'px';
+  textarea.style.height = "auto";
+  textarea.style.height = Math.min(textarea.scrollHeight, 160) + "px";
 }
 
-function startNewChat() { 
-  document.getElementById("chatArea").innerHTML = `
-    <div class="welcome-placeholder" id="welcomeMsg">
-      <h2>Academic Paper Generator</h2>
-      Enter your topic or prompt below to research, structure, and generate a fully-formatted paper.
-    </div>`; 
-  document.getElementById("promptInput").value = ""; 
-  activeChatHistory = [];
-  autoResizeTextarea(); 
-}
+function paginatePaper(htmlContent) {
+  const A4_HEIGHT = 1056;
+  const A4_WIDTH = 816;
+  const container = document.createElement("div");
+  container.innerHTML = htmlContent;
 
-/* API Handler with automatic retry */
-async function generatePaperWithRetry(prompt, onStatusUpdate) {
-  const maxRetries = 5;
-  let delay = 2000;
-  
-  const statusTimer = setTimeout(() => {
-    onStatusUpdate("Response is taking longer than expected, still trying...");
-  }, 60000);
+  const pages = [];
+  let currentPage = document.createElement("div");
+  currentPage.className = "a4-paper";
+  currentPage.style.cssText = `background: #ffffff; color: #111827; width: 100%; max-width: ${A4_WIDTH}px; height: auto; min-height: ${A4_HEIGHT}px; padding: 72px; box-shadow: 0 12px 35px rgba(0, 0, 0, 0.4); border-radius: 2px; font-family: 'Calibri', 'Inter', Arial, sans-serif; font-size: 15px; line-height: 1.6; position: relative; word-wrap: break-word; overflow: visible;`;
 
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      const res = await fetch(`${API_URL}/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: prompt })
-      });
-      clearTimeout(statusTimer);
+  let currentHeight = 144; // Padding top + bottom (72 * 2)
+  const effectiveHeight = A4_HEIGHT - 144;
 
-      if (!res.ok) {
-        if (res.status === 503 && attempt < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, delay));
-          delay *= 2;
-          continue;
-        }
-      }
-      return await res.json();
-    } catch (error) {
-      if (attempt >= maxRetries) {
-        clearTimeout(statusTimer);
-        throw error;
-      }
-      await new Promise(resolve => setTimeout(resolve, delay));
-      delay *= 2;
-    }
+  function getElementHeight(element) {
+    const clone = element.cloneNode(true);
+    clone.style.cssText = `visibility: hidden; position: absolute; width: ${A4_WIDTH - 144}px;`;
+    document.body.appendChild(clone);
+    const height = clone.offsetHeight;
+    document.body.removeChild(clone);
+    return height + 14; // Add bottom margin
   }
+
+  Array.from(container.children).forEach(child => {
+    const childHeight = getElementHeight(child);
+
+    if (currentHeight + childHeight > effectiveHeight && currentPage.children.length > 0) {
+      pages.push(currentPage.innerHTML);
+      currentPage = document.createElement("div");
+      currentPage.className = "a4-paper";
+      currentPage.style.cssText = `background: #ffffff; color: #111827; width: 100%; max-width: ${A4_WIDTH}px; height: auto; min-height: ${A4_HEIGHT}px; padding: 72px; box-shadow: 0 12px 35px rgba(0, 0, 0, 0.4); border-radius: 2px; font-family: 'Calibri', 'Inter', Arial, sans-serif; font-size: 15px; line-height: 1.6; position: relative; word-wrap: break-word; overflow: visible;`;
+      currentHeight = 144;
+    }
+
+    const clonedChild = child.cloneNode(true);
+    currentPage.appendChild(clonedChild);
+    currentHeight += childHeight;
+  });
+
+  if (currentPage.children.length > 0) {
+    pages.push(currentPage.innerHTML);
+  }
+
+  return pages;
+}
+
+function displayPage(pageIndex) {
+  if (pageIndex < 0 || pageIndex >= paperPages.length) return;
+  
+  currentPageIndex = pageIndex;
+  const chatArea = document.getElementById("chatArea");
+  chatArea.innerHTML = "";
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "a4-wrapper";
+
+  const pageContainer = document.createElement("div");
+  pageContainer.className = "page-container";
+
+  const paperDiv = document.createElement("div");
+  paperDiv.className = "a4-paper";
+  paperDiv.innerHTML = paperPages[pageIndex];
+
+  pageContainer.appendChild(paperDiv);
+
+  const navContainer = document.createElement("div");
+  navContainer.className = "page-navigation";
+
+  const prevBtn = document.createElement("button");
+  prevBtn.className = "page-nav-btn";
+  prevBtn.innerText = "← Previous";
+  prevBtn.disabled = pageIndex === 0;
+  prevBtn.onclick = () => displayPage(pageIndex - 1);
+
+  const counter = document.createElement("div");
+  counter.className = "page-counter";
+  counter.innerText = `Page ${pageIndex + 1} of ${paperPages.length}`;
+
+  const nextBtn = document.createElement("button");
+  nextBtn.className = "page-nav-btn";
+  nextBtn.innerText = "Next →";
+  nextBtn.disabled = pageIndex === paperPages.length - 1;
+  nextBtn.onclick = () => displayPage(pageIndex + 1);
+
+  navContainer.appendChild(prevBtn);
+  navContainer.appendChild(counter);
+  navContainer.appendChild(nextBtn);
+
+  pageContainer.appendChild(navContainer);
+  wrapper.appendChild(pageContainer);
+  chatArea.appendChild(wrapper);
 }
 
 async function generatePaper() {
-  if (isGenerating) return;
-  const input = document.getElementById("promptInput");
-  const prompt = input.value.trim();
-  if (!prompt) return;
+  const prompt = document.getElementById("promptInput").value.trim();
+  if (!prompt || isGenerating) return;
 
   isGenerating = true;
-  document.getElementById("sendBtn").disabled = true;
+  const sendBtn = document.getElementById("sendBtn");
+  sendBtn.disabled = true;
 
-  addMessage("user", prompt);
-  input.value = "";
-  autoResizeTextarea();
-
-  addMessage("ai-normal", "Searching academic databases & assembling paper...", true);
+  const chatArea = document.getElementById("chatArea");
+  chatArea.innerHTML = '<div class="welcome-placeholder"><div style="color: var(--muted); font-size: 14px;">Generating your academic paper...</div></div>';
 
   try {
-    const data = await generatePaperWithRetry(prompt, (msg) => {
-      updateLastAiMessage(msg, false);
+    const res = await fetch(`${API_URL}/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: prompt, user_id: localStorage.getItem("user_id") })
     });
 
-    if (data && data.result) {
-      updateLastAiMessage(data.result, true);
-      activeChatHistory.push({ prompt, result: data.result, isPaper: true });
-      saveChatSession();
+    if (!res.ok) throw new Error("Generation failed");
+
+    const data = await res.json();
+    const paperHTML = data.paper || "<p>Unable to generate paper. Please try again.</p>";
+
+    paperPages = paginatePaper(paperHTML);
+    currentPageIndex = 0;
+
+    if (paperPages.length > 0) {
+      displayPage(0);
+
+      const chats = JSON.parse(localStorage.getItem("paper_history") || "[]");
+      chats.unshift({ title: prompt.substring(0, 50), content: paperHTML, timestamp: new Date().toISOString() });
+      localStorage.setItem("paper_history", JSON.stringify(chats.slice(0, 20)));
+      loadChats();
     } else {
-      updateLastAiMessage("Error: " + (data?.error || "Failed to generate paper. Please try again."), false);
+      chatArea.innerHTML = '<div class="welcome-placeholder"><div style="color: var(--danger);">Failed to paginate paper.</div></div>';
     }
-  } catch (e) {
-    console.error(e);
-    updateLastAiMessage("Network error. Please check your connection or server status.", false);
+  } catch (err) {
+    console.error("Paper generation error:", err);
+    chatArea.innerHTML = `<div class="welcome-placeholder"><div style="color: var(--danger);">Error: ${err.message}</div></div>`;
   } finally {
     isGenerating = false;
-    document.getElementById("sendBtn").disabled = false;
+    sendBtn.disabled = false;
   }
 }
 
-function addMessage(role, text, isTemp = false, isPaper = false) {
-  const chatArea = document.getElementById("chatArea");
-  
-  const welcomeMsg = document.getElementById("welcomeMsg");
-  if (welcomeMsg) welcomeMsg.remove();
-
-  const container = document.createElement("div");
-  
-  if (role === "user") {
-    container.className = "chat-msg user";
-    container.innerText = text;
-  } else if (isPaper) {
-    container.className = "chat-msg";
-    container.innerHTML = `
-      <div class="a4-wrapper">
-        <div class="a4-paper">
-          <button class="speak-btn" onclick="speakText(this.parentElement.innerText)">
-            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>
-          </button>
-          <div>${formatPaperText(text)}</div>
-        </div>
-      </div>`;
-  } else {
-    container.className = "chat-msg ai-normal";
-    container.innerText = text;
-    if (!isTemp) {
-      const speakBtn = document.createElement("button");
-      speakBtn.className = "speak-btn";
-      speakBtn.innerHTML = `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>`;
-      speakBtn.onclick = () => speakText(text);
-      container.appendChild(speakBtn);
+function loadChatHistory(index) {
+  const chats = JSON.parse(localStorage.getItem("paper_history") || "[]");
+  if (index < chats.length) {
+    const chat = chats[index];
+    paperPages = paginatePaper(chat.content);
+    currentPageIndex = 0;
+    if (paperPages.length > 0) {
+      displayPage(0);
     }
   }
-
-  if (isTemp) container.id = "tempAiMsg";
-  chatArea.appendChild(container);
-  chatArea.scrollTop = chatArea.scrollHeight;
 }
 
-function updateLastAiMessage(text, asPaper = false) { 
-  const temp = document.getElementById("tempAiMsg"); 
-  if (temp) { 
-    if (asPaper) {
-      temp.className = "chat-msg";
-      temp.innerHTML = `
-        <div class="a4-wrapper">
-          <div class="a4-paper">
-            <button class="speak-btn" onclick="speakText(this.parentElement.innerText)">
-              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>
-            </button>
-            <div>${formatPaperText(text)}</div>
-          </div>
-        </div>`;
-    } else {
-      temp.className = "chat-msg ai-normal";
-      temp.innerText = text;
-      const speakBtn = document.createElement("button"); 
-      speakBtn.className = "speak-btn"; 
-      speakBtn.innerHTML = `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>`; 
-      speakBtn.onclick = () => speakText(text); 
-      temp.appendChild(speakBtn); 
-    }
-    temp.removeAttribute("id"); 
-  } 
-  const chatArea = document.getElementById("chatArea");
-  chatArea.scrollTop = chatArea.scrollHeight;
+function logout() {
+  localStorage.removeItem("user_id");
+  localStorage.removeItem("app_settings");
+  window.location.href = "index.html";
 }
-
-function formatPaperText(text) {
-  let formatted = text
-    .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-    .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-    .replace(/\n\s*\n/g, '</p><p>');
-  return `<p>${formatted}</p>`;
-}
-
-function speakText(text) { 
-  if ('speechSynthesis' in window) { 
-    window.speechSynthesis.cancel(); 
-    const utter = new SpeechSynthesisUtterance(text); 
-    utter.lang = 'en-US'; 
-    window.speechSynthesis.speak(utter); 
-  } else { 
-    alert("Speech synthesis is not supported on this browser."); 
-  } 
-}
-
-function getChatKey() { return "chats_" + (currentUser?.id || "guest"); }
-
-function saveChatSession() { 
-  if (activeChatHistory.length === 0) return;
-  let chats = JSON.parse(localStorage.getItem(getChatKey()) || "[]"); 
-  
-  const firstPrompt = activeChatHistory[0].prompt;
-  const existingIdx = chats.findIndex(c => c.id === activeChatHistory[0].id);
-
-  const sessionData = {
-    id: activeChatHistory[0].id || Date.now(),
-    title: firstPrompt,
-    messages: activeChatHistory,
-    time: Date.now()
-  };
-  activeChatHistory[0].id = sessionData.id;
-
-  if (existingIdx !== -1) {
-    chats[existingIdx] = sessionData;
-  } else {
-    chats.unshift(sessionData);
-  }
-
-  localStorage.setItem(getChatKey(), JSON.stringify(chats.slice(0, 20))); 
-  loadChats(); 
-}
-
-function loadChats() { 
-  let chats = JSON.parse(localStorage.getItem(getChatKey()) || "[]"); 
-  const submenu = document.getElementById("historySubmenu"); 
-  if (chats.length) { 
-    submenu.innerHTML = chats.map((c, i) => `<div class="submenu-item" onclick="openChatSession(${i})"><b>${(c.title || c.prompt || "Paper").substring(0,26)}...</b></div>`).join(""); 
-  } else { 
-    submenu.innerHTML = `<div class="submenu-item" style="color:var(--muted)">No history</div>`; 
-  } 
-}
-
-function openChatSession(index) { 
-  let chats = JSON.parse(localStorage.getItem(getChatKey()) || "[]"); 
-  const session = chats[index]; 
-  document.getElementById("chatArea").innerHTML = ""; 
-  
-  if (session.messages && session.messages.length) {
-    activeChatHistory = session.messages;
-    session.messages.forEach(m => {
-      addMessage("user", m.prompt);
-      if (m.isPaper) {
-        addMessage("ai-paper", m.result, false, true);
-      } else {
-        addMessage("ai-normal", m.result);
-      }
-    });
-  }
-  toggleHistory(); 
-}
-
-function toggleHistory() { 
-  document.getElementById("historySubmenu").classList.toggle("show"); 
-}
-
-function logout() { localStorage.removeItem("user_id"); window.location.href="setup-signin.html"; }
-window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
 </script>
 </body>
 </html>
