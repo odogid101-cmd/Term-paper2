@@ -748,495 +748,175 @@ body {
     </button>
   </div>
 </div>
-
-<script>
+  <script>
 const API_URL = "https://term-paper-n4kl.onrender.com";
 let currentUser = null;
 let appSettings = {theme: 'system', fontSize: 16, notifications: true};
 let isGenerating = false;
 let touchStartX = 0;
+let touchStartY = 0;
 let recognition = null;
 let isRecording = false;
 let activeChatHistory = [];
+let currentPages = []; // NEW: stores paginated pages
+let currentPageIndex = 0; // NEW: current page
 
 document.addEventListener("DOMContentLoaded", async () => {
   loadAppSettings();
-
   let userId = localStorage.getItem("user_id");
-  if (!userId) {
-    userId = "demo_user";
-    localStorage.setItem("user_id", userId);
-  }
+  if (!userId) { userId = "demo_user"; localStorage.setItem("user_id", userId); }
 
-  // Floating AI Chat Drag & Drop Logic
+  //... keep all your aiFab drag code same...
   const aiFab = document.getElementById("aiFab");
   const aiChatWindow = document.getElementById("aiChatWindow");
   const aiChatHeader = document.getElementById("aiChatHeader");
   const aiChatBody = document.getElementById("aiChatBody");
   const aiChatInput = document.getElementById("aiChatInput");
   const aiChatSendBtn = document.getElementById("aiChatSendBtn");
-
   let isFabDragged = false;
-
-  aiFab.onclick = () => {
-    if (!isFabDragged) {
-      aiChatWindow.classList.toggle("show");
-    }
-  };
-
+  aiFab.onclick = () => { if (!isFabDragged) { aiChatWindow.classList.toggle("show"); } };
   document.getElementById("aiCloseBtn").onclick = () => aiChatWindow.classList.remove("show");
   document.getElementById("aiMinimizeBtn").onclick = () => aiChatWindow.classList.remove("show");
-
   aiChatSendBtn.onclick = sendFloatingMessage;
   aiChatInput.onkeydown = (e) => { if(e.key === "Enter") sendFloatingMessage(); };
-
   async function sendFloatingMessage() {
-    const text = aiChatInput.value.trim();
-    if(!text) return;
-    addFloatingMsg("user", text);
-    aiChatInput.value = "";
-    
-    addFloatingMsg("ai", "Thinking...");
-    
+    const text = aiChatInput.value.trim(); if(!text) return;
+    addFloatingMsg("user", text); aiChatInput.value = ""; addFloatingMsg("ai", "Thinking...");
     try {
-      const res = await fetch(`${API_URL}/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: text })
-      });
-      const data = await res.json();
-      aiChatBody.lastChild.remove(); 
-      addFloatingMsg("ai", data.result || "Error generating response.");
-    } catch(e) {
-      if (aiChatBody.lastChild) aiChatBody.lastChild.remove();
-      addFloatingMsg("ai", "Network error. Try again.");
-    }
+      const res = await fetch(`${API_URL}/chat`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: text }) });
+      const data = await res.json(); aiChatBody.lastChild.remove(); addFloatingMsg("ai", data.result || "Error generating response.");
+    } catch(e) { if (aiChatBody.lastChild) aiChatBody.lastChild.remove(); addFloatingMsg("ai", "Network error. Try again."); }
   }
+  function addFloatingMsg(role, text) { const div = document.createElement("div"); div.className = `ai-chat-msg ${role}`; div.innerText = text; aiChatBody.appendChild(div); aiChatBody.scrollTop = aiChatBody.scrollHeight; }
+  function makeElementDraggable(dragHandle, targetElement, isFab = false) { /* same as yours */ }
+  makeElementDraggable(aiFab, aiFab, true); makeElementDraggable(aiChatHeader, aiChatWindow, false);
 
-  function addFloatingMsg(role, text) {
-    const div = document.createElement("div");
-    div.className = `ai-chat-msg ${role}`;
-    div.innerText = text;
-    aiChatBody.appendChild(div);
-    aiChatBody.scrollTop = aiChatBody.scrollHeight;
-  }
-
-  function makeElementDraggable(dragHandle, targetElement, isFab = false) {
-    let startX, startY, initialLeft, initialTop;
-
-    const startDrag = (e) => {
-      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-
-      startX = clientX;
-      startY = clientY;
-
-      const rect = targetElement.getBoundingClientRect();
-      initialLeft = rect.left;
-      initialTop = rect.top;
-
-      if (isFab) isFabDragged = false;
-
-      const onMove = (moveEvt) => {
-        const moveX = moveEvt.touches ? moveEvt.touches[0].clientX : moveEvt.clientX;
-        const moveY = moveEvt.touches ? moveEvt.touches[0].clientY : moveEvt.clientY;
-
-        const deltaX = moveX - startX;
-        const deltaY = moveY - startY;
-
-        if (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4) {
-          if (isFab) isFabDragged = true;
-        }
-
-        targetElement.style.left = `${initialLeft + deltaX}px`;
-        targetElement.style.top = `${initialTop + deltaY}px`;
-        targetElement.style.right = "auto";
-        targetElement.style.bottom = "auto";
-      };
-
-      const stopDrag = () => {
-        document.removeEventListener("mousemove", onMove);
-        document.removeEventListener("mouseup", stopDrag);
-        document.removeEventListener("touchmove", onMove);
-        document.removeEventListener("touchend", stopDrag);
-      };
-
-      document.addEventListener("mousemove", onMove);
-      document.addEventListener("mouseup", stopDrag);
-      document.addEventListener("touchmove", onMove, { passive: false });
-      document.addEventListener("touchend", stopDrag);
-    };
-
-    dragHandle.addEventListener("mousedown", startDrag);
-    dragHandle.addEventListener("touchstart", startDrag, { passive: false });
-  }
-
-  makeElementDraggable(aiFab, aiFab, true);
-  makeElementDraggable(aiChatHeader, aiChatWindow, false);
-
-  await loadProfile(userId);
-  loadChats();
-
-  // Button Action Bindings
+  await loadProfile(userId); loadChats();
   document.getElementById("sendBtn").onclick = generatePaper;
   document.getElementById("micBtn").onclick = toggleRecording;
   document.getElementById("promptInput").oninput = autoResizeTextarea;
-  
-  // Enter submits, Shift+Enter makes newline
-  document.getElementById("promptInput").onkeydown = (e) => { 
-    if (e.key === "Enter" && !e.shiftKey) { 
-      e.preventDefault();
-      generatePaper();
-    } 
-  };
-
+  document.getElementById("promptInput").onkeydown = (e) => { if (e.key === "Enter" &&!e.shiftKey) { e.preventDefault(); generatePaper(); } };
   document.getElementById("navToggle").onclick = toggleSidebar;
   document.getElementById("overlay").onclick = toggleSidebar;
-  document.getElementById("dotsBtn").onclick = (e) => { 
-    e.stopPropagation(); 
-    document.getElementById("dotsMenu").classList.toggle("show"); 
-  };
+  document.getElementById("dotsBtn").onclick = (e) => { e.stopPropagation(); document.getElementById("dotsMenu").classList.toggle("show"); };
   document.getElementById("historyToggle").onclick = toggleHistory;
   document.getElementById("newChatBtn").onclick = startNewChat;
   document.getElementById("menuNewChat").onclick = () => { startNewChat(); closeDots(); };
-  
   document.addEventListener("click", (e) => { if (!e.target.closest('.top-actions')) closeDots(); });
-  document.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; });
-  document.addEventListener('touchend', e => {
-    if (touchStartX > 50 && e.changedTouches[0].screenX < touchStartX - 50) {
-      document.getElementById("sidebar").classList.remove("open");
-      document.getElementById("overlay").classList.remove("show");
+
+  // NEW: Swipe to change pages
+  const chatArea = document.getElementById("chatArea");
+  chatArea.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; touchStartY = e.changedTouches[0].screenY; });
+  chatArea.addEventListener('touchend', e => {
+    const endX = e.changedTouches[0].screenX; const endY = e.changedTouches[0].screenY;
+    const deltaX = endX - touchStartX; const deltaY = endY - touchStartY;
+    if (Math.abs(deltaY) > 50 && Math.abs(deltaY) > Math.abs(deltaX)) { // vertical swipe
+      if (deltaY < 0) nextPage(); // swipe up
+      if (deltaY > 0) prevPage(); // swipe down
     }
+    if (touchStartX > 50 && endX < touchStartX - 50) { document.getElementById("sidebar").classList.remove("open"); document.getElementById("overlay").classList.remove("show"); }
   });
+  chatArea.addEventListener('wheel', e => { if(e.deltaY > 50) nextPage(); if(e.deltaY < -50) prevPage(); }, {passive: true});
+
   autoResizeTextarea();
 });
 
-function toggleRecording() {
-  const btn = document.getElementById("micBtn");
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-  if (!SpeechRecognition) {
-    alert("Voice recognition is not supported on this browser.");
-    return;
+// NEW: Pagination functions
+function paginatePaper(markdownText) {
+  const words = markdownText.split(' ');
+  const wordsPerPage = 1000; // ~1 A4 page
+  currentPages = [];
+  for(let i = 0; i < words.length; i += wordsPerPage) {
+    currentPages.push(words.slice(i, i + wordsPerPage).join(' '));
   }
-
-  if (isRecording) {
-    if (recognition) recognition.stop();
-    isRecording = false;
-    btn.classList.remove("recording");
-    return;
-  }
-
-  try {
-    recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.lang = 'en-US';
-
-    recognition.onstart = () => {
-      isRecording = true;
-      btn.classList.add("recording");
-    };
-
-    recognition.onresult = (event) => {
-      const transcript = event.results[0][0].transcript;
-      const input = document.getElementById("promptInput");
-      input.value += (input.value ? " " : "") + transcript;
-      autoResizeTextarea();
-    };
-
-    recognition.onerror = (e) => {
-      alert("Voice error: " + e.error);
-      isRecording = false;
-      btn.classList.remove("recording");
-    };
-
-    recognition.onend = () => {
-      isRecording = false;
-      btn.classList.remove("recording");
-    };
-
-    recognition.start();
-  } catch (err) {
-    alert("Microphone issue: " + err.message);
-    isRecording = false;
-    btn.classList.remove("recording");
-  }
+  currentPageIndex = 0;
+  renderCurrentPage();
 }
 
-function closeDots() { document.getElementById("dotsMenu").classList.remove("show"); }
-function toggleSidebar() { document.getElementById("sidebar").classList.toggle("open"); document.getElementById("overlay").classList.toggle("show"); }
-function loadAppSettings() { const saved = localStorage.getItem("app_settings"); if (saved) appSettings = JSON.parse(saved); applyTheme(); }
-function applyTheme() { if (appSettings.theme === 'system') { const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches; document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light'); } else { document.documentElement.setAttribute('data-theme', appSettings.theme); } }
+function renderCurrentPage() {
+  const chatArea = document.getElementById("chatArea");
+  chatArea.innerHTML = "";
+  if(currentPages.length === 0) return;
 
-async function loadProfile(userId) {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
-
-    const res = await fetch(`${API_URL}/me?user_id=${userId}`, { signal: controller.signal });
-    clearTimeout(timeoutId);
-
-    if (res.ok) {
-      const data = await res.json();
-      if (data.user) {
-        currentUser = data.user;
-        currentUser.id = currentUser.id || currentUser.user_id;
-        const name = currentUser.username || currentUser.email.split('@')[0];
-        document.getElementById("profileAvatar").innerText = name[0].toUpperCase();
-        document.getElementById("profileName").innerText = name;
-        document.getElementById("profileEmail").innerText = currentUser.email;
-        return true;
-      }
-    }
-  } catch(e) { 
-    console.warn("Backend offline or slow, using guest defaults."); 
-  }
-
-  document.getElementById("profileAvatar").innerText = "G";
-  document.getElementById("profileName").innerText = "Guest User";
-  document.getElementById("profileEmail").innerText = "guest@tempaper.com";
-  return true;
+  const pageText = currentPages[currentPageIndex];
+  const container = document.createElement("div");
+  container.className = "chat-msg";
+  container.innerHTML = `
+    <div class="a4-wrapper">
+      <div class="a4-paper">
+        <button class="speak-btn" onclick="speakText(this.parentElement.innerText)">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>
+        </button>
+        <div>${formatPaperText(pageText)}</div>
+        <div style="text-align:center; margin-top:20px; color:#64748b; font-size:12px;">Page ${currentPageIndex + 1} of ${currentPages.length} - Swipe up/down</div>
+      </div>
+    </div>`;
+  chatArea.appendChild(container);
 }
 
-function autoResizeTextarea() {
-  const textarea = document.getElementById("promptInput");
-  textarea.style.height = 'auto';
-  textarea.style.height = Math.min(textarea.scrollHeight, 160) + 'px';
+function nextPage() { if(currentPageIndex < currentPages.length - 1) { currentPageIndex++; renderCurrentPage(); } }
+function prevPage() { if(currentPageIndex > 0) { currentPageIndex--; renderCurrentPage(); } }
+
+// KEEP ALL YOUR OTHER FUNCTIONS: toggleRecording, closeDots, toggleSidebar, loadAppSettings, applyTheme
+
+async function loadProfile(userId) { /* same as yours */ }
+
+function autoResizeTextarea() { const textarea = document.getElementById("promptInput"); textarea.style.height = 'auto'; textarea.style.height = Math.min(textarea.scrollHeight, 160) + 'px'; }
+
+function startNewChat() {
+  document.getElementById("chatArea").innerHTML = `<div class="welcome-placeholder" id="welcomeMsg"><h2>Academic Paper Generator</h2>Enter your topic or prompt below to research, structure, and generate a fully-formatted paper.</div>`;
+  document.getElementById("promptInput").value = ""; activeChatHistory = []; currentPages = []; currentPageIndex = 0; autoResizeTextarea();
 }
 
-function startNewChat() { 
-  document.getElementById("chatArea").innerHTML = `
-    <div class="welcome-placeholder" id="welcomeMsg">
-      <h2>Academic Paper Generator</h2>
-      Enter your topic or prompt below to research, structure, and generate a fully-formatted paper.
-    </div>`; 
-  document.getElementById("promptInput").value = ""; 
-  activeChatHistory = [];
-  autoResizeTextarea(); 
-}
-
-/* API Handler with automatic retry */
-async function generatePaperWithRetry(prompt, onStatusUpdate) {
-  const maxRetries = 5;
-  let delay = 2000;
-  
-  const statusTimer = setTimeout(() => {
-    onStatusUpdate("Response is taking longer than expected, still trying...");
-  }, 60000);
-
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      const res = await fetch(`${API_URL}/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: prompt })
-      });
-      clearTimeout(statusTimer);
-
-      if (!res.ok) {
-        if (res.status === 503 && attempt < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, delay));
-          delay *= 2;
-          continue;
-        }
-      }
-      return await res.json();
-    } catch (error) {
-      if (attempt >= maxRetries) {
-        clearTimeout(statusTimer);
-        throw error;
-      }
-      await new Promise(resolve => setTimeout(resolve, delay));
-      delay *= 2;
-    }
-  }
-}
+async function generatePaperWithRetry(prompt, onStatusUpdate) { /* same as yours */ }
 
 async function generatePaper() {
   if (isGenerating) return;
-  const input = document.getElementById("promptInput");
-  const prompt = input.value.trim();
-  if (!prompt) return;
-
-  isGenerating = true;
-  document.getElementById("sendBtn").disabled = true;
-
-  addMessage("user", prompt);
-  input.value = "";
-  autoResizeTextarea();
-
+  const input = document.getElementById("promptInput"); const prompt = input.value.trim(); if (!prompt) return;
+  isGenerating = true; document.getElementById("sendBtn").disabled = true;
+  addMessage("user", prompt); input.value = ""; autoResizeTextarea();
   addMessage("ai-normal", "Searching academic databases & assembling paper...", true);
-
   try {
-    const data = await generatePaperWithRetry(prompt, (msg) => {
-      updateLastAiMessage(msg, false);
-    });
-
+    const data = await generatePaperWithRetry(prompt, (msg) => { updateLastAiMessage(msg, false); });
     if (data && data.result) {
-      updateLastAiMessage(data.result, true);
-      activeChatHistory.push({ prompt, result: data.result, isPaper: true });
-      saveChatSession();
-    } else {
-      updateLastAiMessage("Error: " + (data?.error || "Failed to generate paper. Please try again."), false);
-    }
-  } catch (e) {
-    console.error(e);
-    updateLastAiMessage("Network error. Please check your connection or server status.", false);
-  } finally {
-    isGenerating = false;
-    document.getElementById("sendBtn").disabled = false;
+      paginatePaper(data.result); // CHANGED: instead of updateLastAiMessage
+      activeChatHistory.push({ prompt, result: data.result, isPaper: true }); saveChatSession();
+    } else { updateLastAiMessage("Error: " + (data?.error || "Failed to generate paper. Please try again."), false); }
+  } catch (e) { console.error(e); updateLastAiMessage("Network error. Please check your connection or server status.", false); }
+  finally { isGenerating = false; document.getElementById("sendBtn").disabled = false; }
+}
+
+function addMessage(role, text, isTemp = false, isPaper = false) { /* same as yours, but for paper we don't use it anymore */ }
+
+function updateLastAiMessage(text, asPaper = false) {
+  const temp = document.getElementById("tempAiMsg");
+  if (temp) {
+    if (asPaper) { paginatePaper(text); } // CHANGED
+    else { temp.className = "chat-msg ai-normal"; temp.innerText = text; const speakBtn = document.createElement("button"); speakBtn.className = "speak-btn"; speakBtn.innerHTML = `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>`; speakBtn.onclick = () => speakText(text); temp.appendChild(speakBtn); }
+    temp.removeAttribute("id");
   }
 }
 
-function addMessage(role, text, isTemp = false, isPaper = false) {
-  const chatArea = document.getElementById("chatArea");
-  
-  const welcomeMsg = document.getElementById("welcomeMsg");
-  if (welcomeMsg) welcomeMsg.remove();
+function formatPaperText(text) { let formatted = text.replace(/^# (.*$)/gim, '<h1>$1</h1>').replace(/^## (.*$)/gim, '<h2>$1</h2>').replace(/^### (.*$)/gim, '<h3>$1</h3>').replace(/\n\s*\n/g, '</p><p>'); return `<p>${formatted}</p>`; }
 
-  const container = document.createElement("div");
-  
-  if (role === "user") {
-    container.className = "chat-msg user";
-    container.innerText = text;
-  } else if (isPaper) {
-    container.className = "chat-msg";
-    container.innerHTML = `
-      <div class="a4-wrapper">
-        <div class="a4-paper">
-          <button class="speak-btn" onclick="speakText(this.parentElement.innerText)">
-            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>
-          </button>
-          <div>${formatPaperText(text)}</div>
-        </div>
-      </div>`;
-  } else {
-    container.className = "chat-msg ai-normal";
-    container.innerText = text;
-    if (!isTemp) {
-      const speakBtn = document.createElement("button");
-      speakBtn.className = "speak-btn";
-      speakBtn.innerHTML = `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>`;
-      speakBtn.onclick = () => speakText(text);
-      container.appendChild(speakBtn);
-    }
-  }
-
-  if (isTemp) container.id = "tempAiMsg";
-  chatArea.appendChild(container);
-  chatArea.scrollTop = chatArea.scrollHeight;
-}
-
-function updateLastAiMessage(text, asPaper = false) { 
-  const temp = document.getElementById("tempAiMsg"); 
-  if (temp) { 
-    if (asPaper) {
-      temp.className = "chat-msg";
-      temp.innerHTML = `
-        <div class="a4-wrapper">
-          <div class="a4-paper">
-            <button class="speak-btn" onclick="speakText(this.parentElement.innerText)">
-              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>
-            </button>
-            <div>${formatPaperText(text)}</div>
-          </div>
-        </div>`;
-    } else {
-      temp.className = "chat-msg ai-normal";
-      temp.innerText = text;
-      const speakBtn = document.createElement("button"); 
-      speakBtn.className = "speak-btn"; 
-      speakBtn.innerHTML = `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>`; 
-      speakBtn.onclick = () => speakText(text); 
-      temp.appendChild(speakBtn); 
-    }
-    temp.removeAttribute("id"); 
-  } 
-  const chatArea = document.getElementById("chatArea");
-  chatArea.scrollTop = chatArea.scrollHeight;
-}
-
-function formatPaperText(text) {
-  let formatted = text
-    .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-    .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-    .replace(/\n\s*\n/g, '</p><p>');
-  return `<p>${formatted}</p>`;
-}
-
-function speakText(text) { 
-  if ('speechSynthesis' in window) { 
-    window.speechSynthesis.cancel(); 
-    const utter = new SpeechSynthesisUtterance(text); 
-    utter.lang = 'en-US'; 
-    window.speechSynthesis.speak(utter); 
-  } else { 
-    alert("Speech synthesis is not supported on this browser."); 
-  } 
-}
+function speakText(text) { if ('speechSynthesis' in window) { window.speechSynthesis.cancel(); const utter = new SpeechSynthesisUtterance(text); utter.lang = 'en-US'; window.speechSynthesis.speak(utter); } else { alert("Speech synthesis is not supported on this browser."); } }
 
 function getChatKey() { return "chats_" + (currentUser?.id || "guest"); }
-
-function saveChatSession() { 
-  if (activeChatHistory.length === 0) return;
-  let chats = JSON.parse(localStorage.getItem(getChatKey()) || "[]"); 
-  
-  const firstPrompt = activeChatHistory[0].prompt;
-  const existingIdx = chats.findIndex(c => c.id === activeChatHistory[0].id);
-
-  const sessionData = {
-    id: activeChatHistory[0].id || Date.now(),
-    title: firstPrompt,
-    messages: activeChatHistory,
-    time: Date.now()
-  };
-  activeChatHistory[0].id = sessionData.id;
-
-  if (existingIdx !== -1) {
-    chats[existingIdx] = sessionData;
-  } else {
-    chats.unshift(sessionData);
-  }
-
-  localStorage.setItem(getChatKey(), JSON.stringify(chats.slice(0, 20))); 
-  loadChats(); 
-}
-
-function loadChats() { 
-  let chats = JSON.parse(localStorage.getItem(getChatKey()) || "[]"); 
-  const submenu = document.getElementById("historySubmenu"); 
-  if (chats.length) { 
-    submenu.innerHTML = chats.map((c, i) => `<div class="submenu-item" onclick="openChatSession(${i})"><b>${(c.title || c.prompt || "Paper").substring(0,26)}...</b></div>`).join(""); 
-  } else { 
-    submenu.innerHTML = `<div class="submenu-item" style="color:var(--muted)">No history</div>`; 
-  } 
-}
-
-function openChatSession(index) { 
-  let chats = JSON.parse(localStorage.getItem(getChatKey()) || "[]"); 
-  const session = chats[index]; 
-  document.getElementById("chatArea").innerHTML = ""; 
-  
+function saveChatSession() { /* same as yours */ }
+function loadChats() { /* same as yours */ }
+function openChatSession(index) { /* same as yours, but call paginatePaper(session.messages[...].result) */
+  let chats = JSON.parse(localStorage.getItem(getChatKey()) || "[]");
+  const session = chats[index];
+  document.getElementById("chatArea").innerHTML = "";
   if (session.messages && session.messages.length) {
     activeChatHistory = session.messages;
-    session.messages.forEach(m => {
-      addMessage("user", m.prompt);
-      if (m.isPaper) {
-        addMessage("ai-paper", m.result, false, true);
-      } else {
-        addMessage("ai-normal", m.result);
-      }
-    });
+    const lastMsg = session.messages[session.messages.length-1];
+    if (lastMsg.isPaper) { paginatePaper(lastMsg.result); }
+    else { addMessage("ai-normal", lastMsg.result); }
   }
-  toggleHistory(); 
+  toggleHistory();
 }
-
-function toggleHistory() { 
-  document.getElementById("historySubmenu").classList.toggle("show"); 
-}
-
+function toggleHistory() { document.getElementById("historySubmenu").classList.toggle("show"); }
 function logout() { localStorage.removeItem("user_id"); window.location.href="setup-signin.html"; }
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
 </script>
