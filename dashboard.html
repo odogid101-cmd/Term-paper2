@@ -9,787 +9,110 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Calibri:ital,wght@0,400;0,700;1,400&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg: #090d16;
-  --sidebar: #0f172a;
-  --card: #1e293b;
-  --card-hover: #334155;
-  --accent: #4f46e5;
-  --accent-hover: #4338ca;
-  --accent-gradient: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-  --text: #f8fafc;
-  --muted: #94a3b8;
-  --border: rgba(255, 255, 255, 0.08);
-  --danger: #ef4444;
-  --sidebar-width: 260px;
-  --topbar-height: 60px;
-  --paper-bg: #ffffff;
-  --paper-text: #1e293b;
+  --bg: #090d16; --sidebar: #0f172a; --card: #1e293b; --card-hover: #334155;
+  --accent: #4f46e5; --accent-hover: #4338ca; --accent-gradient: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  --text: #f8fafc; --muted: #94a3b8; --border: rgba(255, 255, 255, 0.08); --danger: #ef4444;
+  --sidebar-width: 260px; --topbar-height: 60px; --paper-bg: #ffffff; --paper-text: #1e293b;
 }
-
-[data-theme="light"] {
-  --bg: #f1f5f9;
-  --sidebar: #ffffff;
-  --card: #ffffff;
-  --card-hover: #f8fafc;
-  --text: #0f172a;
-  --muted: #64748b;
-  --border: rgba(0, 0, 0, 0.08);
-  --paper-bg: #ffffff;
-  --paper-text: #0f172a;
-}
-
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  -webkit-tap-highlight-color: transparent;
-}
-
-body {
-  background: var(--bg);
-  color: var(--text);
-  display: flex;
-  height: 100vh;
-  height: 100dvh;
-  width: 100vw;
-  overflow: hidden;
-}
-
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 4px;
-}
-
-/* Floating AI Chat Widget */
-.ai-fab {
-  position: fixed;
-  bottom: 110px;
-  right: 28px;
-  width: 52px;
-  height: 52px;
-  background: var(--accent-gradient);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: grab;
-  box-shadow: 0 8px 24px rgba(79, 70, 229, 0.4);
-  z-index: 2000;
-  user-select: none;
-  touch-action: none;
-  transition: transform 0.15s;
-}
-.ai-fab:active { cursor: grabbing; transform: scale(0.95); }
-.ai-fab svg { width: 24px; height: 24px; fill: white; pointer-events: none; }
-
-.ai-chat-window {
-  position: fixed;
-  bottom: 175px;
-  right: 28px;
-  width: 380px;
-  height: 500px;
-  background: var(--sidebar);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-  display: none;
-  flex-direction: column;
-  z-index: 2001;
-  overflow: hidden;
-  resize: both;
-  min-width: 300px;
-  min-height: 380px;
-  max-width: 90vw;
-  max-height: 80vh;
-  touch-action: none;
-}
-.ai-chat-window.show { display: flex; animation: popIn 0.2s ease; }
-@keyframes popIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
-
-.ai-chat-header {
-  padding: 14px 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid var(--border);
-  cursor: move;
-  background: rgba(0,0,0,0.2);
-  flex-shrink: 0;
-  user-select: none;
-}
-.ai-chat-header .title { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 14px; letter-spacing: -0.01em; }
-.ai-chat-header .controls { display: flex; gap: 6px; }
-.ai-chat-header .controls button { background: none; border: none; color: var(--muted); cursor: pointer; padding: 4px 8px; border-radius: 4px; font-size: 14px; }
-.ai-chat-header .controls button:hover { color: var(--text); background: rgba(255,255,255,0.05); }
-
-.ai-chat-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.ai-chat-input {
-  padding: 12px;
-  border-top: 1px solid var(--border);
-  display: flex;
-  gap: 8px;
-  background: rgba(0,0,0,0.1);
-  flex-shrink: 0;
-}
-.ai-chat-input input {
-  flex: 1;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 10px 14px;
-  color: var(--text);
-  font-size: 13px;
-  outline: none;
-}
-.ai-chat-input input:focus { border-color: var(--accent); }
-.ai-chat-input button {
-  background: var(--accent-gradient);
-  border: none;
-  color: white;
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.ai-chat-msg { padding: 10px 14px; border-radius: 12px; max-width: 85%; font-size: 13.5px; line-height: 1.5; }
-.ai-chat-msg.user { background: var(--accent); color: white; align-self: flex-end; border-bottom-right-radius: 3px; }
+[data-theme="light"] { --bg: #f1f5f9; --sidebar: #ffffff; --card: #ffffff; --card-hover: #f8fafc; --text: #0f172a; --muted: #64748b; --border: rgba(0, 0, 0, 0.08); --paper-bg: #ffffff; --paper-text: #0f172a; }
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', system-ui, -apple-system, sans-serif; -webkit-tap-highlight-color: transparent; }
+body { background: var(--bg); color: var(--text); display: flex; height: 100vh; height: 100dvh; width: 100vw; overflow: hidden; }
+::-webkit-scrollbar { width: 6px; height: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 4px; }
+.ai-fab { position: fixed; bottom: 110px; right: 28px; width: 52px; height: 52px; background: var(--accent-gradient); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: grab; box-shadow: 0 8px 24px rgba(79, 70, 229, 0.4); z-index: 2000; user-select: none; touch-action: none; transition: transform 0.15s; }
+.ai-fab:active { cursor: grabbing; transform: scale(0.95); }.ai-fab svg { width: 24px; height: 24px; fill: white; pointer-events: none; }
+.ai-chat-window { position: fixed; bottom: 175px; right: 28px; width: 380px; height: 500px; background: var(--sidebar); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); display: none; flex-direction: column; z-index: 2001; overflow: hidden; resize: both; min-width: 300px; min-height: 380px; max-width: 90vw; max-height: 80vh; touch-action: none; }
+.ai-chat-window.show { display: flex; animation: popIn 0.2s ease; } @keyframes popIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+.ai-chat-header { padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); cursor: move; background: rgba(0,0,0,0.2); flex-shrink: 0; user-select: none; }
+.ai-chat-header.title { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 14px; letter-spacing: -0.01em; }.ai-chat-header.controls { display: flex; gap: 6px; }
+.ai-chat-header.controls button { background: none; border: none; color: var(--muted); cursor: pointer; padding: 4px 8px; border-radius: 4px; font-size: 14px; }
+.ai-chat-header.controls button:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+.ai-chat-body { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.ai-chat-input { padding: 12px; border-top: 1px solid var(--border); display: flex; gap: 8px; background: rgba(0,0,0,0.1); flex-shrink: 0; }
+.ai-chat-input input { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; color: var(--text); font-size: 13px; outline: none; }
+.ai-chat-input input:focus { border-color: var(--accent); }.ai-chat-input button { background: var(--accent-gradient); border: none; color: white; width: 38px; height: 38px; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.ai-chat-msg { padding: 10px 14px; border-radius: 12px; max-width: 85%; font-size: 13.5px; line-height: 1.5; }.ai-chat-msg.user { background: var(--accent); color: white; align-self: flex-end; border-bottom-right-radius: 3px; }
 .ai-chat-msg.ai { background: var(--card); color: var(--text); border: 1px solid var(--border); align-self: flex-start; border-bottom-left-radius: 3px; }
-
-/* Sidebar */
-.sidebar {
-  width: var(--sidebar-width);
-  background: var(--sidebar);
-  padding: 20px 16px;
-  height: 100vh;
-  height: 100dvh;
-  position: fixed;
-  left: 0;
-  top: 0;
-  display: flex;
-  flex-direction: column;
-  border-right: 1px solid var(--border);
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 1000;
-}
-
-.logo {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-weight: 700;
-  font-size: 17px;
-  margin-bottom: 24px;
-  letter-spacing: -0.02em;
-  color: var(--text);
-}
-
-.logo-dot {
-  width: 28px;
-  height: 28px;
-  background: var(--accent-gradient);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
-}
-
-.menu-section-title {
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 600;
-  margin: 16px 8px 8px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.menu-item {
-  padding: 10px 12px;
-  border-radius: 8px;
-  cursor: pointer;
-  margin-bottom: 2px;
-  color: var(--muted);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 13.5px;
-  font-weight: 500;
-  transition: all 0.15s ease;
-}
-
-.menu-item:hover, .menu-item.active {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text);
-}
-
-.menu-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.submenu {
-  display: none;
-  padding-left: 8px;
-  max-height: 250px;
-  overflow-y: auto;
-  margin-bottom: 8px;
-}
-
-.submenu.show { display: block; }
-
-.submenu-item {
-  padding: 8px 12px;
-  border-radius: 6px;
-  color: var(--muted);
-  font-size: 13px;
-  cursor: pointer;
-  margin-bottom: 2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  transition: background 0.15s, color 0.15s;
-}
-
-.submenu-item:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text);
-}
-
-.sidebar-bottom {
-  margin-top: auto;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
-}
-
-.profile-box {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px;
-  cursor: pointer;
-  border-radius: 8px;
-  transition: background 0.15s;
-}
-
-.profile-box:hover {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.profile-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  background: var(--accent-gradient);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  color: white;
-  font-size: 14px;
-  flex-shrink: 0;
-}
-
-.profile-info { overflow: hidden; }
-.profile-info .name { font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.profile-info .email { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-/* Main Section */
-.main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  margin-left: var(--sidebar-width);
-  height: 100vh;
-  height: 100dvh;
-  width: calc(100% - var(--sidebar-width));
-  transition: margin-left 0.3s;
-  overflow: hidden;
-}
-
-.topbar {
-  height: var(--topbar-height);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 24px;
-  border-bottom: 1px solid var(--border);
-  background: rgba(9, 13, 22, 0.8);
-  backdrop-filter: blur(12px);
-  flex-shrink: 0;
-  z-index: 500;
-}
-
-.nav-toggle { display: none; }
-
-.dots-btn {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--border);
-  color: var(--text);
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.15s;
-}
-
-.dots-btn:hover { background: rgba(255, 255, 255, 0.1); }
-
-.top-actions { position: relative; }
-
-.dropdown-menu {
-  position: absolute;
-  right: 0;
-  top: 44px;
-  background: var(--sidebar);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  min-width: 160px;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.4);
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(-8px);
-  transition: all 0.2s ease;
-  z-index: 1000;
-  overflow: hidden;
-}
-
-.dropdown-menu.show { opacity: 1; visibility: visible; transform: translateY(0); }
-.dropdown-menu div { padding: 10px 14px; cursor: pointer; font-size: 13px; color: var(--text); transition: background 0.15s; }
-.dropdown-menu div:hover { background: rgba(255, 255, 255, 0.05); }
-.dropdown-menu .danger { color: var(--danger); }
-
-.chat-area {
-  flex: 1;
-  overflow-y: auto;
-  padding: 30px 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  width: 100%;
-  margin: 0 auto;
-  scroll-behavior: smooth;
-}
-
-.chat-msg {
-  max-width: 850px;
-  width: 100%;
-  margin: 0 auto;
-  position: relative;
-  animation: fadeIn 0.3s ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.chat-msg.user {
-  align-self: flex-end;
-  background: var(--accent-gradient);
-  color: white;
-  border-radius: 12px;
-  border-bottom-right-radius: 2px;
-  padding: 14px 18px;
-  line-height: 1.5;
-  font-size: 14.5px;
-  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.2);
-}
-
-.chat-msg.ai-normal {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  border-bottom-left-radius: 2px;
-  padding: 16px 20px;
-  color: var(--text);
-  font-size: 14.5px;
-  line-height: 1.6;
-}
-
-/* Document Formatting */
-.a4-wrapper {
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  padding: 10px 0;
-}
-
-.a4-paper {
-  background: #ffffff;
-  color: #111827;
-  width: 100%;
-  max-width: 816px;
-  min-height: 1056px;
-  padding: 1in;
-  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.4);
-  border-radius: 2px;
-  font-family: 'Calibri', 'Inter', Arial, sans-serif;
-  font-size: 15px;
-  line-height: 1.6;
-  position: relative;
-  word-wrap: break-word;
-}
-
-.a4-paper h1 {
-  font-size: 26px;
-  color: #1e3a8a;
-  text-align: center;
-  margin-bottom: 20px;
-  font-weight: 700;
-  border-bottom: 2px solid #e2e8f0;
-  padding-bottom: 8px;
-}
-
-.a4-paper h2 {
-  font-size: 19px;
-  color: #1e40af;
-  margin-top: 22px;
-  margin-bottom: 10px;
-  font-weight: 600;
-}
-
-.a4-paper h3 {
-  font-size: 16px;
-  color: #1d4ed8;
-  margin-top: 16px;
-  margin-bottom: 8px;
-  font-weight: 600;
-}
-
-.a4-paper p {
-  margin-bottom: 14px;
-  text-align: justify;
-  text-justify: inter-word;
-}
-
-.a4-paper ul, .a4-paper ol {
-  margin-left: 24px;
-  margin-bottom: 14px;
-}
-
-.speak-btn {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  background: rgba(0,0,0,0.05);
-  border: none;
-  color: #64748b;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  padding: 6px;
-  transition: all 0.15s;
-}
-
+.sidebar { width: var(--sidebar-width); background: var(--sidebar); padding: 20px 16px; height: 100vh; height: 100dvh; position: fixed; left: 0; top: 0; display: flex; flex-direction: column; border-right: 1px solid var(--border); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 1000; }
+.logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; margin-bottom: 24px; letter-spacing: -0.02em; color: var(--text); }
+.logo-dot { width: 28px; height: 28px; background: var(--accent-gradient); border-radius: 8px; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3); }
+.menu-section-title { color: var(--muted); font-size: 11px; font-weight: 600; margin: 16px 8px 8px; text-transform: uppercase; letter-spacing: 0.08em; }
+.menu-item { padding: 10px 12px; border-radius: 8px; cursor: pointer; margin-bottom: 2px; color: var(--muted); display: flex; align-items: center; justify-content: space-between; font-size: 13.5px; font-weight: 500; transition: all 0.15s ease; }
+.menu-item:hover,.menu-item.active { background: rgba(255, 255, 255, 0.05); color: var(--text); }.menu-left { display: flex; align-items: center; gap: 10px; }
+.submenu { display: none; padding-left: 8px; max-height: 250px; overflow-y: auto; margin-bottom: 8px; }.submenu.show { display: block; }
+.submenu-item { padding: 8px 12px; border-radius: 6px; color: var(--muted); font-size: 13px; cursor: pointer; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: background 0.15s, color 0.15s; }
+.submenu-item:hover { background: rgba(255, 255, 255, 0.05); color: var(--text); }
+.sidebar-bottom { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border); }
+.profile-box { display: flex; align-items: center; gap: 12px; padding: 8px; cursor: pointer; border-radius: 8px; transition: background 0.15s; }.profile-box:hover { background: rgba(255, 255, 255, 0.05); }
+.profile-avatar { width: 36px; height: 36px; border-radius: 8px; background: var(--accent-gradient); display: flex; align-items: center; justify-content: center; font-weight: 600; color: white; font-size: 14px; flex-shrink: 0; }
+.profile-info { overflow: hidden; }.profile-info.name { font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.profile-info.email { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.main { flex: 1; display: flex; flex-direction: column; margin-left: var(--sidebar-width); height: 100vh; height: 100dvh; width: calc(100% - var(--sidebar-width)); transition: margin-left 0.3s; overflow: hidden; }
+.topbar { height: var(--topbar-height); display: flex; align-items: center; justify-content: space-between; padding: 0 24px; border-bottom: 1px solid var(--border); background: rgba(9, 13, 22, 0.8); backdrop-filter: blur(12px); flex-shrink: 0; z-index: 500; }
+.nav-toggle { display: none; }.dots-btn { background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); color: var(--text); width: 36px; height: 36px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
+.dots-btn:hover { background: rgba(255, 255, 255, 0.1); }.top-actions { position: relative; }
+.dropdown-menu { position: absolute; right: 0; top: 44px; background: var(--sidebar); border: 1px solid var(--border); border-radius: 10px; min-width: 160px; box-shadow: 0 10px 25px rgba(0,0,0,0.4); opacity: 0; visibility: hidden; transform: translateY(-8px); transition: all 0.2s ease; z-index: 1000; overflow: hidden; }
+.dropdown-menu.show { opacity: 1; visibility: visible; transform: translateY(0); }.dropdown-menu div { padding: 10px 14px; cursor: pointer; font-size: 13px; color: var(--text); transition: background 0.15s; }
+.dropdown-menu div:hover { background: rgba(255, 255, 255, 0.05); }.dropdown-menu.danger { color: var(--danger); }
+.chat-area { flex: 1; overflow: hidden; /* CHANGED: no scroll, we flip pages */ padding: 30px 24px; display: flex; flex-direction: column; gap: 24px; width: 100%; margin: 0 auto; }
+.chat-msg { max-width: 850px; width: 100%; margin: 0 auto; position: relative; animation: fadeIn 0.3s ease; } @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.chat-msg.user { align-self: flex-end; background: var(--accent-gradient); color: white; border-radius: 12px; border-bottom-right-radius: 2px; padding: 14px 18px; line-height: 1.5; font-size: 14.5px; box-shadow: 0 4px 14px rgba(79, 70, 229, 0.2); }
+.chat-msg.ai-normal { background: var(--card); border: 1px solid var(--border); border-radius: 12px; border-bottom-left-radius: 2px; padding: 16px 20px; color: var(--text); font-size: 14.5px; line-height: 1.6; }
+.a4-wrapper { width: 100%; display: flex; justify-content: center; padding: 10px 0; }
+.a4-paper { background: #ffffff; color: #111827; width: 100%; max-width: 816px; min-height: calc(100vh - 200px); /* CHANGED: fit screen */ padding: 1in; box-shadow: 0 12px 35px rgba(0, 0, 0, 0.4); border-radius: 2px; font-family: 'Calibri', 'Inter', Arial, sans-serif; font-size: 15px; line-height: 1.6; position: relative; word-wrap: break-word; overflow-y: auto; /* allow scroll inside page if too long */ }
+.a4-paper h1 { font-size: 26px; color: #1e3a8a; text-align: center; margin-bottom: 20px; font-weight: 700; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }
+.a4-paper h2 { font-size: 19px; color: #1e40af; margin-top: 22px; margin-bottom: 10px; font-weight: 600; }
+.a4-paper h3 { font-size: 16px; color: #1d4ed8; margin-top: 16px; margin-bottom: 8px; font-weight: 600; }
+.a4-paper p { margin-bottom: 14px; text-align: justify; text-justify: inter-word; }.a4-paper ul,.a4-paper ol { margin-left: 24px; margin-bottom: 14px; }
+.speak-btn { position: absolute; top: 16px; right: 16px; background: rgba(0,0,0,0.05); border: none; color: #64748b; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 6px; padding: 6px; transition: all 0.15s; }
 .speak-btn:hover { color: #0f172a; background: rgba(0,0,0,0.1); }
-
-.input-container {
-  padding: 16px 24px 24px;
-  background: var(--bg);
-  border-top: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-.input-bar {
-  display: flex;
-  align-items: flex-end;
-  gap: 12px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 10px 14px;
-  max-width: 850px;
-  margin: 0 auto;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.input-bar:focus-within {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
-}
-
-.input {
-  flex: 1;
-  background: transparent;
-  border: none;
-  color: var(--text);
-  font-size: 14.5px;
-  resize: none;
-  max-height: 160px;
-  outline: none;
-  padding: 4px 0;
-  line-height: 1.5;
-}
-
-.input::placeholder { color: var(--muted); }
-
-.action-buttons {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.btn-icon {
-  background: var(--accent-gradient);
-  color: white;
-  border: none;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: all 0.15s ease;
-}
-
-.btn-icon:hover { opacity: 0.9; transform: translateY(-1px); }
-.btn-icon:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-
-.btn-icon.recording {
-  background: var(--danger);
-  animation: pulse 1.2s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.05); }
-}
-
-.welcome-placeholder {
-  text-align: center;
-  color: var(--muted);
-  margin: auto;
-  font-size: 15px;
-  max-width: 400px;
-  line-height: 1.6;
-}
-
-.welcome-placeholder h2 {
-  color: var(--text);
-  font-size: 20px;
-  margin-bottom: 8px;
-  font-weight: 600;
-}
-
-.overlay {
-  display: none;
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
-  z-index: 900;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.input-hint {
-  font-size: 11px;
-  color: var(--muted);
-  text-align: right;
-  max-width: 850px;
-  margin: 6px auto 0;
-  padding-right: 4px;
-}
-
-@media (max-width: 900px) {
-  .sidebar { transform: translateX(-100%); }
-  .sidebar.open { transform: translateX(0); }
-  .overlay.show { display: block; opacity: 1; }
-  .main { margin-left: 0; width: 100%; }
-  .nav-toggle { display: flex; }
-  .topbar { padding: 0 16px; }
-  .chat-area { padding: 16px; }
-  .a4-paper { padding: 30px 20px; min-height: auto; }
-  .input-container { padding: 12px 16px 16px; }
-}
+.input-container { padding: 16px 24px 24px; background: var(--bg); border-top: 1px solid var(--border); flex-shrink: 0; }
+.input-bar { display: flex; align-items: flex-end; gap: 12px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; max-width: 850px; margin: 0 auto; transition: border-color 0.2s, box-shadow 0.2s; }
+.input-bar:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15); }
+.input { flex: 1; background: transparent; border: none; color: var(--text); font-size: 14.5px; resize: none; max-height: 160px; outline: none; padding: 4px 0; line-height: 1.5; }
+.input::placeholder { color: var(--muted); }.action-buttons { display: flex; align-items: center; gap: 8px; }
+.btn-icon { background: var(--accent-gradient); color: white; border: none; width: 36px; height: 36px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.15s ease; }
+.btn-icon:hover { opacity: 0.9; transform: translateY(-1px); }.btn-icon:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.btn-icon.recording { background: var(--danger); animation: pulse 1.2s infinite; } @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+.welcome-placeholder { text-align: center; color: var(--muted); margin: auto; font-size: 15px; max-width: 400px; line-height: 1.6; }
+.welcome-placeholder h2 { color: var(--text); font-size: 20px; margin-bottom: 8px; font-weight: 600; }
+.overlay { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px); z-index: 900; opacity: 0; transition: opacity 0.3s ease; }
+.input-hint { font-size: 11px; color: var(--muted); text-align: right; max-width: 850px; margin: 6px auto 0; padding-right: 4px; }
+.page-indicator { text-align:center; margin-top:12px; color:#64748b; font-size:12px; font-weight:500; } /* NEW */
+@media (max-width: 900px) {.sidebar { transform: translateX(-100%); }.sidebar.open { transform: translateX(0); }.overlay.show { display: block; opacity: 1; }.main { margin-left: 0; width: 100%; }.nav-toggle { display: flex; }.topbar { padding: 0 16px; }.chat-area { padding: 16px; }.a4-paper { padding: 30px 20px; min-height: calc(100vh - 180px); }.input-container { padding: 12px 16px 16px; } }
 </style>
 </head>
 <body>
 
 <div class="overlay" id="overlay"></div>
 
-<div class="sidebar" id="sidebar">
-  <div class="logo">
-    <div class="logo-dot"></div>
-    Tempaper
-  </div>
-
-  <div class="menu-section-title">Workspace</div>
-  
-  <div class="menu-item" id="newChatBtn">
-    <div class="menu-left">
-      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
-      New Project
-    </div>
-  </div>
-
-  <div class="menu-item" id="historyToggle">
-    <div class="menu-left">
-      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-      Recent Papers
-    </div>
-    <span id="historyArrow" style="font-size:10px;">❯</span>
-  </div>
-  <div class="submenu" id="historySubmenu"></div>
-
-  <div class="menu-item" onclick="window.location='settings.html'">
-    <div class="menu-left">
-      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>
-      Settings
-    </div>
-  </div>
-
-  <div class="sidebar-bottom">
-    <div class="profile-box" onclick="window.location='settings.html'">
-      <div class="profile-avatar" id="profileAvatar">G</div>
-      <div class="profile-info">
-        <div class="name" id="profileName">Guest User</div>
-        <div class="email" id="profileEmail">guest@tempaper.com</div>
-      </div>
-    </div>
-  </div>
-</div>
+<div class="sidebar" id="sidebar">...KEEP YOUR SIDEBAR HTML SAME... </div>
 
 <div class="main">
-  <div class="topbar">
-    <button class="dots-btn nav-toggle" id="navToggle" aria-label="Toggle Navigation">
-      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
-    </button>
-    
-    <div style="font-weight: 600; font-size: 15px; letter-spacing: -0.01em;">Academic Editor</div>
-
-    <div class="top-actions">
-      <button class="dots-btn" id="dotsBtn" aria-label="More options">
-        <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
-      </button>
-      <div class="dropdown-menu" id="dotsMenu">
-        <div id="menuNewChat">New Workspace</div>
-        <div onclick="window.location='settings.html'">Account Settings</div>
-        <div class="danger" onclick="logout()">Sign Out</div>
-      </div>
-    </div>
-  </div>
-
+  <div class="topbar">...KEEP YOUR TOPBAR HTML SAME... </div>
   <div class="chat-area" id="chatArea">
     <div class="welcome-placeholder" id="welcomeMsg">
       <h2>Academic Paper Generator</h2>
       Enter your topic or prompt below to research, structure, and generate a fully-formatted paper.
     </div>
   </div>
-
-  <div class="input-container">
-    <div class="input-bar">
-      <textarea class="input" id="promptInput" rows="1" placeholder="Write a research paper outline on..."></textarea>
-      <div class="action-buttons">
-        <button class="btn-icon" id="micBtn" aria-label="Voice Input">
-          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/></svg>
-        </button>
-        <button class="btn-icon" id="sendBtn" aria-label="Generate">
-          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
-        </button>
-      </div>
-    </div>
-    <div class="input-hint">Press <b>Enter</b> to send. Use <b>Shift + Enter</b> for a new line.</div>
-  </div>
+  <div class="input-container">...KEEP YOUR INPUT HTML SAME... </div>
 </div>
 
-<!-- Floating AI Assistant FAB -->
-<div class="ai-fab" id="aiFab" title="AI Copilot">
-  <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10c1.19 0 2.34-.21 3.41-.59l4.17 1.38-1.38-4.17A9.957 9.957 0 0022 12c0-5.52-4.48-10-10-10zm-1 13H9v-2h2v2zm4 0h-2v-2h2v2zm2-4H7V9h10v2z"/></svg>
-</div>
+<div class="ai-fab" id="aiFab" title="AI Copilot">...KEEP SAME... </div>
+<div class="ai-chat-window" id="aiChatWindow">...KEEP SAME... </div>
 
-<!-- Floating AI Assistant Chat Window -->
-<div class="ai-chat-window" id="aiChatWindow">
-  <div class="ai-chat-header" id="aiChatHeader">
-    <div class="title">
-      <div style="width:18px; height:18px; background:var(--accent-gradient); border-radius:4px;"></div>
-      Tempaper Copilot
-    </div>
-    <div class="controls">
-      <button id="aiMinimizeBtn">−</button>
-      <button id="aiCloseBtn">×</button>
-    </div>
-  </div>
-  <div class="ai-chat-body" id="aiChatBody">
-    <div class="ai-chat-msg ai">Hello! I am your AI assistant. Ask me anything to assist with your research or writing!</div>
-  </div>
-  <div class="ai-chat-input">
-    <input type="text" id="aiChatInput" placeholder="Ask assistant...">
-    <button id="aiChatSendBtn">
-      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
-    </button>
-  </div>
-</div>
-  <script>
+<script>
 const API_URL = "https://term-paper-n4kl.onrender.com";
-let currentUser = null;
-let appSettings = {theme: 'system', fontSize: 16, notifications: true};
-let isGenerating = false;
-let touchStartX = 0;
-let touchStartY = 0;
-let recognition = null;
-let isRecording = false;
-let activeChatHistory = [];
-let currentPages = []; // NEW: stores paginated pages
-let currentPageIndex = 0; // NEW: current page
+let currentUser = null; let appSettings = {theme: 'system', fontSize: 16, notifications: true};
+let isGenerating = false; let touchStartX = 0; let touchStartY = 0; let recognition = null; let isRecording = false; let activeChatHistory = [];
+let currentPages = []; // NEW
+let currentPageIndex = 0; // NEW
 
 document.addEventListener("DOMContentLoaded", async () => {
   loadAppSettings();
-  let userId = localStorage.getItem("user_id");
-  if (!userId) { userId = "demo_user"; localStorage.setItem("user_id", userId); }
+  let userId = localStorage.getItem("user_id"); if (!userId) { userId = "demo_user"; localStorage.setItem("user_id", userId); }
 
-  //... keep all your aiFab drag code same...
-  const aiFab = document.getElementById("aiFab");
-  const aiChatWindow = document.getElementById("aiChatWindow");
-  const aiChatHeader = document.getElementById("aiChatHeader");
-  const aiChatBody = document.getElementById("aiChatBody");
-  const aiChatInput = document.getElementById("aiChatInput");
-  const aiChatSendBtn = document.getElementById("aiChatSendBtn");
-  let isFabDragged = false;
-  aiFab.onclick = () => { if (!isFabDragged) { aiChatWindow.classList.toggle("show"); } };
-  document.getElementById("aiCloseBtn").onclick = () => aiChatWindow.classList.remove("show");
-  document.getElementById("aiMinimizeBtn").onclick = () => aiChatWindow.classList.remove("show");
-  aiChatSendBtn.onclick = sendFloatingMessage;
-  aiChatInput.onkeydown = (e) => { if(e.key === "Enter") sendFloatingMessage(); };
-  async function sendFloatingMessage() {
-    const text = aiChatInput.value.trim(); if(!text) return;
-    addFloatingMsg("user", text); aiChatInput.value = ""; addFloatingMsg("ai", "Thinking...");
-    try {
-      const res = await fetch(`${API_URL}/chat`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: text }) });
-      const data = await res.json(); aiChatBody.lastChild.remove(); addFloatingMsg("ai", data.result || "Error generating response.");
-    } catch(e) { if (aiChatBody.lastChild) aiChatBody.lastChild.remove(); addFloatingMsg("ai", "Network error. Try again."); }
-  }
-  function addFloatingMsg(role, text) { const div = document.createElement("div"); div.className = `ai-chat-msg ${role}`; div.innerText = text; aiChatBody.appendChild(div); aiChatBody.scrollTop = aiChatBody.scrollHeight; }
-  function makeElementDraggable(dragHandle, targetElement, isFab = false) { /* same as yours */ }
-  makeElementDraggable(aiFab, aiFab, true); makeElementDraggable(aiChatHeader, aiChatWindow, false);
+  // KEEP ALL YOUR AI FAB CODE SAME HERE
 
   await loadProfile(userId); loadChats();
   document.getElementById("sendBtn").onclick = generatePaper;
@@ -804,71 +127,53 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("menuNewChat").onclick = () => { startNewChat(); closeDots(); };
   document.addEventListener("click", (e) => { if (!e.target.closest('.top-actions')) closeDots(); });
 
-  // NEW: Swipe to change pages
+  // NEW: SWIPE TO FLIP PAGES
   const chatArea = document.getElementById("chatArea");
   chatArea.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; touchStartY = e.changedTouches[0].screenY; });
   chatArea.addEventListener('touchend', e => {
     const endX = e.changedTouches[0].screenX; const endY = e.changedTouches[0].screenY;
     const deltaX = endX - touchStartX; const deltaY = endY - touchStartY;
-    if (Math.abs(deltaY) > 50 && Math.abs(deltaY) > Math.abs(deltaX)) { // vertical swipe
-      if (deltaY < 0) nextPage(); // swipe up
-      if (deltaY > 0) prevPage(); // swipe down
-    }
+    if (Math.abs(deltaY) > 60 && Math.abs(deltaY) > Math.abs(deltaX)) { if (deltaY < 0) nextPage(); if (deltaY > 0) prevPage(); }
     if (touchStartX > 50 && endX < touchStartX - 50) { document.getElementById("sidebar").classList.remove("open"); document.getElementById("overlay").classList.remove("show"); }
   });
-  chatArea.addEventListener('wheel', e => { if(e.deltaY > 50) nextPage(); if(e.deltaY < -50) prevPage(); }, {passive: true});
-
+  chatArea.addEventListener('wheel', e => { if(e.deltaY > 80) nextPage(); if(e.deltaY < -80) prevPage(); }, {passive: true});
   autoResizeTextarea();
 });
 
-// NEW: Pagination functions
+// NEW PAGINATION FUNCTIONS
 function paginatePaper(markdownText) {
   const words = markdownText.split(' ');
-  const wordsPerPage = 1000; // ~1 A4 page
+  const wordsPerPage = 900; // ~1 A4 page
   currentPages = [];
-  for(let i = 0; i < words.length; i += wordsPerPage) {
-    currentPages.push(words.slice(i, i + wordsPerPage).join(' '));
-  }
-  currentPageIndex = 0;
-  renderCurrentPage();
+  for(let i = 0; i < words.length; i += wordsPerPage) { currentPages.push(words.slice(i, i + wordsPerPage).join(' ')); }
+  currentPageIndex = 0; renderCurrentPage();
 }
-
 function renderCurrentPage() {
-  const chatArea = document.getElementById("chatArea");
-  chatArea.innerHTML = "";
+  const chatArea = document.getElementById("chatArea"); chatArea.innerHTML = "";
   if(currentPages.length === 0) return;
-
   const pageText = currentPages[currentPageIndex];
-  const container = document.createElement("div");
-  container.className = "chat-msg";
+  const container = document.createElement("div"); container.className = "chat-msg";
   container.innerHTML = `
     <div class="a4-wrapper">
       <div class="a4-paper">
-        <button class="speak-btn" onclick="speakText(this.parentElement.innerText)">
-          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>
-        </button>
+        <button class="speak-btn" onclick="speakText(this.parentElement.innerText)"> <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg> </button>
         <div>${formatPaperText(pageText)}</div>
-        <div style="text-align:center; margin-top:20px; color:#64748b; font-size:12px;">Page ${currentPageIndex + 1} of ${currentPages.length} - Swipe up/down</div>
       </div>
+      <div class="page-indicator">Page ${currentPageIndex + 1} of ${currentPages.length} - Swipe up/down to flip</div>
     </div>`;
   chatArea.appendChild(container);
 }
-
 function nextPage() { if(currentPageIndex < currentPages.length - 1) { currentPageIndex++; renderCurrentPage(); } }
 function prevPage() { if(currentPageIndex > 0) { currentPageIndex--; renderCurrentPage(); } }
 
-// KEEP ALL YOUR OTHER FUNCTIONS: toggleRecording, closeDots, toggleSidebar, loadAppSettings, applyTheme
-
-async function loadProfile(userId) { /* same as yours */ }
-
-function autoResizeTextarea() { const textarea = document.getElementById("promptInput"); textarea.style.height = 'auto'; textarea.style.height = Math.min(textarea.scrollHeight, 160) + 'px'; }
+// KEEP ALL YOUR OTHER FUNCTIONS: toggleRecording, closeDots, toggleSidebar, loadAppSettings, applyTheme, loadProfile, autoResizeTextarea
 
 function startNewChat() {
   document.getElementById("chatArea").innerHTML = `<div class="welcome-placeholder" id="welcomeMsg"><h2>Academic Paper Generator</h2>Enter your topic or prompt below to research, structure, and generate a fully-formatted paper.</div>`;
   document.getElementById("promptInput").value = ""; activeChatHistory = []; currentPages = []; currentPageIndex = 0; autoResizeTextarea();
 }
 
-async function generatePaperWithRetry(prompt, onStatusUpdate) { /* same as yours */ }
+async function generatePaperWithRetry(prompt, onStatusUpdate) { /* KEEP SAME */ }
 
 async function generatePaper() {
   if (isGenerating) return;
@@ -879,14 +184,14 @@ async function generatePaper() {
   try {
     const data = await generatePaperWithRetry(prompt, (msg) => { updateLastAiMessage(msg, false); });
     if (data && data.result) {
-      paginatePaper(data.result); // CHANGED: instead of updateLastAiMessage
+      paginatePaper(data.result); // CHANGED
       activeChatHistory.push({ prompt, result: data.result, isPaper: true }); saveChatSession();
     } else { updateLastAiMessage("Error: " + (data?.error || "Failed to generate paper. Please try again."), false); }
   } catch (e) { console.error(e); updateLastAiMessage("Network error. Please check your connection or server status.", false); }
   finally { isGenerating = false; document.getElementById("sendBtn").disabled = false; }
 }
 
-function addMessage(role, text, isTemp = false, isPaper = false) { /* same as yours, but for paper we don't use it anymore */ }
+function addMessage(role, text, isTemp = false, isPaper = false) { /* KEEP SAME */ }
 
 function updateLastAiMessage(text, asPaper = false) {
   const temp = document.getElementById("tempAiMsg");
@@ -898,20 +203,16 @@ function updateLastAiMessage(text, asPaper = false) {
 }
 
 function formatPaperText(text) { let formatted = text.replace(/^# (.*$)/gim, '<h1>$1</h1>').replace(/^## (.*$)/gim, '<h2>$1</h2>').replace(/^### (.*$)/gim, '<h3>$1</h3>').replace(/\n\s*\n/g, '</p><p>'); return `<p>${formatted}</p>`; }
-
 function speakText(text) { if ('speechSynthesis' in window) { window.speechSynthesis.cancel(); const utter = new SpeechSynthesisUtterance(text); utter.lang = 'en-US'; window.speechSynthesis.speak(utter); } else { alert("Speech synthesis is not supported on this browser."); } }
-
 function getChatKey() { return "chats_" + (currentUser?.id || "guest"); }
-function saveChatSession() { /* same as yours */ }
-function loadChats() { /* same as yours */ }
-function openChatSession(index) { /* same as yours, but call paginatePaper(session.messages[...].result) */
-  let chats = JSON.parse(localStorage.getItem(getChatKey()) || "[]");
-  const session = chats[index];
-  document.getElementById("chatArea").innerHTML = "";
+function saveChatSession() { /* KEEP SAME */ }
+function loadChats() { /* KEEP SAME */ }
+function openChatSession(index) {
+  let chats = JSON.parse(localStorage.getItem(getChatKey()) || "[]"); const session = chats[index]; document.getElementById("chatArea").innerHTML = "";
   if (session.messages && session.messages.length) {
     activeChatHistory = session.messages;
     const lastMsg = session.messages[session.messages.length-1];
-    if (lastMsg.isPaper) { paginatePaper(lastMsg.result); }
+    if (lastMsg.isPaper) { paginatePaper(lastMsg.result); } // CHANGED
     else { addMessage("ai-normal", lastMsg.result); }
   }
   toggleHistory();
