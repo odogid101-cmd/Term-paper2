@@ -949,4 +949,384 @@
           throw new Error("The server returned an invalid response.");
         }
 
-        if (!response.o
+        if (!response.ok) {
+          throw new Error(
+            data.error || `Server error: ${response.status}`
+          );
+        }
+
+        /*
+          The fixed Flask backend returns result.
+          paper is supported as a fallback.
+        */
+        const markdown = data.result || data.paper;
+
+        if (!markdown) {
+          throw new Error("The server returned an empty paper.");
+        }
+
+        const html = markdownToHtml(markdown);
+
+        if (!html.trim()) {
+          throw new Error("The generated paper was empty.");
+        }
+
+        showPaper(html);
+        savePaper(prompt, html);
+
+      } catch (error) {
+        console.error("Generation error:", error);
+
+        if (error.name === "AbortError") {
+          showError(
+            "The request took too long. Please try again."
+          );
+        } else {
+          showError(error.message || "Paper generation failed.");
+        }
+
+      } finally {
+        clearTimeout(timeout);
+        isGenerating = false;
+        sendButton.disabled = false;
+        sendButton.textContent = "➤";
+      }
+    }
+
+    function savePaper(title, html) {
+      const saved = JSON.parse(
+        localStorage.getItem("paper_history") || "[]"
+      );
+
+      saved.unshift({
+        title: title.substring(0, 70),
+        content: html,
+        createdAt: new Date().toISOString()
+      });
+
+      localStorage.setItem(
+        "paper_history",
+        JSON.stringify(saved.slice(0, 20))
+      );
+
+      loadHistory();
+    }
+
+    function loadHistory() {
+      const saved = JSON.parse(
+        localStorage.getItem("paper_history") || "[]"
+      );
+
+      historyList.innerHTML = "";
+
+      if (!saved.length) {
+        historyList.innerHTML = `
+          <div style="padding:8px;color:var(--muted);font-size:12px">
+            No saved papers yet.
+          </div>
+        `;
+        return;
+      }
+
+      saved.forEach((paper, index) => {
+        const button = document.createElement("button");
+        button.className = "history-item";
+        button.textContent = paper.title || `Paper ${index + 1}`;
+
+        button.addEventListener("click", () => {
+          currentPaperHtml = paper.content;
+          showPaper(paper.content);
+          closeSidebarOnMobile();
+        });
+
+        historyList.appendChild(button);
+      });
+    }
+
+    function startNewProject() {
+      promptInput.value = "";
+      autoResize();
+      currentPaperHtml = "";
+      showWelcome();
+      closeSidebarOnMobile();
+      promptInput.focus();
+    }
+
+    function autoResize() {
+      promptInput.style.height = "auto";
+      promptInput.style.height =
+        Math.min(promptInput.scrollHeight, 150) + "px";
+    }
+
+    function downloadPaper() {
+      const paper = document.getElementById("paperContent");
+
+      if (!paper) {
+        return;
+      }
+
+      const documentHtml = `
+        <!doctype html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Tempaper Document</title>
+          <style>
+            body {
+              max-width: 850px;
+              margin: 40px auto;
+              padding: 30px;
+              color: #111827;
+              font-family: Calibri, Arial, sans-serif;
+              font-size: 16px;
+              line-height: 1.65;
+            }
+            h1 {
+              color: #1e3a8a;
+              text-align: center;
+            }
+            h2 {
+              color: #1e40af;
+              margin-top: 28px;
+            }
+            h3 {
+              color: #1d4ed8;
+              margin-top: 20px;
+            }
+            p {
+              text-align: justify;
+            }
+          </style>
+        </head>
+        <body>${paper.innerHTML}</body>
+        </html>
+      `;
+
+      const blob = new Blob(
+        [documentHtml],
+        { type: "text/html;charset=utf-8" }
+      );
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = "tempaper-document.html";
+      link.click();
+
+      URL.revokeObjectURL(url);
+    }
+
+    async function copyPaper() {
+      const paper = document.getElementById("paperContent");
+
+      if (!paper) {
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(
+          paper.innerText
+        );
+
+        alert("Paper copied to clipboard.");
+      } catch {
+        alert("Unable to copy the paper.");
+      }
+    }
+
+    async function loadProfile() {
+      const userId = localStorage.getItem("user_id");
+
+      if (!userId || !/^\d+$/.test(userId)) {
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `${API_URL}/me?user_id=${encodeURIComponent(userId)}`
+        );
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data = await response.json();
+
+        if (!data.user) {
+          return;
+        }
+
+        const user = data.user;
+        const name = user.username ||
+          user.email.split("@")[0] ||
+          "User";
+
+        document.getElementById("profileAvatar")
+          .textContent = name.charAt(0).toUpperCase();
+
+        document.getElementById("profileName")
+          .textContent = name;
+
+        document.getElementById("profileEmail")
+          .textContent = user.email;
+
+      } catch (error) {
+        console.log("Profile could not be loaded:", error);
+      }
+    }
+
+    function addChatMessage(type, text) {
+      const messages = document.getElementById("chatMessages");
+      const message = document.createElement("div");
+
+      message.className = `message ${type}`;
+      message.textContent = text;
+
+      messages.appendChild(message);
+      messages.scrollTop = messages.scrollHeight;
+
+      return message;
+    }
+
+    async function sendChatMessage() {
+      const input = document.getElementById("chatInput");
+      const text = input.value.trim();
+
+      if (!text) {
+        return;
+      }
+
+      input.value = "";
+      addChatMessage("user", text);
+
+      const thinking = addChatMessage("ai", "Thinking...");
+
+      try {
+        const response = await fetch(`${API_URL}/chat`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+          body: JSON.stringify({
+            prompt: text
+          })
+        });
+
+        const data = await response.json();
+
+        thinking.remove();
+
+        if (!response.ok) {
+          throw new Error(
+            data.error || "Assistant request failed."
+          );
+        }
+
+        addChatMessage(
+          "ai",
+          data.result || "The assistant returned no response."
+        );
+
+      } catch (error) {
+        thinking.remove();
+        addChatMessage(
+          "ai",
+          error.message || "Network error. Please try again."
+        );
+      }
+    }
+
+    function closeSidebarOnMobile() {
+      if (window.innerWidth <= 800) {
+        sidebar.classList.remove("open");
+        overlay.classList.remove("show");
+      }
+    }
+
+    function toggleTheme() {
+      const current =
+        document.documentElement.getAttribute("data-theme");
+
+      const next = current === "light" ? "dark" : "light";
+
+      document.documentElement.setAttribute("data-theme", next);
+      localStorage.setItem("theme", next);
+    }
+
+    function loadTheme() {
+      const saved = localStorage.getItem("theme") || "dark";
+      document.documentElement.setAttribute("data-theme", saved);
+    }
+
+    document.getElementById("sendButton")
+      .addEventListener("click", generatePaper);
+
+    document.getElementById("clearButton")
+      .addEventListener("click", startNewProject);
+
+    document.getElementById("newProjectButton")
+      .addEventListener("click", startNewProject);
+
+    document.getElementById("themeButton")
+      .addEventListener("click", toggleTheme);
+
+    document.getElementById("historyButton")
+      .addEventListener("click", () => {
+        historyList.classList.toggle("show");
+      });
+
+    document.getElementById("menuButton")
+      .addEventListener("click", () => {
+        sidebar.classList.toggle("open");
+        overlay.classList.toggle("show");
+      });
+
+    overlay.addEventListener("click", closeSidebarOnMobile);
+
+    document.getElementById("logoutButton")
+      .addEventListener("click", () => {
+        localStorage.removeItem("user_id");
+        window.location.href = "index.html";
+      });
+
+    promptInput.addEventListener("input", autoResize);
+
+    promptInput.addEventListener("keydown", event => {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        generatePaper();
+      }
+    });
+
+    document.getElementById("chatFab")
+      .addEventListener("click", () => {
+        document.getElementById("chatWindow")
+          .classList.toggle("show");
+      });
+
+    document.getElementById("chatClose")
+      .addEventListener("click", () => {
+        document.getElementById("chatWindow")
+          .classList.remove("show");
+      });
+
+    document.getElementById("chatSend")
+      .addEventListener("click", sendChatMessage);
+
+    document.getElementById("chatInput")
+      .addEventListener("keydown", event => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          sendChatMessage();
+        }
+      });
+
+    loadTheme();
+    loadHistory();
+    loadProfile();
+    autoResize();
+  </script>
+</body>
+</html>
