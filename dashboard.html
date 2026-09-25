@@ -28,9 +28,6 @@
   --paper-text: #1e293b;
   --shadow-soft: 0 18px 40px rgba(2, 6, 23, 0.28);
   --shadow-card: 0 10px 22px rgba(15, 23, 42, 0.18);
-  --radius-xl: 18px;
-  --radius-lg: 14px;
-  --radius-md: 10px;
 }
 
 [data-theme="light"] {
@@ -49,8 +46,16 @@
   --shadow-card: 0 8px 18px rgba(15, 23, 42, 0.06);
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', system-ui, -apple-system, sans-serif; -webkit-tap-highlight-color: transparent; }
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
 html { scroll-behavior: smooth; }
+
 body {
   background: var(--bg);
   color: var(--text);
@@ -58,7 +63,12 @@ body {
   height: 100vh;
   height: 100dvh;
   overflow: hidden;
+  user-select: none;
 }
+
+button, input, textarea { font: inherit; }
+button { border: none; background: none; }
+svg { display: block; }
 
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -67,10 +77,6 @@ body {
   border-radius: 10px;
 }
 ::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.42); }
-
-button, input, textarea { font: inherit; }
-button { border: none; background: none; }
-svg { display: block; }
 
 .sidebar {
   position: fixed;
@@ -422,6 +428,36 @@ svg { display: block; }
 .speak-btn svg {
   width: 16px; height: 16px;
   stroke: currentColor; fill: none; stroke-width: 2;
+}
+
+.chat-actions {
+  max-width: 860px;
+  width: 100%;
+  margin: 0 auto;
+  display: none;
+  justify-content: flex-end;
+  padding: 0 0 6px;
+}
+
+.copy-latest-btn {
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.03);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 9px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: var(--shadow-card);
+}
+.copy-latest-btn:hover {
+  background: rgba(255,255,255,0.06);
+  transform: translateY(-1px);
+}
+.copy-latest-btn:active {
+  transform: translateY(0);
 }
 
 .input-container {
@@ -806,6 +842,10 @@ svg { display: block; }
     </div>
   </div>
 
+  <div class="chat-actions" id="chatActions">
+    <button class="copy-latest-btn" id="copyLatestBtn">Copy</button>
+  </div>
+
   <div class="input-container">
     <div class="input-bar">
       <textarea class="input" id="promptInput" rows="1" placeholder="Write a research paper outline on..."></textarea>
@@ -859,6 +899,11 @@ let touchStartX = 0;
 let recognition = null;
 let isRecording = false;
 let activeChatHistory = [];
+let latestResultText = "";
+
+document.addEventListener("contextmenu", (e) => {
+  e.preventDefault();
+});
 
 document.addEventListener("DOMContentLoaded", async () => {
   loadAppSettings();
@@ -875,6 +920,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const aiChatHeader = document.getElementById("aiChatHeader");
   const aiChatInput = document.getElementById("aiChatInput");
   const aiChatSendBtn = document.getElementById("aiChatSendBtn");
+  const copyBtn = document.getElementById("copyLatestBtn");
 
   aiFab.onclick = () => aiChatWindow.classList.toggle("show");
   document.getElementById("aiCloseBtn").onclick = () => aiChatWindow.classList.remove("show");
@@ -884,6 +930,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   aiChatInput.onkeydown = (e) => {
     if (e.key === "Enter") sendFloatingMessage();
   };
+
+  copyBtn.addEventListener("click", async () => {
+    if (!latestResultText) return;
+    const success = await copyTextToClipboard(latestResultText);
+    copyBtn.textContent = success ? "Copied" : "Copy failed";
+    setTimeout(() => {
+      copyBtn.textContent = "Copy";
+    }, 1200);
+  });
 
   async function sendFloatingMessage() {
     const text = aiChatInput.value.trim();
@@ -1091,8 +1146,45 @@ function startNewChat() {
       Enter your topic or prompt below to research, structure, and generate a fully-formatted paper.
     </div>`;
   document.getElementById("promptInput").value = "";
+  latestResultText = "";
+  toggleCopyButton("");
   activeChatHistory = [];
   autoResizeTextarea();
+}
+
+function toggleCopyButton(text) {
+  const chatActions = document.getElementById("chatActions");
+  latestResultText = text || "";
+  if (!latestResultText) {
+    chatActions.style.display = "none";
+    return;
+  }
+
+  chatActions.style.display = "flex";
+  document.getElementById("copyLatestBtn").textContent = "Copy";
+}
+
+async function copyTextToClipboard(text) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+
+    const temp = document.createElement("textarea");
+    temp.value = text;
+    temp.setAttribute("readonly", "");
+    temp.style.position = "fixed";
+    temp.style.top = "-9999px";
+    document.body.appendChild(temp);
+    temp.select();
+    document.execCommand("copy");
+    document.body.removeChild(temp);
+    return true;
+  } catch (err) {
+    console.error("Copy failed:", err);
+    return false;
+  }
 }
 
 async function generatePaper() {
@@ -1121,13 +1213,19 @@ async function generatePaper() {
 
     if (res.ok && data.result) {
       updateLastAiMessage(data.result, true);
+      latestResultText = data.result;
+      toggleCopyButton(data.result);
       activeChatHistory.push({ prompt, result: data.result, isPaper: true });
       saveChatSession();
     } else {
+      latestResultText = "";
+      toggleCopyButton("");
       updateLastAiMessage("Error: " + (data.error || "Failed to generate paper. Please try again."), false);
     }
   } catch (e) {
     console.error(e);
+    latestResultText = "";
+    toggleCopyButton("");
     updateLastAiMessage("Network error. Please check your connection or server status.", false);
   } finally {
     isGenerating = false;
