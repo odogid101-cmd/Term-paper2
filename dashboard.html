@@ -1,182 +1,462 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tempaper - Academic Writer</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Merriweather:wght@400;700&display=swap" rel="stylesheet">
+<meta charset="utf-8" />
+<title>Tempaper | Academic Workspace</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Inter',sans-serif;background:#f5f5f7;color:#111}
-header{background:#111;color:#fff;padding:16px 24px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:10}
-header h1{font-size:18px}
-#main{max-width:900px;margin:30px auto;padding:0 16px}
-textarea{width:100%;min-height:140px;padding:14px;border-radius:12px;border:1px solid #ddd;font-size:15px;resize:vertical}
-button{padding:12px 20px;border-radius:10px;border:none;background:#111;color:#fff;font-weight:600;cursor:pointer}
-button:disabled{opacity:0.5}
-#controls{display:flex;gap:10px;margin:14px 0;flex-wrap:wrap}
-#info{font-size:13px;color:#666;margin:10px 0}
+:root {
+  --bg-main: #0b0f17;
+  --bg-sidebar: #0f172a;
+  --bg-card: #1e293b;
+  --accent: #6366f1;
+  --accent-hover: #4f46e5;
+  --accent-gradient: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --border-color: rgba(255, 255, 255, 0.08);
+  --paper-bg: #ffffff;
+  --paper-text: #1e293b;
+  --sidebar-width: 280px;
+  --topbar-height: 64px;
+  --radius-lg: 12px;
+  --radius-md: 8px;
+}
 
-/* 3 DOT ANIMATION - replaces Searching... */
-.dots-loader{display:none;gap:8px;justify-content:center;align-items:center;padding:40px 0}
-.dots-loader.active{display:flex}
-.dots-loader span{width:12px;height:12px;background:#111;border-radius:50%;animation:bounce 1.4s infinite ease-in-out both}
-.dots-loader span:nth-child(1){animation-delay:-0.32s}
-.dots-loader span:nth-child(2){animation-delay:-0.16s}
-@keyframes bounce{0%,80%,100%{transform:scale(0);opacity:0.5}40%{transform:scale(1);opacity:1}}
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
+body { background: var(--bg-main); color: var(--text-primary); width: 100vw; height: 100dvh; overflow: hidden; display: flex; }
+button { border: none; background: none; cursor: pointer; color: inherit; font-family: inherit; }
 
-/* A4 PAGES */
-.tempaper-wrapper{background:#525659;padding:20px;display:flex;flex-direction:column;align-items:center;border-radius:12px;min-height:200px}
-.a4-page{width:210mm;max-width:100%;min-height:297mm;background:white;padding:25mm 20mm 20mm 20mm;margin:0 0 20px 0;box-shadow:0 4px 30px rgba(0,0,0,0.3);position:relative;font-family:'Merriweather',serif;color:#111;line-height:1.7;box-sizing:border-box}
-.a4-page h1{font-size:22pt;text-align:center;margin-bottom:20px;font-weight:700;line-height:1.2}
-.a4-page h2{font-size:14pt;font-weight:700;margin-top:26px;margin-bottom:10px;border-bottom:1px solid #ddd;padding-bottom:6px}
-.a4-page h3{font-size:12pt;font-weight:700;margin-top:20px;margin-bottom:8px}
-.a4-page p{font-size:11pt;text-align:justify;margin-bottom:12px}
-.a4-page ul,.a4-page ol{font-size:11pt;margin-left:22px;margin-bottom:12px}
-.a4-page li{margin-bottom:6px}
-.a4-page .page-number{position:absolute;bottom:12mm;left:0;right:0;text-align:center;font-size:9pt;color:#888;font-family:Inter,sans-serif}
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.2); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.4); }
 
-@media(max-width:800px){.a4-page{padding:15mm 12mm;width:100%;min-height:auto}}
-@media print{.tempaper-wrapper{background:white;padding:0}.a4-page{box-shadow:none;margin:0;page-break-after:always}header,#main>textarea,#controls,#info{display:none}}
+/* --- SIDEBAR --- */
+.sidebar { position: fixed; inset: 0 auto 0 0; width: var(--sidebar-width); background: var(--bg-sidebar); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding: 20px 16px; z-index: 1000; transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
+.logo { display: flex; align-items: center; gap: 12px; padding: 4px 8px 24px; font-weight: 700; font-size: 19px; letter-spacing: -0.02em; }
+.logo-icon { width: 32px; height: 32px; border-radius: 8px; background: var(--accent-gradient); display: flex; align-items: center; justify-content: center; font-weight: 800; color: #fff; font-size: 16px; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3); }
+
+.menu-section-label { font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.08em; margin: 16px 8px 8px; }
+.btn-primary-action { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 11px; background: var(--accent-gradient); border-radius: var(--radius-md); font-weight: 600; font-size: 13.5px; color: #fff; transition: opacity 0.2s; box-shadow: 0 4px 14px rgba(79, 70, 229, 0.25); }
+.btn-primary-action:hover { opacity: 0.92; }
+
+.menu-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: var(--radius-md); color: var(--text-secondary); cursor: pointer; font-size: 13.5px; font-weight: 500; transition: all 0.15s ease; }
+.menu-item:hover { color: var(--text-primary); background: rgba(255, 255, 255, 0.04); }
+.menu-item.active { color: #fff; background: rgba(255, 255, 255, 0.06); }
+.menu-left { display: flex; align-items: center; gap: 10px; }
+
+.submenu { display: none; margin: 4px 0 8px 8px; padding-left: 10px; border-left: 1px solid var(--border-color); max-height: 220px; overflow-y: auto; }
+.submenu.show { display: block; }
+.submenu-item { padding: 8px 10px; border-radius: 6px; color: var(--text-secondary); font-size: 13px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: all 0.15s ease; }
+.submenu-item:hover { background: rgba(255, 255, 255, 0.04); color: var(--text-primary); }
+
+.sidebar-bottom { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border-color); }
+.profile-card { display: flex; align-items: center; gap: 12px; padding: 8px; border-radius: var(--radius-md); background: rgba(255,255,255,0.02); }
+.profile-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--accent-gradient); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: white; }
+.profile-info .name { font-size: 13.5px; font-weight: 600; }
+.profile-info .email { font-size: 11px; color: var(--text-secondary); }
+
+/* --- MAIN WORKSPACE --- */
+.main { margin-left: var(--sidebar-width); width: calc(100% - var(--sidebar-width)); height: 100dvh; display: flex; flex-direction: column; background: var(--bg-main); }
+.topbar { height: var(--topbar-height); display: flex; align-items: center; justify-content: space-between; padding: 0 28px; border-bottom: 1px solid var(--border-color); background: rgba(11, 15, 23, 0.85); backdrop-filter: blur(12px); z-index: 10; }
+.topbar-title { font-weight: 600; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+.topbar-badge { background: rgba(99, 102, 241, 0.15); color: #818cf8; font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 600; border: 1px solid rgba(99, 102, 241, 0.3); }
+
+.icon-btn { width: 36px; height: 36px; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: rgba(255, 255, 255, 0.03); color: var(--text-primary); display: flex; align-items: center; justify-content: center; transition: all 0.2s ease; }
+.icon-btn:hover { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.15); }
+
+.dropdown-menu { position: absolute; right: 0; top: 46px; min-width: 200px; background: var(--bg-sidebar); border: 1px solid var(--border-color); border-radius: var(--radius-md); box-shadow: 0 12px 32px rgba(0,0,0,0.4); opacity: 0; visibility: hidden; transform: translateY(-6px); transition: all 0.18s ease; z-index: 1000; padding: 6px; }
+.dropdown-menu.show { opacity: 1; visibility: visible; transform: translateY(0); }
+.dropdown-item { padding: 9px 12px; font-size: 13px; color: var(--text-secondary); border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+.dropdown-item:hover { background: rgba(255, 255, 255, 0.05); color: var(--text-primary); }
+
+/* --- CHAT AREA --- */
+.chat-area { flex: 1; overflow-y: auto; padding: 32px 24px; display: flex; flex-direction: column; gap: 24px; scroll-behavior: smooth; }
+.chat-msg { max-width: 860px; width: 100%; margin: 0 auto; animation: fadeIn 0.3s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+.chat-msg.user { align-self: flex-end; background: var(--accent-gradient); color: white; border-radius: 16px 16px 4px 16px; padding: 14px 20px; font-size: 14.5px; line-height: 1.6; box-shadow: 0 4px 16px rgba(79, 70, 229, 0.18); }
+
+/* --- LOADER --- */
+.dot-loader { display: none; flex-direction: column; align-items: center; gap: 12px; padding: 28px; max-width: 860px; width: 100%; margin: 0 auto; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); border-radius: var(--radius-lg); }
+.dot-loader.show { display: flex; }
+.dot-loader .dots { display: flex; gap: 8px; }
+.dot-loader .dots span { width: 10px; height: 10px; background: var(--accent); border-radius: 50%; animation: dotBounce 1.4s infinite ease-in-out both; }
+.dot-loader .dots span:nth-child(1) { animation-delay: -0.32s; }
+.dot-loader .dots span:nth-child(2) { animation-delay: -0.16s; }
+@keyframes dotBounce { 0%, 80%, 100% { transform: scale(0); opacity: 0.3; } 40% { transform: scale(1); opacity: 1; } }
+.dot-loader .label { font-size: 13px; color: var(--text-secondary); font-weight: 500; letter-spacing: 0.01em; }
+
+/* --- A4 DOCUMENT RENDERER --- */
+.document-container { width: 100%; max-width: 860px; margin: 0 auto; }
+.document-toolbar { display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: var(--radius-lg) var(--radius-lg) 0 0; font-size: 12.5px; color: var(--text-secondary); }
+.doc-stats { display: flex; gap: 16px; font-size: 12px; font-weight: 500; }
+.doc-actions { display: flex; gap: 8px; }
+.btn-doc-action { padding: 6px 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 12px; font-weight: 500; transition: all 0.15s ease; }
+.btn-doc-action:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); }
+
+.a4-wrapper { width: 100%; background: #3b4252; padding: 24px 16px; border-radius: 0 0 var(--radius-lg) var(--radius-lg); border: 1px solid var(--border-color); border-top: none; display: flex; flex-direction: column; align-items: center; gap: 20px; }
+.a4-paper { position: relative; width: 100%; max-width: 794px; min-height: 1080px; background: var(--paper-bg); color: var(--paper-text); padding: 72px 80px 84px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35); font-family: 'Merriweather', Georgia, serif; line-height: 1.8; font-size: 14px; word-wrap: break-word; display: flex; flex-direction: column; }
+.a4-content { flex: 1; }
+
+.a4-paper h1 { font-family: 'Inter', sans-serif; font-size: 22px; font-weight: 800; text-align: center; margin: 0 0 24px; color: #0f172a; line-height: 1.3; border-bottom: 2px solid #e2e8f0; padding-bottom: 16px; letter-spacing: -0.01em; }
+.a4-paper h2 { font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; margin: 28px 0 12px; color: #1e293b; border-left: 3.5px solid var(--accent); padding-left: 12px; }
+.a4-paper h3 { font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 700; margin: 20px 0 8px; color: #334155; }
+.a4-paper p { margin-bottom: 14px; text-align: justify; text-justify: inter-word; color: #334155; }
+.a4-paper ul, .a4-paper ol { margin: 0 0 16px 24px; color: #334155; }
+.a4-paper li { margin-bottom: 6px; }
+.a4-paper strong { font-weight: 700; color: #0f172a; }
+.a4-paper code { font-family: 'JetBrains Mono', monospace; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+
+.a4-footer { margin-top: auto; padding-top: 20px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 500; color: #94a3b8; }
+
+/* --- INPUT CONTAINER --- */
+.input-container { padding: 16px 28px 24px; background: var(--bg-main); border-top: 1px solid var(--border-color); }
+.input-bar { display: flex; align-items: flex-end; gap: 12px; max-width: 860px; margin: 0 auto; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 10px 12px 10px 16px; transition: all 0.2s ease; }
+.input-bar:focus-within { border-color: rgba(99, 102, 241, 0.6); box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12); background: rgba(255, 255, 255, 0.05); }
+.input { flex: 1; background: transparent; border: none; resize: none; outline: none; color: var(--text-primary); font-size: 14.5px; min-height: 24px; max-height: 180px; padding: 4px 0; line-height: 1.5; }
+.input::placeholder { color: var(--text-secondary); }
+
+.btn-send { width: 38px; height: 38px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; background: var(--accent-gradient); color: white; transition: all 0.2s ease; flex-shrink: 0; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3); }
+.btn-send:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
+.btn-send:disabled { opacity: 0.4; cursor: not-allowed; filter: grayscale(1); }
+
+/* --- WELCOME PLACEHOLDER --- */
+.overlay { display: none; position: fixed; inset: 0; background: rgba(2, 6, 23, 0.6); backdrop-filter: blur(4px); z-index: 900; }
+.overlay.show { display: block; }
+.welcome-placeholder { margin: auto; max-width: 520px; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); border-radius: 20px; padding: 36px 28px; text-align: center; color: var(--text-secondary); line-height: 1.6; }
+.welcome-placeholder .icon-wrapper { width: 48px; height: 48px; border-radius: 12px; background: rgba(99, 102, 241, 0.12); color: #818cf8; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-size: 20px; border: 1px solid rgba(99, 102, 241, 0.2); }
+.welcome-placeholder h2 { font-size: 20px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; letter-spacing: -0.01em; }
+.welcome-placeholder p { font-size: 13.5px; }
+
+/* PRINT STYLES */
+@media print {
+  body { background: white !important; color: black !important; overflow: visible !important; height: auto !important; }
+  .sidebar, .topbar, .input-container, .document-toolbar, .chat-msg.user { display: none !important; }
+  .main { margin-left: 0 !important; width: 100% !important; height: auto !important; }
+  .chat-area { padding: 0 !important; overflow: visible !important; }
+  .a4-wrapper { background: none !important; border: none !important; padding: 0 !important; gap: 0 !important; }
+  .a4-paper { box-shadow: none !important; border: none !important; page-break-after: always !important; padding: 0 !important; margin: 0 !important; }
+}
+
+@media(max-width: 900px) {
+  .sidebar { transform: translateX(-100%); }
+  .sidebar.open { transform: translateX(0); }
+  .main { width: 100%; margin-left: 0; }
+  .a4-paper { padding: 40px 28px; min-height: auto; }
+  .a4-wrapper { padding: 12px 6px; }
+  .topbar { padding: 0 16px; }
+  .input-container { padding: 12px 16px 18px; }
+}
 </style>
 </head>
 <body>
-<header>
-<h1>Tempaper</h1>
-<div>
-<button id="printBtn" style="background:white;color:#111;display:none" onclick="window.print()">Print / Save PDF</button>
+
+<div class="overlay" id="overlay"></div>
+
+<!-- SIDEBAR -->
+<div class="sidebar" id="sidebar">
+  <div class="logo">
+    <div class="logo-icon">T</div>
+    Tempaper
+  </div>
+  
+  <button class="btn-primary-action" id="newChatBtn">
+    <span>+</span> New Paper Workspace
+  </button>
+
+  <div class="menu-section-label">Workspace History</div>
+  <div class="menu-item" id="historyToggle">
+    <div class="menu-left">Recent Papers</div>
+    <span id="historyArrow" style="font-size: 10px; opacity: 0.6;">❯</span>
+  </div>
+  <div class="submenu" id="historySubmenu">
+    <div class="submenu-item">Quantum Computing Review</div>
+    <div class="submenu-item">Ethics in Modern AI</div>
+  </div>
+
+  <div class="sidebar-bottom">
+    <div class="profile-card">
+      <div class="profile-avatar" id="profileAvatar">A</div>
+      <div class="profile-info">
+        <div class="name" id="profileName">Academic User</div>
+        <div class="email" id="profileEmail">researcher@tempaper.io</div>
+      </div>
+    </div>
+  </div>
 </div>
-</header>
 
-<div id="main">
-<textarea id="prompt" placeholder="Enter your term paper topic... e.g. The impact of AI on education in Africa"></textarea>
-<div id="controls">
-<button id="genBtn" onclick="generate()">Generate Paper</button>
-<span id="info"></span>
-</div>
+<!-- MAIN WORKSPACE -->
+<div class="main">
+  <div class="topbar">
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <button class="icon-btn" id="navToggle" aria-label="Toggle Sidebar">☰</button>
+      <div class="topbar-title">
+        Academic Document Suite
+        <span class="topbar-badge">v2.4 Pro</span>
+      </div>
+    </div>
+    <div style="position: relative;">
+      <button class="icon-btn" id="dotsBtn" aria-label="Options">⋯</button>
+      <div class="dropdown-menu" id="dotsMenu">
+        <div class="dropdown-item" id="menuNewChat"><span>📄</span> New Workspace</div>
+        <div class="dropdown-item" onclick="window.print()"><span>🖨️</span> Print / Save as PDF</div>
+      </div>
+    </div>
+  </div>
 
-<div class="dots-loader" id="loader"><span></span><span></span><span></span></div>
+  <!-- CHAT / CANVAS AREA -->
+  <div class="chat-area" id="chatArea">
+    <div class="welcome-placeholder" id="welcomeMsg">
+      <div class="icon-wrapper">🎓</div>
+      <h2>Academic Paper Generator</h2>
+      <p>Enter your topic, thesis statement, or prompt below to generate an academic paper organized in standard A4 format.</p>
+    </div>
+  </div>
 
-<div id="paper"></div>
+  <!-- INPUT AREA -->
+  <div class="input-container">
+    <div class="input-bar">
+      <textarea class="input" id="promptInput" rows="1" placeholder="Specify paper title or academic topic..."></textarea>
+      <button class="btn-send" id="sendBtn" title="Generate Paper">➤</button>
+    </div>
+  </div>
 </div>
 
 <script>
-const API = "https://term-paper-n4kl.onrender.com"; // <-- CHANGE THIS TO YOUR RENDER URL
+const API_URL = "https://term-paper-n4kl.onrender.com";
+let latestResultRaw = "";
 
-function markdownToBlocks(md){
-    const lines = md.split('\n');
-    let blocks = [];
-    let inUl = false, inOl = false;
-    const inline = (t)=>{
-        return t.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
-                .replace(/\*(.*?)\*/g,'<em>$1</em>')
-                .replace(/`(.*?)`/g,'<code>$1</code>');
-    };
-    for(let line of lines){
-        let s = line.trim();
-        if(!s){
-            if(inUl){blocks.push('</ul>'); inUl=false}
-            if(inOl){blocks.push('</ol>'); inOl=false}
-            continue;
-        }
-        if(s.startsWith('# ')){
-            if(inUl){blocks.push('</ul>'); inUl=false}
-            if(inOl){blocks.push('</ol>'); inOl=false}
-            blocks.push(`<h1>${inline(s.slice(2))}</h1>`);
-        } else if(s.startsWith('## ')){
-            if(inUl){blocks.push('</ul>'); inUl=false}
-            if(inOl){blocks.push('</ol>'); inOl=false}
-            blocks.push(`<h2>${inline(s.slice(3))}</h2>`);
-        } else if(s.startsWith('### ')){
-            if(inUl){blocks.push('</ul>'); inUl=false}
-            if(inOl){blocks.push('</ol>'); inOl=false}
-            blocks.push(`<h3>${inline(s.slice(4))}</h3>`);
-        } else if(/^[-*]\s+/.test(s)){
-            if(inOl){blocks.push('</ol>'); inOl=false}
-            if(!inUl){blocks.push('<ul>'); inUl=true}
-            blocks.push(`<li>${inline(s.replace(/^[-*]\s+/,''))}</li>`);
-        } else if(/^\d+\.\s+/.test(s)){
-            if(inUl){blocks.push('</ul>'); inUl=false}
-            if(!inOl){blocks.push('<ol>'); inOl=true}
-            blocks.push(`<li>${inline(s.replace(/^\d+\.\s+/ ,''))}</li>`);
-        } else {
-            if(inUl){blocks.push('</ul>'); inUl=false}
-            if(inOl){blocks.push('</ol>'); inOl=false}
-            blocks.push(`<p>${inline(s)}</p>`);
-        }
+// Auto-expand Textarea
+const promptInput = document.getElementById('promptInput');
+promptInput.addEventListener('input', function() {
+  this.style.height = 'auto';
+  this.style.height = (this.scrollHeight) + 'px';
+});
+
+// Markdown -> Structured HTML Blocks Transformer
+function markdownToBlocks(md) {
+  const lines = md.split('\n');
+  let blocks = []; 
+  let inUl = false, inOl = false;
+  
+  const inline = (t) => t
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/`(.*?)`/g, '<code>$1</code>');
+
+  for (let line of lines) {
+    let s = line.trim();
+    if (!s) { 
+      if (inUl) { blocks.push('</ul>'); inUl = false; }
+      if (inOl) { blocks.push('</ol>'); inOl = false; }
+      continue; 
     }
-    if(inUl) blocks.push('</ul>');
-    if(inOl) blocks.push('</ol>');
-    return blocks;
+    
+    if (s.startsWith('# ')) {
+      if (inUl) { blocks.push('</ul>'); inUl = false; }
+      if (inOl) { blocks.push('</ol>'); inOl = false; }
+      blocks.push(`<h1>${inline(s.slice(2))}</h1>`);
+    } else if (s.startsWith('## ')) {
+      if (inUl) { blocks.push('</ul>'); inUl = false; }
+      if (inOl) { blocks.push('</ol>'); inOl = false; }
+      blocks.push(`<h2>${inline(s.slice(3))}</h2>`);
+    } else if (s.startsWith('### ')) {
+      if (inUl) { blocks.push('</ul>'); inUl = false; }
+      if (inOl) { blocks.push('</ol>'); inOl = false; }
+      blocks.push(`<h3>${inline(s.slice(4))}</h3>`);
+    } else if (/^[-*]\s+/.test(s)) {
+      if (inOl) { blocks.push('</ol>'); inOl = false; }
+      if (!inUl) { blocks.push('<ul>'); inUl = true; }
+      blocks.push(`<li>${inline(s.replace(/^[-*]\s+/, ''))}</li>`);
+    } else if (/^\d+\.\s+/.test(s)) {
+      if (inUl) { blocks.push('</ul>'); inUl = false; }
+      if (!inOl) { blocks.push('<ol>'); inOl = true; }
+      blocks.push(`<li>${inline(s.replace(/^\d+\.\s+/, ''))}</li>`);
+    } else {
+      if (inUl) { blocks.push('</ul>'); inUl = false; }
+      if (inOl) { blocks.push('</ol>'); inOl = false; }
+      blocks.push(`<p>${inline(s)}</p>`);
+    }
+  }
+  if (inUl) blocks.push('</ul>'); 
+  if (inOl) blocks.push('</ol>');
+  return blocks;
 }
 
-function blocksToA4Pages(blocks){
-    let pages = [];
-    let cur = "";
-    for(let b of blocks){
-        if((cur.length + b.length) > 3500 && cur){
-            pages.push(cur);
-            cur = b;
-        } else {
-            cur += b + "\n";
-        }
+// Blocks -> Paginated A4 Structural Container
+function blocksToA4Container(blocks, rawText) {
+  let pages = []; 
+  let currentPageHtml = "";
+  
+  // Splitting page content approximately based on spatial char limits
+  for (let block of blocks) {
+    if ((currentPageHtml.length + block.length) > 2800 && currentPageHtml) { 
+      pages.push(currentPageHtml); 
+      currentPageHtml = block + "\n"; 
+    } else {
+      currentPageHtml += block + "\n";
     }
-    if(cur) pages.push(cur);
-    
-    let html = `<div class="tempaper-wrapper">`;
-    pages.forEach((content,i)=>{
-        html += `<div class="a4-page"><div>${content}</div><div class="page-number">Page ${i+1} of ${pages.length}</div></div>`;
+  }
+  if (currentPageHtml) pages.push(currentPageHtml);
+
+  const wordCount = rawText.trim() ? rawText.trim().split(/\s+/).length : 0;
+  const charCount = rawText.length;
+  const pageCount = pages.length;
+
+  let pagesHtml = `<div class="a4-wrapper">`;
+  pages.forEach((content, idx) => {
+    pagesHtml += `
+      <div class="a4-paper">
+        <div class="a4-content">${content}</div>
+        <div class="a4-footer">
+          <span>Tempaper Academic Engine</span>
+          <span>Page ${idx + 1} of ${pageCount}</span>
+        </div>
+      </div>`;
+  });
+  pagesHtml += `</div>`;
+
+  return `
+    <div class="document-container">
+      <div class="document-toolbar">
+        <div class="doc-stats">
+          <span><strong>${pageCount}</strong> Page${pageCount > 1 ? 's' : ''}</span>
+          <span>•</span>
+          <span><strong>${wordCount}</strong> Words</span>
+          <span>•</span>
+          <span><strong>${charCount}</strong> Characters</span>
+        </div>
+        <div class="doc-actions">
+          <button class="btn-doc-action" onclick="copyRawMarkdown()">Copy Raw</button>
+          <button class="btn-doc-action" onclick="window.print()">Print / PDF</button>
+        </div>
+      </div>
+      ${pagesHtml}
+    </div>`;
+}
+
+function addMessage(role, data) {
+  const chatArea = document.getElementById('chatArea');
+  const welcomeMsg = document.getElementById('welcomeMsg'); 
+  if (welcomeMsg) welcomeMsg.remove();
+
+  const msgContainer = document.createElement('div'); 
+  msgContainer.className = 'chat-msg';
+
+  if (role === 'user') { 
+    msgContainer.classList.add('user'); 
+    msgContainer.innerText = data; 
+  } else if (role === 'paper') { 
+    msgContainer.innerHTML = data; 
+  } else if (role === 'loader') {
+    msgContainer.innerHTML = `
+      <div class="dot-loader show" id="tempLoader">
+        <div class="dots"><span></span><span></span><span></span></div>
+        <div class="label">Synthesizing paper and formatting layout...</div>
+      </div>`;
+  }
+  
+  chatArea.appendChild(msgContainer); 
+  chatArea.scrollTop = chatArea.scrollHeight;
+  return msgContainer;
+}
+
+async function generatePaper() {
+  const input = document.getElementById('promptInput');
+  const sendBtn = document.getElementById('sendBtn');
+  const prompt = input.value.trim(); 
+  if (!prompt) return;
+
+  sendBtn.disabled = true;
+  addMessage('user', prompt);
+  const loaderEl = addMessage('loader', '');
+  
+  input.value = '';
+  input.style.height = 'auto';
+
+  try {
+    const response = await fetch(`${API_URL}/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt })
     });
-    html += `</div>`;
-    return {html, count: pages.length};
+    
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Server processing error.');
+    
+    latestResultRaw = data.result || '';
+    const blocks = markdownToBlocks(latestResultRaw);
+    const documentHtml = blocksToA4Container(blocks, latestResultRaw);
+    
+    loaderEl.remove();
+    addMessage('paper', documentHtml);
+
+  } catch (error) {
+    loaderEl.remove();
+    addMessage('paper', `
+      <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: #f87171; padding: 16px 20px; border-radius: 10px; font-size: 14px;">
+        <strong>Generation Error:</strong> ${error.message}
+      </div>`);
+  } finally {
+    sendBtn.disabled = false;
+  }
 }
 
-async function generate(){
-    const prompt = document.getElementById('prompt').value.trim();
-    if(!prompt) return alert('Enter a topic');
-    
-    const btn = document.getElementById('genBtn');
-    const loader = document.getElementById('loader');
-    const paperDiv = document.getElementById('paper');
-    const info = document.getElementById('info');
-    
-    btn.disabled = true;
-    loader.classList.add('active');
-    paperDiv.innerHTML = '';
-    info.textContent = '';
-    document.getElementById('printBtn').style.display='none';
-
-    try{
-        const res = await fetch(`${API}/generate`,{
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({prompt})
-        });
-        const data = await res.json();
-        if(!res.ok) throw new Error(data.error || 'Failed');
-
-        // If your backend already sends result_html (from previous version), use it
-        if(data.result_html){
-            paperDiv.innerHTML = data.result_html;
-            info.textContent = `${data.page_count} A4 pages generated`;
-        } else {
-            // Frontend A4 conversion - works with old backend too
-            const raw = data.result || data.text || '';
-            const blocks = markdownToBlocks(raw);
-            const {html, count} = blocksToA4Pages(blocks);
-            paperDiv.innerHTML = html;
-            info.textContent = `${count} A4 pages • ${raw.split(' ').length} words`;
-        }
-        document.getElementById('printBtn').style.display='inline-block';
-        
-    }catch(e){
-        alert(e.message);
-        info.textContent = e.message;
-    }finally{
-        btn.disabled = false;
-        loader.classList.remove('active');
-    }
+async function copyRawMarkdown() {
+  if (!latestResultRaw) return;
+  await navigator.clipboard.writeText(latestResultRaw);
+  alert("Paper markdown copied to clipboard.");
 }
+
+// Event Listeners
+document.getElementById('sendBtn').onclick = generatePaper;
+promptInput.addEventListener('keydown', e => { 
+  if (e.key === 'Enter' && !e.shiftKey) { 
+    e.preventDefault(); 
+    generatePaper(); 
+  } 
+});
+
+document.getElementById('navToggle').onclick = () => { 
+  document.getElementById('sidebar').classList.toggle('open'); 
+  document.getElementById('overlay').classList.toggle('show'); 
+};
+
+document.getElementById('overlay').onclick = () => { 
+  document.getElementById('sidebar').classList.remove('open'); 
+  document.getElementById('overlay').classList.remove('show'); 
+};
+
+document.getElementById('dotsBtn').onclick = (e) => { 
+  e.stopPropagation(); 
+  document.getElementById('dotsMenu').classList.toggle('show'); 
+};
+
+document.addEventListener('click', () => { 
+  document.getElementById('dotsMenu').classList.remove('show'); 
+});
+
+document.getElementById('newChatBtn').onclick = () => { 
+  document.getElementById('chatArea').innerHTML = `
+    <div class="welcome-placeholder" id="welcomeMsg">
+      <div class="icon-wrapper">🎓</div>
+      <h2>Academic Paper Generator</h2>
+      <p>Enter your topic, thesis statement, or prompt below to generate an academic paper organized in standard A4 format.</p>
+    </div>`; 
+};
+
+document.getElementById('menuNewChat').onclick = () => { 
+  document.getElementById('newChatBtn').click(); 
+  document.getElementById('dotsMenu').classList.remove('show'); 
+};
+
+document.getElementById('historyToggle').onclick = () => { 
+  document.getElementById('historySubmenu').classList.toggle('show'); 
+};
 </script>
 </body>
 </html>
