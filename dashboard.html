@@ -470,6 +470,22 @@ svg { display: block; }
   pointer-events: none;
 }
 
+.page-number {
+  position: absolute;
+  top: 18px;
+  right: 24px;
+  background: rgba(15, 23, 42, 0.04);
+  color: var(--paper-text);
+  font-family: 'Inter', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  box-shadow: 0 6px 12px rgba(2, 6, 23, 0.06);
+  z-index: 3;
+}
+
 .a4-content {
   position: relative;
   z-index: 1;
@@ -913,6 +929,12 @@ svg { display: block; }
   .main { margin-left: 0; width: 100%; }
   .chat-area { padding: 0; overflow: visible; }
   .a4-page { box-shadow: none; border: none; margin: 0; padding: 70px 80px; }
+  .page-number {
+    background: transparent;
+    color: #6b7280;
+    border: none;
+    box-shadow: none;
+  }
 }
 </style>
 </head>
@@ -1052,38 +1074,25 @@ let latestResultText = "";
 function markdownToHTML(markdown) {
   let html = markdown;
 
-  // Escape HTML special chars
   html = html.replace(/&/g, "&amp;")
              .replace(/</g, "&lt;")
              .replace(/>/g, "&gt;");
 
-  // Headers
   html = html.replace(/^### (.*?)$/gm, "<h3>$1</h3>");
   html = html.replace(/^## (.*?)$/gm, "<h2>$1</h2>");
   html = html.replace(/^# (.*?)$/gm, "<h1>$1</h1>");
 
-  // Bold
   html = html.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-
-  // Italic
   html = html.replace(/\*(.*?)\*/g, "<em>$1</em>");
-
-  // Code
   html = html.replace(/`(.*?)`/g, "<code>$1</code>");
-
-  // Block quotes
   html = html.replace(/^> (.*?)$/gm, "<blockquote>$1</blockquote>");
 
-  // Lists
   html = html.replace(/^\* (.*?)$/gm, "<li>$1</li>");
   html = html.replace(/^- (.*?)$/gm, "<li>$1</li>");
   html = html.replace(/^\d+\. (.*?)$/gm, "<li>$1</li>");
-  
-  // Wrap consecutive li tags in ul/ol
-  html = html.replace(/(<li>.*?<\/li>)/s, "<ul>$1</ul>");
-  html = html.replace(/<\/ul>\s*<ul>/g, "");
 
-  // Paragraphs
+  html = html.replace(/(<li>.*?<\/li>)/gs, "<ul>$1</ul>");
+
   html = html.split("\n\n").map(para => {
     if (para.match(/^<[hul]/)) return para;
     return "<p>" + para + "</p>";
@@ -1092,45 +1101,53 @@ function markdownToHTML(markdown) {
   return html;
 }
 
-// Paginate HTML content into A4 pages
+// Better page splitting
 function paginateContent(html) {
   const tempDiv = document.createElement("div");
   tempDiv.innerHTML = html;
-  tempDiv.style.cssText = "position: absolute; top: -9999px; width: 794px; font-family: 'Merriweather', serif; line-height: 1.82; font-size: 15px; padding: 70px 80px; color: #1e293b;";
+  tempDiv.style.cssText = "position: absolute; top: -9999px; left: -9999px; width: 794px; font-family: 'Merriweather', serif; line-height: 1.82; font-size: 15px; padding: 70px 80px; color: #1e293b;";
   document.body.appendChild(tempDiv);
 
+  const blocks = Array.from(tempDiv.children);
   const pages = [];
-  let currentPageHTML = "";
+  let currentHTML = "";
   let currentHeight = 0;
-  const maxHeight = 1056 - 140; // A4 height minus padding
+  const maxHeight = 1056 - 140;
 
-  for (let element of tempDiv.children) {
-    const clone = element.cloneNode(true);
-    const tempPage = document.createElement("div");
-    tempPage.style.cssText = "font-family: 'Merriweather', serif; line-height: 1.82; font-size: 15px; padding: 0;";
-    tempPage.appendChild(clone);
+  const measureBlock = (markup) => {
+    const wrapper = document.createElement("div");
+    wrapper.style.cssText = "width:100%; padding:0; margin:0;";
+    wrapper.innerHTML = markup;
+    document.body.appendChild(wrapper);
+    const height = wrapper.scrollHeight;
+    document.body.removeChild(wrapper);
+    return height;
+  };
 
-    if (currentHeight + tempPage.scrollHeight > maxHeight && currentPageHTML) {
-      pages.push(currentPageHTML);
-      currentPageHTML = "";
-      currentHeight = 0;
+  for (const block of blocks) {
+    const markup = block.outerHTML;
+    const blockHeight = measureBlock(markup);
+
+    if (currentHTML && currentHeight + blockHeight > maxHeight) {
+      pages.push(currentHTML);
+      currentHTML = markup;
+      currentHeight = blockHeight;
+    } else {
+      currentHTML += markup;
+      currentHeight += blockHeight;
     }
-
-    currentPageHTML += clone.outerHTML;
-    currentHeight += tempPage.scrollHeight;
   }
 
-  if (currentPageHTML) {
-    pages.push(currentPageHTML);
-  }
+  if (currentHTML) pages.push(currentHTML);
 
   document.body.removeChild(tempDiv);
   return pages;
 }
 
 // Create A4 pages from content
-function createA4Pages(htmlContent, totalWords, totalPages) {
+function createA4Pages(htmlContent, totalWords, totalPagesHint) {
   const pages = paginateContent(htmlContent);
+  const totalPages = pages.length || 1;
 
   let pagesHTML = '<div class="document-stats">';
   pagesHTML += `<div><strong>${totalPages}</strong> Page${totalPages > 1 ? 's' : ''} • <strong>${totalWords}</strong> Words</div>`;
@@ -1142,10 +1159,11 @@ function createA4Pages(htmlContent, totalWords, totalPages) {
   pages.forEach((pageContent, idx) => {
     pagesHTML += `
       <div class="a4-page">
+        <div class="page-number">${idx + 1}</div>
         <div class="a4-content">${pageContent}</div>
         <div class="a4-footer">
           <span>Tempaper Academic Engine</span>
-          <span>Page ${idx + 1} of ${pages.length}</span>
+          <span>Page ${idx + 1} of ${totalPages}</span>
         </div>
       </div>
     `;
@@ -1480,10 +1498,7 @@ async function generatePaper() {
       const wordCount = data.word_count || data.result.split(/\s+/).length;
       const pageCount = data.page_count || Math.max(1, Math.ceil(wordCount / 250));
 
-      // Convert markdown to HTML
       const htmlContent = markdownToHTML(data.result);
-
-      // Create paginated A4 document
       const paginatedHTML = createA4Pages(htmlContent, wordCount, pageCount);
 
       removeLoadingMessage();
