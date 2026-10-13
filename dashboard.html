@@ -30,6 +30,7 @@
   --shadow-card: 0 10px 22px rgba(15, 23, 42, 0.18);
 }
 
+/* Light theme vars omitted for brevity (unchanged) */
 [data-theme="light"] {
   --bg: #f1f5f9;
   --sidebar: #ffffff;
@@ -78,6 +79,7 @@ svg { display: block; }
 }
 ::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.42); }
 
+/* --- Sidebar, topbar, and UI unchanged (kept as-is) --- */
 .sidebar {
   position: fixed;
   inset: 0 auto 0 0;
@@ -412,7 +414,20 @@ svg { display: block; }
   letter-spacing: 0.5px;
 }
 
-/* A4 PAPER STYLES */
+/* --- A4 PAPER STYLES (REVISED) --- */
+
+/* We use physical units for A4 size and margins. */
+:root {
+  --a4-width: 210mm;
+  --a4-height: 297mm;
+  --a4-margin: 25.4mm; /* 1 inch margins as requested */
+  --a4-header-height: 10mm; /* reserved header area */
+  --a4-footer-height: 12mm; /* reserved footer area */
+  --a4-content-width: calc(var(--a4-width) - (var(--a4-margin) * 2));
+  --a4-content-height: calc(var(--a4-height) - (var(--a4-margin) * 2) - var(--a4-header-height) - var(--a4-footer-height));
+}
+
+/* Container that wraps pages; center pages in preview */
 .document-container {
   width: 100%;
   display: flex;
@@ -421,7 +436,7 @@ svg { display: block; }
 }
 
 .document-stats {
-  max-width: 860px;
+  max-width: calc(min(860px, var(--a4-content-width)));
   width: 100%;
   margin: 0 auto 12px;
   padding: 12px 16px;
@@ -436,155 +451,206 @@ svg { display: block; }
   font-weight: 500;
 }
 
+/* Pages container centers A4 pages and allows scrolling */
 .pages-container {
-  max-width: 860px;
   width: 100%;
-  margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
+  align-items: center;
+  padding-bottom: 12px;
 }
 
+/* Each A4 page uses exact mm dimensions */
 .a4-page {
-  position: relative;
-  width: 100%;
-  min-height: 1056px;
+  width: var(--a4-width);
+  height: var(--a4-height);
   background: var(--paper-bg);
   color: var(--paper-text);
-  padding: 70px 80px;
-  box-shadow: 0 22px 36px rgba(15, 23, 42, 0.18);
-  border-radius: 2px;
+  box-shadow: none; /* minimal for professional look; removed heavy shadows */
+  border-radius: 0;
   border: 1px solid rgba(15, 23, 42, 0.05);
-  font-family: 'Merriweather', Georgia, serif;
-  line-height: 1.82;
-  font-size: 15px;
-  word-wrap: break-word;
-  page-break-after: always;
-}
-
-.a4-page::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.02), transparent 20%, transparent 80%, rgba(15, 23, 42, 0.02));
-  pointer-events: none;
-}
-
-.page-number {
-  position: absolute;
-  top: 18px;
-  right: 24px;
-  background: rgba(15, 23, 42, 0.04);
-  color: var(--paper-text);
-  font-family: 'Inter', sans-serif;
-  font-weight: 700;
-  font-size: 13px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(15, 23, 42, 0.06);
-  box-shadow: 0 6px 12px rgba(2, 6, 23, 0.06);
-  z-index: 3;
-}
-
-.a4-content {
+  font-family: 'Times New Roman', Times, serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   position: relative;
-  z-index: 1;
+  overflow: hidden;
+  display: block;
 }
 
-.a4-footer {
+/* The physical printable area inside margins */
+.a4-inner {
   position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 20px 80px;
+  left: var(--a4-margin);
+  top: var(--a4-margin);
+  width: var(--a4-content-width);
+  height: calc(var(--a4-content-height) + var(--a4-header-height) + var(--a4-footer-height));
+  /* We separate header and footer with dedicated elements; content area is a child below */
+  box-sizing: border-box;
+}
+
+.a4-header {
+  height: var(--a4-header-height);
+  font-family: 'Inter', sans-serif;
+  font-size: 10pt; /* ~9-10pt */
+  color: #111827; /* dark professional text */
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  font-size: 11px;
-  color: #94a3b8;
-  font-family: 'Inter', sans-serif;
-  font-weight: 500;
-  border-top: 1px solid rgba(15, 23, 42, 0.05);
+  justify-content: flex-start;
+  padding-right: 6mm;
+  box-sizing: border-box;
+  padding-left: 0;
 }
 
-/* MARKDOWN STYLING */
-.a4-content h1 {
-  font-family: 'Inter', sans-serif;
-  font-size: 28px;
-  font-weight: 800;
-  margin: 0 0 24px 0;
-  color: #0f172a;
-  text-align: center;
-  border-bottom: 2px solid #e2e8f0;
-  padding-bottom: 16px;
-  letter-spacing: -0.02em;
-  line-height: 1.3;
+/* content area available for flowing text - exact height */
+.a4-body {
+  position: relative;
+  top: 0;
+  height: var(--a4-content-height);
+  overflow: hidden; /* content will be paginated by JS into multiple .a4-body blocks */
+  padding-right: 0;
+  box-sizing: border-box;
 }
 
-.a4-content h2 {
+/* The actual content area where text lives (inside .a4-body) */
+.a4-content {
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  /* Typography for academic paper */
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 12pt; /* exact 12 pt */
+  line-height: 1.5; /* approx 1.5 */
+  color: #111827;
+  word-wrap: break-word;
+  hyphens: auto;
+}
+
+/* Footer with only page number centered */
+.a4-footer {
+  height: var(--a4-footer-height);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-family: 'Inter', sans-serif;
-  font-size: 19px;
+  font-size: 10pt;
+  color: #111827;
+  position: absolute;
+  bottom: calc(var(--a4-margin) * -1 + var(--a4-footer-height) - var(--a4-footer-height)); /* visually placed within page bottom margin */
+  left: var(--a4-margin);
+  width: var(--a4-content-width);
+  box-sizing: border-box;
+}
+
+/* Ensure header and footer don't get justified */
+.a4-header, .a4-footer {
+  text-align: left;
+}
+
+/* Markdown heading styles: all headings 14pt bold, not larger than 14pt */
+.a4-content h1, .a4-content h2, .a4-content h3 {
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 14pt;
   font-weight: 700;
-  margin: 28px 0 14px 0;
-  color: #0f172a;
-  border-left: 4px solid var(--accent);
-  padding-left: 14px;
-  letter-spacing: -0.01em;
+  margin-top: 10pt;
+  margin-bottom: 6pt;
+  text-align: left;
 }
 
-.a4-content h3 {
-  font-family: 'Inter', sans-serif;
-  font-size: 16px;
-  font-weight: 700;
-  margin: 20px 0 10px 0;
-  color: #1e293b;
-  letter-spacing: -0.01em;
-}
-
+/* Paragraphs justified */
 .a4-content p {
-  margin-bottom: 14px;
+  margin-bottom: 8pt;
   text-align: justify;
-  color: #334155;
-  line-height: 1.82;
+  color: #111827;
+  text-indent: 18pt; /* optional paragraph indentation for academic feel */
 }
 
+/* Lists: keep consistent spacing and allow items to break across pages */
 .a4-content ul, .a4-content ol {
-  margin: 14px 0 14px 28px;
-  color: #334155;
+  margin: 0 0 8pt 18pt;
+  padding-left: 12pt;
+  color: #111827;
 }
 
 .a4-content li {
-  margin-bottom: 8px;
-  line-height: 1.7;
+  margin-bottom: 6pt;
+  line-height: 1.5;
+  orphans: 2;
+  widows: 2;
 }
 
-.a4-content strong {
-  font-weight: 700;
-  color: #0f172a;
-}
-
-.a4-content em {
-  font-style: italic;
-  color: #475569;
-}
-
-.a4-content code {
-  font-family: 'JetBrains Mono', monospace;
-  background: #f1f5f9;
-  padding: 3px 8px;
-  border-radius: 4px;
-  font-size: 13px;
-  color: #0f172a;
-}
-
+/* Blockquote styling */
 .a4-content blockquote {
-  border-left: 4px solid #cbd5e1;
-  padding-left: 14px;
-  margin: 14px 0;
-  color: #475569;
+  margin: 8pt 0;
+  padding-left: 12pt;
+  border-left: 3px solid #e5e7eb;
+  color: #374151;
   font-style: italic;
 }
 
+/* Code styling for print: smaller monospace */
+.a4-content code, .a4-content pre {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 10pt;
+  background: transparent;
+  padding: 2pt 4pt;
+  color: #0f172a;
+  border: 1px solid rgba(0,0,0,0.06);
+}
+
+/* Avoid decorative effects inside printed page */
+.a4-page { box-shadow: none; background: #ffffff; }
+
+/* Small helper to visually scale down pages on small screens while preserving mm-based layout */
+.pages-container .a4-page {
+  /* on-screen preview should be visible and may be scaled by CSS transform when container is narrow */
+  max-width: calc(min(95vw, var(--a4-width)));
+}
+
+/* Hide interactive controls in print and ensure only the document prints */
+@media print {
+  @page { size: A4 portrait; margin: 25.4mm; }
+  body { background: white; }
+  .sidebar, .topbar, .input-container, .chat-actions, .ai-fab, .ai-chat-window, .dropdown-menu, .overlay { display: none !important; }
+  .main { margin-left: 0; width: 100%; }
+  .chat-area { padding: 0; overflow: visible; }
+  .a4-page { box-shadow: none; border: none; margin: 0; page-break-after: always; }
+  .pages-container { gap: 0; }
+}
+
+/* Responsive adjustments for editor UI (unchanged except print) */
+@media (max-width: 900px) {
+  .sidebar {
+    transform: translateX(-100%);
+  }
+  .sidebar.open { transform: translateX(0); }
+  .main {
+    width: 100%;
+    margin-left: 0;
+  }
+  .nav-toggle { display: flex; }
+  .topbar { padding: 0 16px; }
+  .chat-area { padding: 16px; }
+  .a4-page { padding: 40px 24px; min-height: auto; }
+  .input-container { padding: 12px 16px 16px; }
+  .overlay.show { display: block; opacity: 1; }
+  .ai-chat-window {
+    width: min(86vw, 380px);
+    height: 500px;
+    right: 14px;
+    bottom: 84px;
+  }
+}
+
+@media (max-width: 520px) {
+  .topbar .heading { font-size: 14px; }
+  .welcome-placeholder { padding: 22px 18px; }
+  .input-hint { text-align: left; padding-right: 0; }
+}
+
+/* Other UI classes unchanged... */
 .chat-actions {
   max-width: 860px;
   width: 100%;
@@ -894,48 +960,6 @@ svg { display: block; }
   stroke: currentColor; fill: none; stroke-width: 2;
 }
 
-@media (max-width: 900px) {
-  .sidebar {
-    transform: translateX(-100%);
-  }
-  .sidebar.open { transform: translateX(0); }
-  .main {
-    width: 100%;
-    margin-left: 0;
-  }
-  .nav-toggle { display: flex; }
-  .topbar { padding: 0 16px; }
-  .chat-area { padding: 16px; }
-  .a4-page { padding: 40px 24px; min-height: auto; }
-  .input-container { padding: 12px 16px 16px; }
-  .overlay.show { display: block; opacity: 1; }
-  .ai-chat-window {
-    width: min(86vw, 380px);
-    height: 500px;
-    right: 14px;
-    bottom: 84px;
-  }
-}
-
-@media (max-width: 520px) {
-  .topbar .heading { font-size: 14px; }
-  .welcome-placeholder { padding: 22px 18px; }
-  .input-hint { text-align: left; padding-right: 0; }
-}
-
-@media print {
-  body { background: white; }
-  .sidebar, .topbar, .input-container, .chat-actions, .ai-fab, .ai-chat-window { display: none !important; }
-  .main { margin-left: 0; width: 100%; }
-  .chat-area { padding: 0; overflow: visible; }
-  .a4-page { box-shadow: none; border: none; margin: 0; padding: 70px 80px; }
-  .page-number {
-    background: transparent;
-    color: #6b7280;
-    border: none;
-    box-shadow: none;
-  }
-}
 </style>
 </head>
 <body>
@@ -1070,84 +1094,520 @@ let isRecording = false;
 let activeChatHistory = [];
 let latestResultText = "";
 
-// Markdown to HTML converter
+/*
+  markdownToHTML: Improved to
+  - escape HTML initially (already done)
+  - convert heading/inline styles
+  - convert lists correctly grouping consecutive li items into ul/ol
+  - preserve paragraphs and blank lines
+*/
 function markdownToHTML(markdown) {
-  let html = markdown;
+  if (!markdown) return "";
 
-  html = html.replace(/&/g, "&amp;")
-             .replace(/</g, "&lt;")
-             .replace(/>/g, "&gt;");
+  // Escape HTML-first
+  let html = markdown.replace(/&/g, "&amp;")
+                     .replace(/</g, "&lt;")
+                     .replace(/>/g, "&gt;");
 
-  html = html.replace(/^### (.*?)$/gm, "<h3>$1</h3>");
-  html = html.replace(/^## (.*?)$/gm, "<h2>$1</h2>");
-  html = html.replace(/^# (.*?)$/gm, "<h1>$1</h1>");
+  // Split into lines for better control
+  const lines = html.split(/\r?\n/);
 
-  html = html.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-  html = html.replace(/\*(.*?)\*/g, "<em>$1</em>");
-  html = html.replace(/`(.*?)`/g, "<code>$1</code>");
-  html = html.replace(/^> (.*?)$/gm, "<blockquote>$1</blockquote>");
+  const out = [];
+  let listBuffer = null; // {type: 'ul' or 'ol', items: [...]}
 
-  html = html.replace(/^\* (.*?)$/gm, "<li>$1</li>");
-  html = html.replace(/^- (.*?)$/gm, "<li>$1</li>");
-  html = html.replace(/^\d+\. (.*?)$/gm, "<li>$1</li>");
-
-  html = html.replace(/(<li>.*?<\/li>)/gs, "<ul>$1</ul>");
-
-  html = html.split("\n\n").map(para => {
-    if (para.match(/^<[hul]/)) return para;
-    return "<p>" + para + "</p>";
-  }).join("");
-
-  return html;
-}
-
-// Better page splitting
-function paginateContent(html) {
-  const tempDiv = document.createElement("div");
-  tempDiv.innerHTML = html;
-  tempDiv.style.cssText = "position: absolute; top: -9999px; left: -9999px; width: 794px; font-family: 'Merriweather', serif; line-height: 1.82; font-size: 15px; padding: 70px 80px; color: #1e293b;";
-  document.body.appendChild(tempDiv);
-
-  const blocks = Array.from(tempDiv.children);
-  const pages = [];
-  let currentHTML = "";
-  let currentHeight = 0;
-  const maxHeight = 1056 - 140;
-
-  const measureBlock = (markup) => {
-    const wrapper = document.createElement("div");
-    wrapper.style.cssText = "width:100%; padding:0; margin:0;";
-    wrapper.innerHTML = markup;
-    document.body.appendChild(wrapper);
-    const height = wrapper.scrollHeight;
-    document.body.removeChild(wrapper);
-    return height;
-  };
-
-  for (const block of blocks) {
-    const markup = block.outerHTML;
-    const blockHeight = measureBlock(markup);
-
-    if (currentHTML && currentHeight + blockHeight > maxHeight) {
-      pages.push(currentHTML);
-      currentHTML = markup;
-      currentHeight = blockHeight;
-    } else {
-      currentHTML += markup;
-      currentHeight += blockHeight;
-    }
+  function flushList() {
+    if (!listBuffer) return;
+    const tag = listBuffer.type;
+    out.push(`<${tag}>`);
+    listBuffer.items.forEach(li => out.push(`<li>${li}</li>`));
+    out.push(`</${tag}>`);
+    listBuffer = null;
   }
 
-  if (currentHTML) pages.push(currentHTML);
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i];
 
-  document.body.removeChild(tempDiv);
-  return pages;
+    // Headings
+    if (/^###\s+(.*)/.test(line)) {
+      flushList();
+      const m = line.match(/^###\s+(.*)/);
+      out.push(`<h3>${m[1].trim()}</h3>`);
+      continue;
+    }
+    if (/^##\s+(.*)/.test(line)) {
+      flushList();
+      const m = line.match(/^##\s+(.*)/);
+      out.push(`<h2>${m[1].trim()}</h2>`);
+      continue;
+    }
+    if (/^#\s+(.*)/.test(line)) {
+      flushList();
+      const m = line.match(/^#\s+(.*)/);
+      out.push(`<h1>${m[1].trim()}</h1>`);
+      continue;
+    }
+
+    // Blockquote
+    if (/^>\s?(.*)/.test(line)) {
+      flushList();
+      const m = line.match(/^>\s?(.*)/);
+      out.push(`<blockquote>${m[1].trim()}</blockquote>`);
+      continue;
+    }
+
+    // Ordered list
+    if (/^\d+\.\s+(.*)/.test(line)) {
+      const m = line.match(/^\d+\.\s+(.*)/);
+      if (!listBuffer) listBuffer = { type: 'ol', items: [] };
+      if (listBuffer.type !== 'ol') { flushList(); listBuffer = { type: 'ol', items: [] }; }
+      listBuffer.items.push(m[1].trim());
+      continue;
+    }
+
+    // Unordered list
+    if (/^[\*\-\+]\s+(.*)/.test(line)) {
+      const m = line.match(/^[\*\-\+]\s+(.*)/);
+      if (!listBuffer) listBuffer = { type: 'ul', items: [] };
+      if (listBuffer.type !== 'ul') { flushList(); listBuffer = { type: 'ul', items: [] }; }
+      listBuffer.items.push(m[1].trim());
+      continue;
+    }
+
+    // Empty line -> paragraph break
+    if (/^\s*$/.test(line)) {
+      flushList();
+      out.push('');
+      continue;
+    }
+
+    // Inline styles for the line
+    let processed = line
+      .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\*(.*?)\*/g, "<em>$1</em>")
+      .replace(/`(.*?)`/g, "<code>$1</code>");
+
+    out.push(processed);
+  }
+
+  flushList();
+
+  // Join into paragraphs: group consecutive non-HTML-block lines into <p>
+  const blocks = [];
+  let paraBuffer = [];
+
+  function flushPara() {
+    if (!paraBuffer.length) return;
+    const text = paraBuffer.join("\n").trim();
+    if (text) blocks.push(`<p>${text}</p>`);
+    paraBuffer = [];
+  }
+
+  for (const token of out) {
+    if (!token) {
+      flushPara();
+      continue;
+    }
+    if (/^<(h1|h2|h3|ul|ol|blockquote|pre|code)/i.test(token) || /^<\/(ul|ol|h1|h2|h3|blockquote|pre|code)>/i.test(token) || /^<li>/.test(token)) {
+      flushPara();
+      blocks.push(token);
+      continue;
+    }
+    // list tags or li tags already added; treat them as blocks
+    if (/^<(ul|ol|li)/i.test(token) || /^<\/(ul|ol|li)>/i.test(token)) {
+      flushPara();
+      blocks.push(token);
+      continue;
+    }
+    // otherwise accumulate for a paragraph
+    paraBuffer.push(token);
+  }
+  flushPara();
+
+  // The blocks array may include <li> ... < /li> and <ul> tags in proper order.
+  // Join blocks and return
+  return blocks.join("\n");
 }
 
-// Create A4 pages from content
+/*
+  paginateContent(html):
+  - Receives sanitized HTML (from markdownToHTML)
+  - Uses a realistic measurement container that uses the exact final styles:
+    * width = content width (A4 width - 2*margin) in mm
+    * font family, font-size, line-height as in .a4-content
+    * header and footer reserved space
+  - Iteratively places block-level elements into pages, measuring overflow via clientHeight/scrollHeight
+  - Splits paragraphs when needed by words (keeps semantics); splits lists by moving remaining <li> to next page
+  - Tries to keep headings with the following block if possible
+*/
+function paginateContent(html) {
+  // Create a measurement wrapper off-screen using the same CSS as .a4-page/.a4-content
+  const measureWrapper = document.createElement('div');
+  measureWrapper.style.position = 'absolute';
+  measureWrapper.style.left = '-99999px';
+  measureWrapper.style.top = '-99999px';
+  measureWrapper.style.width = 'auto';
+  measureWrapper.style.height = 'auto';
+  measureWrapper.style.overflow = 'visible';
+  document.body.appendChild(measureWrapper);
+
+  // Build a fake page that matches .a4-inner and .a4-content dimensions/styles.
+  const measurePage = document.createElement('div');
+  measurePage.style.width = 'var(--a4-content-width)'; // uses CSS mm variable
+  measurePage.style.boxSizing = 'border-box';
+  measurePage.style.padding = '0';
+  measurePage.style.fontFamily = "Times New Roman, Times, serif";
+  measurePage.style.fontSize = '12pt';
+  measurePage.style.lineHeight = '1.5';
+  measurePage.style.color = '#111827';
+  measurePage.style.hyphens = 'auto';
+  measurePage.style.wordWrap = 'break-word';
+
+  const measureHeader = document.createElement('div');
+  measureHeader.style.height = 'var(--a4-header-height)';
+  measureHeader.style.boxSizing = 'border-box';
+
+  const measureBody = document.createElement('div');
+  measureBody.style.height = 'var(--a4-content-height)';
+  measureBody.style.overflow = 'hidden';
+  measureBody.style.boxSizing = 'border-box';
+  measureBody.style.width = '100%';
+  measureBody.style.padding = '0';
+  measureBody.style.margin = '0';
+
+  const measureContent = document.createElement('div');
+  measureContent.style.width = '100%';
+  measureContent.style.boxSizing = 'border-box';
+  measureContent.style.padding = '0';
+  measureContent.style.margin = '0';
+  // content uses same font settings
+  measureContent.style.fontFamily = "Times New Roman, Times, serif";
+  measureContent.style.fontSize = '12pt';
+  measureContent.style.lineHeight = '1.5';
+  measureContent.style.width = '100%';
+  measureContent.style.wordWrap = 'break-word';
+  measureContent.style.hyphens = 'auto';
+
+  measureBody.appendChild(measureContent);
+  measurePage.appendChild(measureHeader);
+  measurePage.appendChild(measureBody);
+  measureWrapper.appendChild(measurePage);
+
+  // Insert the HTML into a temporary container to get block elements
+  const temp = document.createElement('div');
+  temp.innerHTML = html;
+  // Normalize blocks: we want only block-level elements in sequence
+  const blocks = Array.from(temp.childNodes).map(node => node.cloneNode(true));
+
+  const pages = [];
+  let currentPageBlocks = [];
+  // Start with empty measureContent
+  measureContent.innerHTML = '';
+
+  // Helper: check if current measureContent fits within measureBody clientHeight
+  function fits() {
+    // after DOM changes, force reflow
+    return measureContent.scrollHeight <= measureBody.clientHeight + 0.5;
+  }
+
+  // Helper to append an element to measureContent and test fit
+  function testAppend(node) {
+    measureContent.appendChild(node);
+    const ok = fits();
+    if (!ok) {
+      measureContent.removeChild(node);
+    }
+    return ok;
+  }
+
+  // Helper to clone node for appending into page markup
+  function cloneNodeForOutput(node) {
+    return node.cloneNode(true);
+  }
+
+  // Main loop over blocks
+  for (let i = 0; i < blocks.length; i++) {
+    const node = blocks[i];
+
+    // If it's a text node (rare due to earlier paragraph wrapping), normalize as <p>
+    if (node.nodeType === Node.TEXT_NODE) {
+      if (!node.textContent.trim()) continue;
+      const p = document.createElement('p');
+      p.innerHTML = node.textContent.trim();
+      node = p;
+    }
+
+    const nodeName = (node.nodeName || '').toLowerCase();
+
+    // Headings handling: try to keep heading with the following block
+    if (/^h[1-6]$/.test(nodeName)) {
+      // Try to test heading + next block
+      const headingClone = node.cloneNode(true);
+      // We'll attempt to add next block too if exists
+      const nextNode = blocks[i+1] ? blocks[i+1].cloneNode(true) : null;
+
+      // If heading alone doesn't fit on current page, start a new page
+      if (!testAppend(headingClone.cloneNode(true))) {
+        // push current page if it has content
+        if (measureContent.childNodes.length > 0) {
+          pages.push(Array.from(measureContent.childNodes).map(n => n.cloneNode(true)));
+        } else {
+          // heading itself too big for an empty page's content area -> allow it (rare)
+          // we still append to empty page but it will overflow in real printing; as fallback we append
+          // To handle extreme headings, we allow it:
+          measureContent.appendChild(headingClone.cloneNode(true));
+        }
+        // reset measure
+        measureContent.innerHTML = '';
+      } else {
+        // Heading fits on current page; keep it there for now
+      }
+
+      // Now attempt to add next block together with heading to keep them together when possible
+      if (nextNode) {
+        // snapshot current measure for rollback
+        const snapshotHTML = measureContent.innerHTML;
+        if (!testAppend(nextNode.cloneNode(true))) {
+          // If next doesn't fit and heading is alone on this page (i.e., heading was just added),
+          // it's preferable to move heading to the next page (keep heading with its paragraph),
+          // unless heading is already part of previous content.
+          // Determine if heading is the only thing on this page
+          const onlyHeadingNow = (measureContent.childNodes.length === 1 &&
+                                  measureContent.firstChild.nodeName.toLowerCase().startsWith('h'));
+          if (onlyHeadingNow) {
+            // Remove heading from current page and start a new page with heading
+            measureContent.innerHTML = '';
+            pages.push([]); // push empty page representation (we will capture actual content below)
+            // put heading into new empty measure
+            measureContent.appendChild(headingClone.cloneNode(true));
+            // leave nextNode for next iteration (so it will be handled next loop)
+          } else {
+            // heading stays on this page and next block moves to next page (no action)
+            measureContent.innerHTML = snapshotHTML;
+            // We already had heading and couldn't append next; leave heading where it is
+          }
+        } else {
+          // Both heading and next fit; keep both. We consumed nextNode effectively, so skip it in main loop
+          i++; // skip nextNode because we've appended it
+        }
+      }
+      // Save heading and possibly next if appended as part of measureContent; continue to next iteration
+      continue;
+    }
+
+    // Lists: handle by items so that items don't get split, but can flow across pages
+    if (nodeName === 'ul' || nodeName === 'ol') {
+      const tag = nodeName;
+      const items = Array.from(node.children).filter(ch => ch.nodeName.toLowerCase() === 'li');
+
+      if (items.length === 0) continue;
+
+      // Create an output list and attempt to add items one by one
+      let tempList = document.createElement(tag);
+      // ensure list inherits fonts
+      tempList.style.margin = null;
+      tempList.style.padding = null;
+
+      for (let liIdx = 0; liIdx < items.length; liIdx++) {
+        const li = items[liIdx].cloneNode(true);
+
+        // Append li to tempList and test
+        tempList.appendChild(li.cloneNode(true));
+        // For testing, append a cloned list wrapper (so that measureContent only sees the list)
+        // But to avoid removing existing content, we clone current content
+        const testList = tempList.cloneNode(true);
+        // Create a wrapper to append to measureContent temporarily
+        const wrapper = document.createElement('div');
+        wrapper.appendChild(testList);
+
+        if (testAppend(wrapper)) {
+          // It fits; commit by appending the actual li to measureContent (we appended wrapper earlier removed by testAppend)
+          // To avoid duplication, rebuild a proper list in measureContent by either appending to last list or creating a new list
+          // Check if last appended element in measureContent is a list of same type
+          let last = measureContent.lastElementChild;
+          if (last && last.nodeName.toLowerCase() === tag) {
+            last.appendChild(li.cloneNode(true));
+          } else {
+            const newList = document.createElement(tag);
+            newList.appendChild(li.cloneNode(true));
+            measureContent.appendChild(newList);
+          }
+        } else {
+          // Doesn't fit: we need to start a new page if measureContent already has content
+          if (measureContent.childNodes.length === 0) {
+            // The single item is too large for an empty page's content area
+            // Allow the item to be added (it will overflow the measured area, but it must be allowed to flow)
+            // In practice a single huge li should be allowed to flow across pages; so we add it and break paragraph into smaller pieces
+            // To handle this, we'll attempt to split the li text content into words to fit partially.
+            const text = li.textContent || '';
+            const words = text.split(/\s+/);
+            if (words.length <= 1) {
+              // nothing to split; append and let it overflow
+              const newList = document.createElement(tag);
+              const newLi = document.createElement('li');
+              newLi.innerHTML = li.innerHTML;
+              newList.appendChild(newLi);
+              measureContent.appendChild(newList);
+            } else {
+              // Build partial li by adding words until fit
+              let part = '';
+              let j = 0;
+              while (j < words.length) {
+                part += (j === 0 ? '' : ' ') + words[j];
+                const testLi = document.createElement('li');
+                testLi.textContent = part;
+                const testWrap = document.createElement('div');
+                const testList2 = document.createElement(tag);
+                testList2.appendChild(testLi);
+                testWrap.appendChild(testList2);
+                if (testAppend(testWrap)) {
+                  j++;
+                  continue;
+                } else {
+                  // if even first few words don't fit, append at least one word to prevent infinite loop
+                  if (j === 0) {
+                    testLi.textContent = words[j];
+                    const newList = document.createElement(tag);
+                    newList.appendChild(testLi.cloneNode(true));
+                    measureContent.appendChild(newList);
+                    j++;
+                  }
+                  break;
+                }
+              }
+              // Now we've filled current page with partial li; remaining words should be added in subsequent pages
+              const remainingText = words.slice(j).join(' ');
+              if (remainingText.trim()) {
+                // Insert a new li node with remainingText back into items to be processed on next pages:
+                items.splice(liIdx + 1, 0, (function(txt){
+                  const nli = document.createElement('li');
+                  nli.textContent = txt;
+                  return nli;
+                })(remainingText));
+              }
+            }
+          } else {
+            // Current page has content; commit current page and start a fresh page and re-attempt this same list item
+            // Capture current page content into pages array
+            pages.push(Array.from(measureContent.childNodes).map(n => n.cloneNode(true)));
+            // reset measureContent for next page
+            measureContent.innerHTML = '';
+            // retry same li by decrementing liIdx (but we don't want infinite loops, so continue to next iteration)
+            liIdx--;
+            continue;
+          }
+        }
+      } // end for list items
+
+      // Done handling list node; continue to next block
+      continue;
+    } // end if list
+
+    // For paragraphs and other block elements (p, pre, blockquote, code), attempt to append
+    const clone = node.cloneNode(true);
+
+    if (testAppend(clone)) {
+      // appended successfully to current page
+      // commit by appending a real clone into measureContent
+      measureContent.appendChild(clone);
+      continue;
+    } else {
+      // It doesn't fit as a whole.
+      // If current page has any content, push current page and start a new page
+      if (measureContent.childNodes.length > 0) {
+        pages.push(Array.from(measureContent.childNodes).map(n => n.cloneNode(true)));
+        measureContent.innerHTML = '';
+      }
+
+      // Now attempt to fit the node into an empty page
+      if (testAppend(clone.cloneNode(true))) {
+        // It fits on empty page (shouldn't happen because previous test failed, but safe)
+        measureContent.appendChild(clone);
+        continue;
+      }
+
+      // If still doesn't fit on empty page, we need to split if it's a paragraph-like node
+      if (clone.nodeName.toLowerCase() === 'p' || clone.nodeName.toLowerCase() === 'blockquote' || clone.nodeName.toLowerCase() === 'pre' || clone.nodeName.toLowerCase() === 'code') {
+        // Split text content by words/lines
+        const text = clone.textContent || '';
+        const words = text.split(/\s+/);
+        let currentPart = '';
+        let w = 0;
+        while (w < words.length) {
+          const word = words[w];
+          const testP = document.createElement('p');
+          testP.textContent = (currentPart ? currentPart + ' ' : '') + word;
+          const wrapper = document.createElement('div');
+          wrapper.appendChild(testP);
+          if (testAppend(wrapper)) {
+            // commit to measureContent
+            if (measureContent.lastElementChild && measureContent.lastElementChild.nodeName.toLowerCase() === 'p') {
+              // append word to existing last paragraph
+              measureContent.lastElementChild.textContent += (currentPart ? ' ' : '') + word;
+            } else {
+              const newP = document.createElement('p');
+              newP.textContent = (currentPart ? currentPart + ' ' : '') + word;
+              measureContent.appendChild(newP);
+            }
+            currentPart = measureContent.lastElementChild.textContent;
+            w++;
+            continue;
+          } else {
+            // word doesn't fit into current empty page (or current page), so need to start new page
+            if (measureContent.childNodes.length === 0) {
+              // Even a single word doesn't fit (very unlikely). Force append to avoid infinite loop
+              const forcedP = document.createElement('p');
+              forcedP.textContent = word;
+              measureContent.appendChild(forcedP);
+              w++;
+            } else {
+              // commit current page and start new one
+              pages.push(Array.from(measureContent.childNodes).map(n => n.cloneNode(true)));
+              measureContent.innerHTML = '';
+              currentPart = '';
+            }
+          }
+        } // end while words
+        // After splitting paragraph content across as many pages as needed, continue
+        continue;
+      } else {
+        // Non-splittable block that doesn't fit even on empty page: place it anyway to avoid data loss
+        measureContent.appendChild(clone);
+        // push page and reset
+        pages.push(Array.from(measureContent.childNodes).map(n => n.cloneNode(true)));
+        measureContent.innerHTML = '';
+        continue;
+      }
+    }
+  } // end for blocks
+
+  // Push any remaining content in measureContent to pages
+  if (measureContent.childNodes.length > 0) {
+    pages.push(Array.from(measureContent.childNodes).map(n => n.cloneNode(true)));
+    measureContent.innerHTML = '';
+  }
+
+  // Convert pages (arrays of nodes) into HTML strings for each page's body content
+  const pagesHTML = pages.map(pageNodes => {
+    const wrapper = document.createElement('div');
+    pageNodes.forEach(n => wrapper.appendChild(n.cloneNode(true)));
+    return wrapper.innerHTML;
+  });
+
+  // Clean up measurement DOM
+  document.body.removeChild(measureWrapper);
+  return pagesHTML;
+}
+
+/*
+  createA4Pages(htmlContent, totalWords, totalPagesHint)
+  - Uses paginateContent to create pages based on rendered height
+  - Adds header (Tempaper) top-left and footer with page number centered
+  - Returns HTML string (document-stats + pages)
+*/
 function createA4Pages(htmlContent, totalWords, totalPagesHint) {
-  const pages = paginateContent(htmlContent);
-  const totalPages = pages.length || 1;
+  // Use paginateContent which returns array of page inner HTMLs
+  const pageBodies = paginateContent(htmlContent);
+  const totalPages = pageBodies.length || 1;
 
   let pagesHTML = '<div class="document-stats">';
   pagesHTML += `<div><strong>${totalPages}</strong> Page${totalPages > 1 ? 's' : ''} • <strong>${totalWords}</strong> Words</div>`;
@@ -1156,23 +1616,28 @@ function createA4Pages(htmlContent, totalWords, totalPagesHint) {
 
   pagesHTML += '<div class="pages-container">';
 
-  pages.forEach((pageContent, idx) => {
+  pageBodies.forEach((bodyHtml, idx) => {
+    // Build each page: a4-page -> a4-inner -> header, body (a4-body -> a4-content), footer
     pagesHTML += `
-      <div class="a4-page">
-        <div class="page-number">${idx + 1}</div>
-        <div class="a4-content">${pageContent}</div>
-        <div class="a4-footer">
-          <span>Tempaper Academic Engine</span>
-          <span>Page ${idx + 1} of ${totalPages}</span>
+      <div class="a4-page" role="document" aria-label="Page ${idx + 1}">
+        <div class="a4-inner">
+          <div class="a4-header">Tempaper</div>
+          <div class="a4-body">
+            <div class="a4-content">
+              ${bodyHtml}
+            </div>
+          </div>
+          <div class="a4-footer"><span style="display:inline-block;width:100%;text-align:center;">${idx + 1}</span></div>
         </div>
       </div>
     `;
   });
 
   pagesHTML += '</div>';
-
   return pagesHTML;
 }
+
+/* --- Rest of the app: mostly unchanged --- */
 
 document.addEventListener("contextmenu", (e) => {
   e.preventDefault();
@@ -1496,10 +1961,12 @@ async function generatePaper() {
 
     if (res.ok && data.result) {
       const wordCount = data.word_count || data.result.split(/\s+/).length;
-      const pageCount = data.page_count || Math.max(1, Math.ceil(wordCount / 250));
 
+      // Convert markdown to HTML using our sanitizing converter
       const htmlContent = markdownToHTML(data.result);
-      const paginatedHTML = createA4Pages(htmlContent, wordCount, pageCount);
+
+      // Generate pages using accurate pagination
+      const paginatedHTML = createA4Pages(htmlContent, wordCount);
 
       removeLoadingMessage();
       addMessage("paper", paginatedHTML);
@@ -1561,6 +2028,7 @@ function addMessage(role, content) {
   if (role === "user") {
     container.innerText = content;
   } else if (role === "paper") {
+    // content contains the full paginated HTML (safe because markdownToHTML escapes input earlier)
     container.innerHTML = content;
   } else if (role === "error") {
     container.innerHTML = `
@@ -1629,8 +2097,7 @@ function openChatSession(index) {
       if (m.isPaper && m.result) {
         const htmlContent = markdownToHTML(m.result);
         const wordCount = m.result.split(/\s+/).length;
-        const pageCount = Math.max(1, Math.ceil(wordCount / 250));
-        const paginatedHTML = createA4Pages(htmlContent, wordCount, pageCount);
+        const paginatedHTML = createA4Pages(htmlContent, wordCount);
         addMessage("paper", paginatedHTML);
         latestResultText = m.result;
         toggleCopyButton(m.result);
