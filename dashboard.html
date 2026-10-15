@@ -1048,7 +1048,7 @@ svg { display: block; }
   </div>
 
   <div class="ai-chat-body" id="aiChatBody">
-    <div class="ai-chat-msg ai">Hello! Ask me to outline a section or generate quick notes.</div>
+    <div class="ai-chat-msg ai">Hello! Ask me anything — I'll respond as a normal assistant.</div>
   </div>
 
   <div class="ai-chat-input">
@@ -1064,119 +1064,225 @@ const API_URL = "https://term-paper-n4kl.onrender.com";
 let currentUser = null;
 let appSettings = {theme: 'system', fontSize: 16, notifications: true};
 let isGenerating = false;
-let touchStartX = 0;
 let recognition = null;
 let isRecording = false;
 let activeChatHistory = [];
 let latestResultText = "";
 
-// Markdown to HTML converter
+// Clean model text before rendering (handles bold headings, hyphenation, stray chars)
+function cleanPaperText(text){
+  if(!text) return "";
+  return text
+    .replace(/\u200b/g,'')
+    .replace(/\ufeff/g,'')
+    // remove repeated decorative lines
+    .replace(/^\s*\.{2,}\s*$/gm,'')
+    .replace(/^\s*\-{3,}\s*$/gm,'')
+    .replace(/^\s*\*{3,}\s*$/gm,'')
+    // join hyphenated words broken across lines
+    .replace(/(\w+)-\s*\n\s*(\w+)/g,'$1$2')
+    .replace(/(\w+)-\s+(\w+)/g,'$1$2')
+    // convert bolded heading lines like **6.2 Age and Identity** -> ### 6.2 Age and Identity
+    .replace(/^\s*\*\*\s*([0-9A-Za-z\.\-\,\s\(\)\"\'\’\“]+?)\s*\*\*\s*$/gm, '### $1')
+    // fallback convert other bold-wrapped lines to heading
+    .replace(/^\s*\*\*\s*(.+?)\s*\*\*\s*$/gm, '### $1')
+    .replace(/\n{3,}/g,'\n\n')
+    .trim();
+}
+
+// Improved markdown -> HTML (recognizes **heading** lines and normal markdown)
 function markdownToHTML(markdown) {
-  let html = markdown;
+  if (!markdown) return "";
+  // convert bold-wrapped heading lines first
+  const norm = markdown.split(/\r?\n/).map(line => {
+    const m = line.match(/^\s*\*\*\s*(.+?)\s*\*\*\s*$/);
+    if (m) return `### ${m[1].trim()}`;
+    return line;
+  }).join("\n");
 
-  html = html.replace(/&/g, "&amp;")
-             .replace(/</g, "&lt;")
-             .replace(/>/g, "&gt;");
+  let html = norm.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 
-  html = html.replace(/^### (.*?)$/gm, "<h3>$1</h3>");
-  html = html.replace(/^## (.*?)$/gm, "<h2>$1</h2>");
-  html = html.replace(/^# (.*?)$/gm, "<h1>$1</h1>");
+  html = html.replace(/^###\s+(.*)$/gm, "<h3>$1</h3>");
+  html = html.replace(/^##\s+(.*)$/gm, "<h2>$1</h2>");
+  html = html.replace(/^#\s+(.*)$/gm, "<h1>$1</h1>");
 
+  // lists
+  html = html.replace(/^\s*[\*\-\+]\s+(.*)$/gm, "<li>$1</li>");
+  html = html.replace(/^\s*\d+\.\s+(.*)$/gm, "<li>$1</li>");
+  // group consecutive <li> into lists
+  html = html.replace(/(?:<\/li>\s*)?<li>[\s\S]*?<\/li>/g, function(match){
+    // If multiple <li>, wrap in ul/ol - for simplicity use ul
+    if ((match.match(/<li>/g) || []).length > 0) {
+      return "<ul>" + match.replace(/<\/?li>/g, "") + "</ul>";
+    }
+    return match;
+  });
+
+  // inline styles
   html = html.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
   html = html.replace(/\*(.*?)\*/g, "<em>$1</em>");
   html = html.replace(/`(.*?)`/g, "<code>$1</code>");
   html = html.replace(/^> (.*?)$/gm, "<blockquote>$1</blockquote>");
 
-  html = html.replace(/^\* (.*?)$/gm, "<li>$1</li>");
-  html = html.replace(/^- (.*?)$/gm, "<li>$1</li>");
-  html = html.replace(/^\d+\. (.*?)$/gm, "<li>$1</li>");
+  // paragraphs
+  const blocks = html.split(/\n{2,}/).map(b=>{
+    b=b.trim();
+    if (!b) return "";
+    if (/^<(h1|h2|h3|ul|ol|blockquote)/i.test(b)) return b;
+    return `<p>${b}</p>`;
+  }).filter(Boolean);
 
-  html = html.replace(/(<li>.*?<\/li>)/gs, "<ul>$1</ul>");
-
-  html = html.split("\n\n").map(para => {
-    if (para.match(/^<[hul]/)) return para;
-    return "<p>" + para + "</p>";
-  }).join("");
-
-  return html;
+  return blocks.join("\n");
 }
 
-// Better page splitting
+// Improved paginateContent that avoids chopping words mid-sentence
 function paginateContent(html) {
-  const tempDiv = document.createElement("div");
-  tempDiv.innerHTML = html;
-  tempDiv.style.cssText = "position: absolute; top: -9999px; left: -9999px; width: 794px; font-family: 'Merriweather', serif; line-height: 1.82; font-size: 15px; padding: 70px 80px; color: #1e293b;";
-  document.body.appendChild(tempDiv);
+  // create measurement container offscreen
+  const measureWrapper = document.createElement('div');
+  measureWrapper.style.position='absolute';
+  measureWrapper.style.left='-99999px';
+  measureWrapper.style.top='-99999px';
+  document.body.appendChild(measureWrapper);
 
-  const blocks = Array.from(tempDiv.children);
+  // measure page content area consistent with .a4-page padding
+  const measurePage = document.createElement('div');
+  measurePage.style.width = `${794}px`; // approx A4 content width (matches CSS padding used)
+  measurePage.style.boxSizing = 'border-box';
+  measurePage.style.fontFamily = "'Merriweather', serif";
+  measurePage.style.fontSize = '15px';
+  measurePage.style.lineHeight = '1.82';
+  measurePage.style.padding = '0';
+  const measureBody = document.createElement('div');
+  measureBody.style.height = `${1056 - 140}px`; // page height minus padding
+  measureBody.style.overflow = 'hidden';
+  measureBody.style.boxSizing = 'border-box';
+  const measureContent = document.createElement('div');
+  measureContent.style.width = '100%';
+  measureContent.style.boxSizing = 'border-box';
+  measureContent.style.fontFamily = "'Merriweather', serif";
+  measureContent.style.fontSize = '15px';
+  measureContent.style.lineHeight = '1.82';
+  measureBody.appendChild(measureContent);
+  measurePage.appendChild(measureBody);
+  measureWrapper.appendChild(measurePage);
+
+  // turn html into nodes
+  const temp = document.createElement('div');
+  temp.innerHTML = html;
+  const blocks = Array.from(temp.childNodes).map(n => n.cloneNode(true));
   const pages = [];
-  let currentHTML = "";
-  let currentHeight = 0;
-  const maxHeight = 1056 - 140;
+  measureContent.innerHTML = '';
 
-  const measureBlock = (markup) => {
-    const wrapper = document.createElement("div");
-    wrapper.style.cssText = "width:100%; padding:0; margin:0;";
-    wrapper.innerHTML = markup;
-    document.body.appendChild(wrapper);
-    const height = wrapper.scrollHeight;
-    document.body.removeChild(wrapper);
-    return height;
+  const fits = () => measureContent.scrollHeight <= measureBody.clientHeight + 0.5;
+
+  const testAppend = node => {
+    measureContent.appendChild(node);
+    const ok = fits();
+    if (!ok) measureContent.removeChild(node);
+    return ok;
   };
 
-  for (const block of blocks) {
-    const markup = block.outerHTML;
-    const blockHeight = measureBlock(markup);
-
-    if (currentHTML && currentHeight + blockHeight > maxHeight) {
-      pages.push(currentHTML);
-      currentHTML = markup;
-      currentHeight = blockHeight;
-    } else {
-      currentHTML += markup;
-      currentHeight += blockHeight;
+  for (let i = 0; i < blocks.length; i++) {
+    let node = blocks[i];
+    if (node.nodeType === 3) {
+      if (!node.textContent.trim()) continue;
+      const p = document.createElement('p');
+      p.innerHTML = node.textContent.trim();
+      node = p;
+    }
+    const clone = node.cloneNode(true);
+    if (testAppend(clone.cloneNode(true))) {
+      measureContent.appendChild(clone);
+      continue;
+    }
+    // if current page already has content, commit it and start a fresh page
+    if (measureContent.childNodes.length > 0) {
+      pages.push(Array.from(measureContent.childNodes).map(n => n.cloneNode(true)));
+      measureContent.innerHTML = '';
+    }
+    // try appending to empty page
+    if (testAppend(clone.cloneNode(true))) {
+      measureContent.appendChild(clone);
+      continue;
+    }
+    // fallback splitting by words for large paragraphs
+    const text = (clone.textContent || '').trim();
+    if (!text) continue;
+    const words = text.split(/\s+/);
+    let buffer = '';
+    for (let w = 0; w < words.length; w++) {
+      const tryText = buffer ? (buffer + ' ' + words[w]) : words[w];
+      const testP = document.createElement('p');
+      testP.textContent = tryText;
+      if (testAppend(testP.cloneNode(true))) {
+        buffer = tryText;
+        // don't append yet, keep building buffer
+      } else {
+        // buffer cannot grow further: append buffer to page
+        if (buffer) {
+          const toAppend = document.createElement('p');
+          toAppend.textContent = buffer;
+          measureContent.appendChild(toAppend);
+        } else {
+          // single very long word - force it
+          const forced = document.createElement('p');
+          forced.textContent = words[w];
+          measureContent.appendChild(forced);
+          w++; // consumed one word
+        }
+        // if page is full, push and reset
+        if (!fits()) {
+          pages.push(Array.from(measureContent.childNodes).map(n => n.cloneNode(true)));
+          measureContent.innerHTML = '';
+        }
+        // start new buffer with current word if not consumed
+        buffer = (w < words.length) ? words[w] : '';
+        // prepare next test iteration
+      }
+      // at last word, append remaining buffer
+      if (w === words.length - 1 && buffer) {
+        const toAppend = document.createElement('p');
+        toAppend.textContent = buffer;
+        if (!testAppend(toAppend.cloneNode(true))) {
+          pages.push(Array.from(measureContent.childNodes).map(n => n.cloneNode(true)));
+          measureContent.innerHTML = '';
+          measureContent.appendChild(toAppend);
+        } else {
+          measureContent.appendChild(toAppend);
+        }
+        buffer = '';
+      }
     }
   }
 
-  if (currentHTML) pages.push(currentHTML);
+  if (measureContent.childNodes.length > 0) {
+    pages.push(Array.from(measureContent.childNodes).map(n => n.cloneNode(true)));
+    measureContent.innerHTML = '';
+  }
 
-  document.body.removeChild(tempDiv);
-  return pages;
-}
-
-// Create A4 pages from content
-function createA4Pages(htmlContent, totalWords, totalPagesHint) {
-  const pages = paginateContent(htmlContent);
-  const totalPages = pages.length || 1;
-
-  let pagesHTML = '<div class="document-stats">';
-  pagesHTML += `<div><strong>${totalPages}</strong> Page${totalPages > 1 ? 's' : ''} • <strong>${totalWords}</strong> Words</div>`;
-  pagesHTML += '<div><button class="copy-latest-btn" onclick="copyLatestText()">Copy All</button></div>';
-  pagesHTML += '</div>';
-
-  pagesHTML += '<div class="pages-container">';
-
-  pages.forEach((pageContent, idx) => {
-    pagesHTML += `
-      <div class="a4-page">
-        <div class="page-number">${idx + 1}</div>
-        <div class="a4-content">${pageContent}</div>
-        <div class="a4-footer">
-          <span>Tempaper Academic Engine</span>
-          <span>Page ${idx + 1} of ${totalPages}</span>
-        </div>
-      </div>
-    `;
+  // build page HTML strings
+  const pagesHTML = pages.map(pn => {
+    const wrapper = document.createElement('div');
+    pn.forEach(n => wrapper.appendChild(n.cloneNode(true)));
+    return wrapper.innerHTML;
   });
 
-  pagesHTML += '</div>';
-
+  document.body.removeChild(measureWrapper);
   return pagesHTML;
 }
 
-document.addEventListener("contextmenu", (e) => {
-  e.preventDefault();
-});
+function createA4Pages(htmlContent, totalWords){
+  const pageBodies = paginateContent(htmlContent);
+  const totalPages = pageBodies.length || 1;
+  let pagesHTML = `<div class="document-stats"><div><strong>${totalPages}</strong> Page${totalPages>1?'s':''} • <strong>${totalWords}</strong> Words</div><div><button class="copy-latest-btn" onclick="copyLatestText()">Copy All</button></div></div><div class="pages-container">`;
+  pageBodies.forEach((bodyHtml,idx)=>{
+    pagesHTML+=`<div class="a4-page"><div class="page-number">${idx+1}</div><div class="a4-content">${bodyHtml}</div><div class="a4-footer"><span>Tempaper Academic Engine</span><span>Page ${idx+1} of ${totalPages}</span></div></div>`;
+  });
+  pagesHTML+=`</div>`;
+  return pagesHTML;
+}
+
+document.addEventListener("contextmenu", (e) => { e.preventDefault(); });
 
 document.addEventListener("DOMContentLoaded", async () => {
   loadAppSettings();
@@ -1201,62 +1307,26 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   aiChatSendBtn.onclick = sendFloatingMessage;
   aiChatInput.onkeydown = (e) => {
-    if (e.key === "Enter") sendFloatingMessage();
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendFloatingMessage();
+    }
   };
 
   copyBtn.addEventListener("click", async () => {
     if (!latestResultText) return;
     const success = await copyTextToClipboard(latestResultText);
     copyBtn.textContent = success ? "Copied!" : "Failed";
-    setTimeout(() => {
-      copyBtn.textContent = "Copy";
-    }, 1500);
+    setTimeout(() => { copyBtn.textContent = "Copy"; }, 1500);
   });
-
-  async function sendFloatingMessage() {
-    const text = aiChatInput.value.trim();
-    if (!text) return;
-
-    addFloatingMsg("user", text);
-    aiChatInput.value = "";
-    addFloatingMsg("ai", "Analyzing...");
-
-    try {
-      const res = await fetch(`${API_URL}/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: text })
-      });
-      const data = await res.json();
-
-      const last = aiChatBody.lastElementChild;
-      if (last && last.classList.contains("ai")) last.remove();
-
-      addFloatingMsg("ai", data.result || "Error generating response");
-    } catch (e) {
-      const last = aiChatBody.lastElementChild;
-      if (last && last.classList.contains("ai")) last.remove();
-      addFloatingMsg("ai", "Network error. Try again.");
-    }
-  }
-
-  function addFloatingMsg(role, text) {
-    const el = document.createElement("div");
-    el.className = `ai-chat-msg ${role}`;
-    el.innerText = text;
-    aiChatBody.appendChild(el);
-    aiChatBody.scrollTop = aiChatBody.scrollHeight;
-  }
 
   let dragging = false;
   let offsetX = 0, offsetY = 0;
-
   aiChatHeader.onmousedown = (e) => {
     dragging = true;
     offsetX = e.clientX - aiChatWindow.getBoundingClientRect().left;
     offsetY = e.clientY - aiChatWindow.getBoundingClientRect().top;
   };
-
   document.onmousemove = (e) => {
     if (!dragging) return;
     aiChatWindow.style.left = `${e.clientX - offsetX}px`;
@@ -1264,7 +1334,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     aiChatWindow.style.right = "auto";
     aiChatWindow.style.bottom = "auto";
   };
-
   document.onmouseup = () => { dragging = false; };
 
   await loadProfile(userId);
@@ -1294,62 +1363,33 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!e.target.closest(".top-actions")) closeDots();
   });
 
-  document.addEventListener("touchstart", e => { touchStartX = e.changedTouches[0].screenX; });
-  document.addEventListener("touchend", e => {
-    if (touchStartX > 50 && e.changedTouches[0].screenX < touchStartX - 50) {
-      document.getElementById("sidebar").classList.remove("open");
-      document.getElementById("overlay").classList.remove("show");
-    }
-  });
-
   autoResizeTextarea();
 });
 
 function toggleRecording() {
   const btn = document.getElementById("micBtn");
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-  if (!SpeechRecognition) {
-    alert("Voice recognition is not supported on this browser.");
-    return;
-  }
-
+  if (!SpeechRecognition) { alert("Voice recognition not supported."); return; }
   if (isRecording) {
     if (recognition) recognition.stop();
     isRecording = false;
     btn.classList.remove("recording");
     return;
   }
-
   try {
     recognition = new SpeechRecognition();
     recognition.continuous = false;
     recognition.interimResults = false;
     recognition.lang = "en-US";
-
-    recognition.onstart = () => {
-      isRecording = true;
-      btn.classList.add("recording");
-    };
-
+    recognition.onstart = () => { isRecording = true; btn.classList.add("recording"); };
     recognition.onresult = (event) => {
       const transcript = event.results[0][0].transcript;
       const input = document.getElementById("promptInput");
       input.value += (input.value ? " " : "") + transcript;
       autoResizeTextarea();
     };
-
-    recognition.onerror = (e) => {
-      alert("Voice error: " + e.error);
-      isRecording = false;
-      btn.classList.remove("recording");
-    };
-
-    recognition.onend = () => {
-      isRecording = false;
-      btn.classList.remove("recording");
-    };
-
+    recognition.onerror = (e) => { alert("Voice error: " + e.error); isRecording = false; btn.classList.remove("recording"); };
+    recognition.onend = () => { isRecording = false; btn.classList.remove("recording"); };
     recognition.start();
   } catch (err) {
     alert("Microphone issue: " + err.message);
@@ -1386,10 +1426,8 @@ async function loadProfile(userId) {
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 6000);
-
     const res = await fetch(`${API_URL}/me?user_id=${userId}`, { signal: controller.signal });
     clearTimeout(timeoutId);
-
     if (res.ok) {
       const data = await res.json();
       if (data.user) {
@@ -1405,7 +1443,6 @@ async function loadProfile(userId) {
   } catch (e) {
     console.warn("Backend offline or slow, using guest defaults.");
   }
-
   document.getElementById("profileAvatar").innerText = "G";
   document.getElementById("profileName").innerText = "Guest User";
   document.getElementById("profileEmail").innerText = "guest@tempaper.com";
@@ -1438,7 +1475,6 @@ function toggleCopyButton(text) {
     chatActions.style.display = "none";
     return;
   }
-
   chatActions.style.display = "flex";
   document.getElementById("copyLatestBtn").textContent = "Copy";
 }
@@ -1449,7 +1485,6 @@ async function copyTextToClipboard(text) {
       await navigator.clipboard.writeText(text);
       return true;
     }
-
     const temp = document.createElement("textarea");
     temp.value = text;
     temp.setAttribute("readonly", "");
@@ -1470,6 +1505,7 @@ function copyLatestText() {
   return copyTextToClipboard(latestResultText);
 }
 
+// --- PAPER generation flow (unchanged endpoint usage, but we clean output before rendering) ---
 async function generatePaper() {
   if (isGenerating) return;
   const input = document.getElementById("promptInput");
@@ -1495,18 +1531,19 @@ async function generatePaper() {
     const data = await res.json();
 
     if (res.ok && data.result) {
-      const wordCount = data.word_count || data.result.split(/\s+/).length;
+      // clean and render
+      const cleaned = cleanPaperText(data.result);
+      const wordCount = data.word_count || cleaned.split(/\s+/).length;
       const pageCount = data.page_count || Math.max(1, Math.ceil(wordCount / 250));
-
-      const htmlContent = markdownToHTML(data.result);
+      const htmlContent = markdownToHTML(cleaned);
       const paginatedHTML = createA4Pages(htmlContent, wordCount, pageCount);
 
       removeLoadingMessage();
       addMessage("paper", paginatedHTML);
 
-      latestResultText = data.result;
-      toggleCopyButton(data.result);
-      activeChatHistory.push({ prompt, result: data.result, isPaper: true });
+      latestResultText = cleaned;
+      toggleCopyButton(cleaned);
+      activeChatHistory.push({ prompt, result: cleaned, isPaper: true });
       saveChatSession();
     } else {
       removeLoadingMessage();
@@ -1652,6 +1689,60 @@ function logout() {
   localStorage.removeItem("user_id");
   window.location.href = "index.html";
 }
+
+// --- FLOATING ASSISTANT: now calls /chat endpoint (acts like a normal AI assistant) ---
+async function sendFloatingMessage() {
+  const text = document.getElementById("aiChatInput").value.trim();
+  if (!text) return;
+  addFloatingMsg("user", text);
+  document.getElementById("aiChatInput").value = "";
+  addFloatingMsg("ai", "Thinking...");
+
+  try {
+    const res = await fetch(`${API_URL}/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prompt: text,
+        user_id: localStorage.getItem("user_id") || "guest",
+        save: false
+      })
+    });
+    const data = await res.json();
+    // remove the "Thinking..." message
+    const last = document.getElementById("aiChatBody").lastElementChild;
+    if (last && last.classList.contains("ai")) last.remove();
+
+    if (res.ok && data.result) {
+      // show assistant reply (supports light markdown)
+      addFloatingMsg("ai", data.result, true);
+    } else {
+      addFloatingMsg("ai", data.error || "Assistant error. Try again.");
+    }
+  } catch (e) {
+    const last = document.getElementById("aiChatBody").lastElementChild;
+    if (last && last.classList.contains("ai")) last.remove();
+    addFloatingMsg("ai", "Network error. Try again.");
+  }
+}
+
+function addFloatingMsg(role, text, renderMarkdown=false) {
+  const aiChatBody = document.getElementById("aiChatBody");
+  const el = document.createElement("div");
+  el.className = `ai-chat-msg ${role}`;
+  if (renderMarkdown) {
+    // render light markdown
+    const cleaned = cleanPaperText(text);
+    el.innerHTML = markdownToHTML(cleaned);
+  } else {
+    el.innerText = text;
+  }
+  aiChatBody.appendChild(el);
+  aiChatBody.scrollTop = aiChatBody.scrollHeight;
+}
+
+// keep saving assistant transcripts locally if paper generation was used; for chat we don't force saving
+// (save behavior is handled server-side via the /chat save flag if wanted)
 
 window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
 </script>
