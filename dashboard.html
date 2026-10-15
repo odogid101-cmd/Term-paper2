@@ -761,10 +761,11 @@ svg { display: block; }
   fill: white;
 }
 
+/* moved up so it does not cover the input bar on small screens */
 .ai-chat-window {
   position: fixed;
   right: 24px;
-  bottom: 90px;
+  bottom: 120px;
   width: 392px;
   height: 540px;
   background: rgba(15, 23, 42, 0.96);
@@ -913,7 +914,7 @@ svg { display: block; }
     width: min(86vw, 380px);
     height: 500px;
     right: 14px;
-    bottom: 84px;
+    bottom: 120px;
   }
 }
 
@@ -1169,7 +1170,8 @@ function paginateContent(html) {
   // turn html into nodes
   const temp = document.createElement('div');
   temp.innerHTML = html;
-  const blocks = Array.from(temp.childNodes).map(n => n.cloneNode(true));
+  // Use only element children to avoid stray text nodes being processed twice
+  const blocks = Array.from(temp.children).map(n => n.cloneNode(true));
   const pages = [];
   measureContent.innerHTML = '';
 
