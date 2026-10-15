@@ -92,6 +92,7 @@ button, input, textarea { font: inherit; } button { border: none; background: no
 const API_URL = "https://term-paper-n4kl.onrender.com";
 let isGenerating = false; let latestResultText = ""; let activeChatHistory = []; let currentUser = null;
 
+// REPLACE the existing cleanPaperText function with this version
 function cleanPaperText(text){
   if(!text) return "";
   return text
@@ -99,16 +100,33 @@ function cleanPaperText(text){
    .replace(/^\s*\-{3,}\s*$/gm,'')
    .replace(/^\s*\*{3,}\s*$/gm,'')
    .replace(/^\s*\d{1,3}\s*$/gm,'')
+   // join hyphenated words broken across lines (common PDF line breaks)
    .replace(/(\w+)-\s*\n\s*(\w+)/g,'$1$2')
    .replace(/(\w+)-\s+(\w+)/g,'$1$2')
+   // convert bold-numbered headings (e.g. **6.2 Age and Identity**) to markdown h3
+   .replace(/^\s*\*\*\s*(\d+(?:\.\d+)*\s*[^\*]+?)\s*\*\*\s*$/gm, '### $1')
+   // convert any bold-wrapped line that looks like a heading (starts with a number or quotes) to h3
+   .replace(/^\s*\*\*\s*([0-9"“‘\(\[][^*]{1,120}?)\s*\*\*\s*$/gm, '### $1')
+   // fallback: convert remaining repeated newlines and trim
    .replace(/\*\*(\d+\.?\d*\s+[^\*]+)\*\*/g,'### $1')
    .replace(/\n{3,}/g,'\n\n')
    .trim();
-}
-
+  }
+  // REPLACE the existing markdownToHTML function with this version
 function markdownToHTML(markdown){
   if(!markdown) return "";
-  let html = markdown.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  // Normalize lines first and convert any bold-wrapped heading lines into "###" to avoid showing **...**
+  const norm = markdown.split(/\r?\n/).map(line=>{
+    const boldHeadingMatch = line.match(/^\s*\*\*\s*(.+?)\s*\*\*\s*$/);
+    if(boldHeadingMatch){
+      const inside = boldHeadingMatch[1].trim();
+      // if it looks like a heading (starts with digits or capitalized word and short) make it h3
+      if(/^[0-9]/.test(inside) || inside.length < 80) return `### ${inside}`;
+    }
+    return line;
+  }).join("\n");
+
+  let html = norm.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   const lines = html.split(/\r?\n/); const out=[]; let listBuffer=null;
   function flushList(){ if(!listBuffer) return; out.push(`<${listBuffer.type}>`); listBuffer.items.forEach(li=>out.push(`<li>${li}</li>`)); out.push(`</${listBuffer.type}>`); listBuffer=null; }
   for(let line of lines){
@@ -118,6 +136,7 @@ function markdownToHTML(markdown){
     if(/^\d+\.\s+(.*)/.test(line)){ const m=line.match(/^\d+\.\s+(.*)/); if(!listBuffer||listBuffer.type!=='ol'){flushList(); listBuffer={type:'ol',items:[]};} listBuffer.items.push(m[1].trim()); continue; }
     if(/^[\*\-\+]\s+(.*)/.test(line)){ const m=line.match(/^[\*\-\+]\s+(.*)/); if(!listBuffer||listBuffer.type!=='ul'){flushList(); listBuffer={type:'ul',items:[]};} listBuffer.items.push(m[1].trim()); continue; }
     if(/^\s*$/.test(line)){ flushList(); out.push(''); continue; }
+    // allow bold/italic/code inside paragraphs
     let processed = line.replace(/\*\*(.*?)\*\*/g,"<strong>$1</strong>").replace(/\*(.*?)\*/g,"<em>$1</em>").replace(/`(.*?)`/g,"<code>$1</code>");
     out.push(processed);
   }
@@ -130,8 +149,8 @@ function markdownToHTML(markdown){
     paraBuffer.push(token);
   }
   flushPara(); return blocks.join("\n");
-}
-
+                                                                                                }
+// REPLACE the existing paginateContent function with this improved version
 function paginateContent(html){
   const measureWrapper=document.createElement('div');
   measureWrapper.style.position='absolute'; measureWrapper.style.left='-99999px'; measureWrapper.style.top='-99999px';
@@ -152,13 +171,58 @@ function paginateContent(html){
     const clone=node.cloneNode(true);
     if(testAppend(clone.cloneNode(true))){ measureContent.appendChild(clone); continue; }
     if(measureContent.childNodes.length>0){ pages.push(Array.from(measureContent.childNodes).map(n=>n.cloneNode(true))); measureContent.innerHTML=''; }
+    // try appending the node fresh
     if(testAppend(clone.cloneNode(true))){ measureContent.appendChild(clone); continue; }
-    const text=clone.textContent||''; const words=text.split(/\s+/); let w=0;
-    while(w<words.length){
-      const testP=document.createElement('p'); testP.textContent=words[w];
-      if(testAppend(testP.cloneNode(true))){ measureContent.appendChild(testP); w++; } else {
-        if(measureContent.childNodes.length===0){ const forced=document.createElement('p'); forced.textContent=words[w]; measureContent.appendChild(forced); w++; }
-        else { pages.push(Array.from(measureContent.childNodes).map(n=>n.cloneNode(true))); measureContent.innerHTML=''; }
+    // fallback splitting: accumulate words into a paragraph until it no longer fits (better than one-word <p> per word)
+    const text = (clone.textContent || '').trim();
+    if(!text){
+      // if nothing to append, skip
+      continue;
+    }
+    const words = text.split(/\s+/);
+    let buffer = '';
+    const para = document.createElement('p');
+    for (let w = 0; w < words.length; w++) {
+      const tryText = buffer ? (buffer + ' ' + words[w]) : words[w];
+      para.textContent = tryText;
+      if (testAppend(para.cloneNode(true))) {
+        buffer = tryText;
+        // keep para content; we only append final buffer when it no longer fits or finished
+      } else {
+        // buffer can't grow further: append current buffer to page
+        if (buffer) {
+          const toAppend = document.createElement('p');
+          toAppend.textContent = buffer;
+          measureContent.appendChild(toAppend);
+        } else {
+          // a single very long word doesn't fit alone; force it in
+          const forced = document.createElement('p');
+          forced.textContent = words[w];
+          measureContent.appendChild(forced);
+          w++; // consumed one word
+        }
+        // start a new page if page is full
+        if (!fits()) {
+          pages.push(Array.from(measureContent.childNodes).map(n=>n.cloneNode(true)));
+          measureContent.innerHTML='';
+        }
+        // reset buffer to current word (if not forced)
+        buffer = words[w] && fits() ? words[w] : '';
+        para.textContent = buffer;
+      }
+      // if we're at last word and there's buffered text, append it
+      if (w === words.length - 1 && buffer) {
+        const toAppend = document.createElement('p');
+        toAppend.textContent = buffer;
+        if (!testAppend(toAppend.cloneNode(true))) {
+          // page full -> push page and make new one
+          pages.push(Array.from(measureContent.childNodes).map(n=>n.cloneNode(true)));
+          measureContent.innerHTML='';
+          measureContent.appendChild(toAppend);
+        } else {
+          measureContent.appendChild(toAppend);
+        }
+        buffer = '';
       }
     }
   }
@@ -166,7 +230,7 @@ function paginateContent(html){
   const pagesHTML=pages.map(pn=>{ const w=document.createElement('div'); pn.forEach(n=>w.appendChild(n.cloneNode(true))); return w.innerHTML; });
   document.body.removeChild(measureWrapper); return pagesHTML;
 }
-
+  
 function createA4Pages(htmlContent,totalWords){
   const pageBodies=paginateContent(htmlContent); const totalPages=pageBodies.length||1;
   let pagesHTML=`<div class="document-stats"><div><strong>${totalPages}</strong> Pages • <strong>${totalWords}</strong> Words</div><div><button class="copy-latest-btn" onclick="navigator.clipboard.writeText(latestResultText)">Copy All</button></div></div><div class="pages-container">`;
