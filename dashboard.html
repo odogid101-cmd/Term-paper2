@@ -761,7 +761,6 @@ svg { display: block; }
   fill: white;
 }
 
-/* moved up so it does not cover the input bar on small screens */
 .ai-chat-window {
   position: fixed;
   right: 24px;
@@ -1076,25 +1075,20 @@ function cleanPaperText(text){
   return text
     .replace(/\u200b/g,'')
     .replace(/\ufeff/g,'')
-    // remove repeated decorative lines
     .replace(/^\s*\.{2,}\s*$/gm,'')
     .replace(/^\s*\-{3,}\s*$/gm,'')
     .replace(/^\s*\*{3,}\s*$/gm,'')
-    // join hyphenated words broken across lines
     .replace(/(\w+)-\s*\n\s*(\w+)/g,'$1$2')
     .replace(/(\w+)-\s+(\w+)/g,'$1$2')
-    // convert bolded heading lines like **6.2 Age and Identity** -> ### 6.2 Age and Identity
     .replace(/^\s*\*\*\s*([0-9A-Za-z\.\-\,\s\(\)\"\'\’\“]+?)\s*\*\*\s*$/gm, '### $1')
-    // fallback convert other bold-wrapped lines to heading
     .replace(/^\s*\*\*\s*(.+?)\s*\*\*\s*$/gm, '### $1')
     .replace(/\n{3,}/g,'\n\n')
     .trim();
 }
 
-// Improved markdown -> HTML (recognizes **heading** lines and normal markdown)
+// Improved markdown -> HTML
 function markdownToHTML(markdown) {
   if (!markdown) return "";
-  // convert bold-wrapped heading lines first
   const norm = markdown.split(/\r?\n/).map(line => {
     const m = line.match(/^\s*\*\*\s*(.+?)\s*\*\*\s*$/);
     if (m) return `### ${m[1].trim()}`;
@@ -1102,30 +1096,22 @@ function markdownToHTML(markdown) {
   }).join("\n");
 
   let html = norm.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-
   html = html.replace(/^###\s+(.*)$/gm, "<h3>$1</h3>");
   html = html.replace(/^##\s+(.*)$/gm, "<h2>$1</h2>");
   html = html.replace(/^#\s+(.*)$/gm, "<h1>$1</h1>");
-
-  // lists
   html = html.replace(/^\s*[\*\-\+]\s+(.*)$/gm, "<li>$1</li>");
   html = html.replace(/^\s*\d+\.\s+(.*)$/gm, "<li>$1</li>");
-  // group consecutive <li> into lists
   html = html.replace(/(?:<\/li>\s*)?<li>[\s\S]*?<\/li>/g, function(match){
-    // If multiple <li>, wrap in ul/ol - for simplicity use ul
     if ((match.match(/<li>/g) || []).length > 0) {
       return "<ul>" + match.replace(/<\/?li>/g, "") + "</ul>";
     }
     return match;
   });
-
-  // inline styles
   html = html.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
   html = html.replace(/\*(.*?)\*/g, "<em>$1</em>");
   html = html.replace(/`(.*?)`/g, "<code>$1</code>");
   html = html.replace(/^> (.*?)$/gm, "<blockquote>$1</blockquote>");
 
-  // paragraphs
   const blocks = html.split(/\n{2,}/).map(b=>{
     b=b.trim();
     if (!b) return "";
@@ -1136,41 +1122,40 @@ function markdownToHTML(markdown) {
   return blocks.join("\n");
 }
 
-// Improved paginateContent that avoids chopping words mid-sentence
+// FIXED: use children only so text nodes do not duplicate content
 function paginateContent(html) {
-  // create measurement container offscreen
   const measureWrapper = document.createElement('div');
   measureWrapper.style.position='absolute';
   measureWrapper.style.left='-99999px';
   measureWrapper.style.top='-99999px';
   document.body.appendChild(measureWrapper);
 
-  // measure page content area consistent with .a4-page padding
   const measurePage = document.createElement('div');
-  measurePage.style.width = `${794}px`; // approx A4 content width (matches CSS padding used)
+  measurePage.style.width = `${794}px`;
   measurePage.style.boxSizing = 'border-box';
   measurePage.style.fontFamily = "'Merriweather', serif";
   measurePage.style.fontSize = '15px';
   measurePage.style.lineHeight = '1.82';
   measurePage.style.padding = '0';
+
   const measureBody = document.createElement('div');
-  measureBody.style.height = `${1056 - 140}px`; // page height minus padding
+  measureBody.style.height = `${1056 - 140}px`;
   measureBody.style.overflow = 'hidden';
   measureBody.style.boxSizing = 'border-box';
+
   const measureContent = document.createElement('div');
   measureContent.style.width = '100%';
   measureContent.style.boxSizing = 'border-box';
   measureContent.style.fontFamily = "'Merriweather', serif";
   measureContent.style.fontSize = '15px';
   measureContent.style.lineHeight = '1.82';
+
   measureBody.appendChild(measureContent);
   measurePage.appendChild(measureBody);
   measureWrapper.appendChild(measurePage);
 
-  // turn html into nodes
   const temp = document.createElement('div');
   temp.innerHTML = html;
-  // Use only element children to avoid stray text nodes being processed twice
   const blocks = Array.from(temp.children).map(n => n.cloneNode(true));
   const pages = [];
   measureContent.innerHTML = '';
@@ -1192,56 +1177,54 @@ function paginateContent(html) {
       p.innerHTML = node.textContent.trim();
       node = p;
     }
+
     const clone = node.cloneNode(true);
     if (testAppend(clone.cloneNode(true))) {
       measureContent.appendChild(clone);
       continue;
     }
-    // if current page already has content, commit it and start a fresh page
+
     if (measureContent.childNodes.length > 0) {
       pages.push(Array.from(measureContent.childNodes).map(n => n.cloneNode(true)));
       measureContent.innerHTML = '';
     }
-    // try appending to empty page
+
     if (testAppend(clone.cloneNode(true))) {
       measureContent.appendChild(clone);
       continue;
     }
-    // fallback splitting by words for large paragraphs
+
     const text = (clone.textContent || '').trim();
     if (!text) continue;
     const words = text.split(/\s+/);
     let buffer = '';
+
     for (let w = 0; w < words.length; w++) {
       const tryText = buffer ? (buffer + ' ' + words[w]) : words[w];
       const testP = document.createElement('p');
       testP.textContent = tryText;
       if (testAppend(testP.cloneNode(true))) {
         buffer = tryText;
-        // don't append yet, keep building buffer
       } else {
-        // buffer cannot grow further: append buffer to page
         if (buffer) {
           const toAppend = document.createElement('p');
           toAppend.textContent = buffer;
           measureContent.appendChild(toAppend);
         } else {
-          // single very long word - force it
           const forced = document.createElement('p');
           forced.textContent = words[w];
           measureContent.appendChild(forced);
-          w++; // consumed one word
+          w++;
         }
-        // if page is full, push and reset
+
         if (!fits()) {
           pages.push(Array.from(measureContent.childNodes).map(n => n.cloneNode(true)));
           measureContent.innerHTML = '';
         }
-        // start new buffer with current word if not consumed
+
         buffer = (w < words.length) ? words[w] : '';
-        // prepare next test iteration
       }
-      // at last word, append remaining buffer
+
       if (w === words.length - 1 && buffer) {
         const toAppend = document.createElement('p');
         toAppend.textContent = buffer;
@@ -1262,7 +1245,6 @@ function paginateContent(html) {
     measureContent.innerHTML = '';
   }
 
-  // build page HTML strings
   const pagesHTML = pages.map(pn => {
     const wrapper = document.createElement('div');
     pn.forEach(n => wrapper.appendChild(n.cloneNode(true)));
@@ -1507,7 +1489,6 @@ function copyLatestText() {
   return copyTextToClipboard(latestResultText);
 }
 
-// --- PAPER generation flow (unchanged endpoint usage, but we clean output before rendering) ---
 async function generatePaper() {
   if (isGenerating) return;
   const input = document.getElementById("promptInput");
@@ -1533,7 +1514,6 @@ async function generatePaper() {
     const data = await res.json();
 
     if (res.ok && data.result) {
-      // clean and render
       const cleaned = cleanPaperText(data.result);
       const wordCount = data.word_count || cleaned.split(/\s+/).length;
       const pageCount = data.page_count || Math.max(1, Math.ceil(wordCount / 250));
@@ -1692,7 +1672,6 @@ function logout() {
   window.location.href = "index.html";
 }
 
-// --- FLOATING ASSISTANT: now calls /chat endpoint (acts like a normal AI assistant) ---
 async function sendFloatingMessage() {
   const text = document.getElementById("aiChatInput").value.trim();
   if (!text) return;
@@ -1711,12 +1690,10 @@ async function sendFloatingMessage() {
       })
     });
     const data = await res.json();
-    // remove the "Thinking..." message
     const last = document.getElementById("aiChatBody").lastElementChild;
     if (last && last.classList.contains("ai")) last.remove();
 
     if (res.ok && data.result) {
-      // show assistant reply (supports light markdown)
       addFloatingMsg("ai", data.result, true);
     } else {
       addFloatingMsg("ai", data.error || "Assistant error. Try again.");
@@ -1733,7 +1710,6 @@ function addFloatingMsg(role, text, renderMarkdown=false) {
   const el = document.createElement("div");
   el.className = `ai-chat-msg ${role}`;
   if (renderMarkdown) {
-    // render light markdown
     const cleaned = cleanPaperText(text);
     el.innerHTML = markdownToHTML(cleaned);
   } else {
@@ -1742,9 +1718,6 @@ function addFloatingMsg(role, text, renderMarkdown=false) {
   aiChatBody.appendChild(el);
   aiChatBody.scrollTop = aiChatBody.scrollHeight;
 }
-
-// keep saving assistant transcripts locally if paper generation was used; for chat we don't force saving
-// (save behavior is handled server-side via the /chat save flag if wanted)
 
 window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
 </script>
