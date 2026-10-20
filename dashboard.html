@@ -906,6 +906,157 @@ svg { display: block; }
   stroke: currentColor; fill: none; stroke-width: 2;
 }
 
+/* Floating TOC Panel */
+.toc-float-panel {
+  position: fixed;
+  right: 22px;
+  bottom: 146px;
+  width: min(420px, 38vw);
+  min-width: 300px;
+  max-height: 72vh;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 18px;
+  box-shadow: 0 24px 54px rgba(15, 23, 42, 0.22);
+  overflow: hidden;
+  z-index: 2500;
+  backdrop-filter: blur(12px);
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+}
+
+.toc-float-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: rgba(15, 23, 42, 0.04);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+  cursor: move;
+}
+
+.toc-float-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #0f172a;
+}
+
+.toc-float-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toc-mini-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: rgba(15, 23, 42, 0.05);
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  color: #0f172a;
+  font-size: 16px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.toc-float-body {
+  background: #fff;
+  padding: 14px 14px 10px;
+  overflow: auto;
+  display: flex;
+  justify-content: center;
+}
+
+.toc-a4 {
+  width: 100%;
+  min-height: 420px;
+  background: #fff;
+  color: #0f172a;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  border-radius: 6px;
+  padding: 24px 18px 18px;
+  font-family: 'Merriweather', Georgia, serif;
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.02);
+}
+
+.toc-a4 h1 {
+  font-family: 'Inter', sans-serif;
+  font-size: 18px;
+  font-weight: 800;
+  text-align: left;
+  letter-spacing: -0.02em;
+  margin: 0 0 18px;
+  color: #0f172a;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.toc-a4 .toc-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: baseline;
+  margin-bottom: 7px;
+  font-size: 13px;
+  line-height: 1.8;
+  color: #1e293b;
+  text-align: left;
+}
+
+.toc-a4 .toc-title {
+  min-width: 0;
+  white-space: normal;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.toc-a4 .toc-page {
+  min-width: 30px;
+  text-align: right;
+  font-weight: 700;
+  color: #0f172a;
+  font-family: 'Inter', sans-serif;
+}
+
+.toc-float-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 10px 12px 12px;
+  background: rgba(15, 23, 42, 0.02);
+  border-top: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.toc-update-btn {
+  border: 1px solid rgba(79, 70, 229, 0.2);
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  color: white;
+  border-radius: 9px;
+  padding: 9px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 10px 20px rgba(79, 70, 229, 0.18);
+}
+
+.toc-update-btn:active {
+  transform: translateY(1px);
+}
+
+.toc-empty {
+  padding: 18px 12px;
+  color: #475569;
+  font-size: 13px;
+  text-align: left;
+  font-family: 'Inter', sans-serif;
+}
+
 @media (max-width: 900px) {
   .sidebar {
     transform: translateX(-100%);
@@ -927,6 +1078,12 @@ svg { display: block; }
     right: 14px;
     bottom: 120px;
   }
+  .toc-float-panel {
+    width: min(82vw, 360px);
+    min-width: 0;
+    right: 12px;
+    bottom: 112px;
+  }
 }
 
 @media (max-width: 520px) {
@@ -937,7 +1094,7 @@ svg { display: block; }
 
 @media print {
   body { background: white; }
-  .sidebar, .topbar, .input-container, .chat-actions, .ai-fab, .ai-chat-window { display: none !important; }
+  .sidebar, .topbar, .input-container, .chat-actions, .ai-fab, .ai-chat-window, .toc-float-panel { display: none !important; }
   .main { margin-left: 0; width: 100%; }
   .chat-area { padding: 0; overflow: visible; }
   .a4-page { box-shadow: none; border: none; margin: 0; padding: 70px 80px; }
@@ -1096,7 +1253,6 @@ svg { display: block; }
     </button>
   </div>
 </div>
-
 
 <div class="workflow-modal-backdrop" id="promptBuilderModal" role="dialog" aria-modal="true" aria-labelledby="promptBuilderTitle">
   <div class="workflow-modal">
@@ -1259,7 +1415,6 @@ function paginateContent(html) {
       measureContent.innerHTML = '';
     }
 
-    // IMPORTANT: testAppend already appended the node if it fits, so do not append again.
     if (testAppend(clone.cloneNode(true))) {
       continue;
     }
@@ -1621,7 +1776,6 @@ function copyLatestText() {
   return copyTextToClipboard(latestResultText);
 }
 
-
 function getWorkflowUserId(){const id=localStorage.getItem("user_id")||"";return /^\d+$/.test(String(id))?String(id):"";}
 function openPromptBuilder(){document.getElementById("promptBuilderModal").classList.add("show");document.getElementById("pbTopic").focus();}
 function closePromptBuilder(){document.getElementById("promptBuilderModal").classList.remove("show");}
@@ -1658,34 +1812,204 @@ async function startPaperWithCodes(codes,userPrompt){
  else if(data.sections){data.sections.forEach(s=>addWorkflowSection({title:s.title,result:s.content,order_no:s.order_no,project_id:data.project_id,toc_code:codes.toc_code,kind:s.order_no===0?"preliminary":"chapter"},s.order_no===0));}
  activeChatHistory.push({prompt:userPrompt,result:data.result||"",isPaper:true,workflow:true,project_id:data.project_id,order_no:0,kind:"preliminary"});saveChatSession();
 }
+function normalizeTocEntries(tocText) {
+  const source = String(tocText || "").replace(/```/g, "").trim();
+  if (!source) return [];
+  const lines = source
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean)
+    .filter(line => !/^(table of contents|contents)$/i.test(line));
+
+  const entries = [];
+  lines.forEach(line => {
+    const cleaned = line.replace(/^#{1,3}\s*/, "").replace(/\s{2,}/g, " ").trim();
+    if (!cleaned || /^[-*•]\s*/.test(cleaned)) return;
+    const match = cleaned.match(/^(.*?)(\s+)([0-9]+|[ivxlcdm]+)$/i);
+    const title = match ? match[1].trim() : cleaned;
+    const page = match ? match[3].trim() : "";
+    if (title) entries.push({ title, page });
+  });
+  return entries;
+}
+
+function renderFloatingToc(tocText) {
+  let panel = document.getElementById("tocFloatingPanel");
+  if (!panel) {
+    panel = document.createElement("div");
+    panel.id = "tocFloatingPanel";
+    panel.className = "toc-float-panel";
+    document.body.appendChild(panel);
+  }
+
+  const entries = normalizeTocEntries(tocText);
+  const tocHtml = entries.length
+    ? entries.map(item => {
+        const safeTitle = escapeHTML(item.title || "Untitled");
+        const safePage = escapeHTML(item.page || "");
+        return `
+          <div class="toc-row">
+            <span class="toc-title">${safeTitle}</span>
+            <span class="toc-page">${safePage}</span>
+          </div>
+        `;
+      }).join("")
+    : '<div class="toc-empty">No table of contents is available yet. Generate or refresh your paper to populate it.</div>';
+
+  panel.innerHTML = `
+    <div class="toc-float-header" id="tocFloatHeader">
+      <div class="toc-float-title">Table of Contents</div>
+      <div class="toc-float-actions">
+        <button class="toc-mini-btn" type="button" title="Minimize" aria-label="Minimize">−</button>
+      </div>
+    </div>
+    <div class="toc-float-body">
+      <div class="toc-a4">
+        <h1>Table of Contents</h1>
+        ${tocHtml}
+      </div>
+    </div>
+    <div class="toc-float-footer">
+      <button class="toc-update-btn" type="button" id="tocUpdateBtn">Update Table</button>
+    </div>
+  `;
+
+  const updateBtn = document.getElementById("tocUpdateBtn");
+  if (updateBtn) {
+    updateBtn.onclick = async () => {
+      const userId = getWorkflowUserId();
+      const projectId = activePaperProjectId || document.querySelector("#chatArea .chat-msg[data-project-id]")?.dataset.projectId;
+      if (!userId || !projectId || !activeTocCode) {
+        alert("No active saved paper record is available for this TOC.");
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_URL}/sync-toc-pages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: userId,
+            toc_code: activeTocCode,
+            page_map: {}
+          })
+        });
+
+        const data = await res.json();
+        if (data && data.toc) {
+          renderFloatingToc(data.toc);
+          updateDisplayedTableOfContents(data.toc);
+        } else {
+          alert("TOC could not be refreshed.");
+        }
+      } catch (err) {
+        alert("Refresh failed. Please try again.");
+      }
+    };
+  }
+
+  const closeBtn = panel.querySelector(".toc-mini-btn");
+  if (closeBtn) {
+    closeBtn.onclick = () => {
+      panel.style.display = "none";
+    };
+  }
+
+  let drag = false;
+  let startX = 0, startY = 0, originX = 0, originY = 0;
+  const header = document.getElementById("tocFloatHeader");
+  if (header) {
+    header.onpointerdown = (e) => {
+      drag = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      const rect = panel.getBoundingClientRect();
+      originX = rect.left;
+      originY = rect.top;
+      header.setPointerCapture(e.pointerId);
+    };
+
+    header.onpointermove = (e) => {
+      if (!drag) return;
+      panel.style.left = `${Math.max(12, originX + (e.clientX - startX))}px`;
+      panel.style.right = "auto";
+      panel.style.top = `${Math.max(12, originY + (e.clientY - startY))}px`;
+      panel.style.bottom = "auto";
+    };
+
+    header.onpointerup = () => { drag = false; };
+    header.onpointerleave = () => { drag = false; };
+  }
+
+  return panel;
+}
+
 function updateDisplayedTableOfContents(tocText){
- const pre=document.querySelector('#chatArea .chat-msg[data-kind="preliminary"]');
- if(!pre||!tocText)return;
- const current=pre.dataset.raw||"";
- const tocBody=String(tocText).split(/\r?\n/).filter(line=>!/^\s*#{0,3}\s*(table of contents|contents)\s*$/i.test(line.trim())).join("\n").trim();
- const marker=/(^|\n)\s*(?:#{1,3}\s*)?(?:table of contents|contents)\s*\n/i;
- let updated;
- if(marker.test(current)) updated=current.replace(marker,(match,prefix)=>`${prefix}# TABLE OF CONTENTS\n`) .replace(/(^|\n)# TABLE OF CONTENTS\n[\s\S]*$/i, (match,prefix)=>`${prefix}# TABLE OF CONTENTS\n\n${tocBody}`);
- else updated=current+"\n\n# TABLE OF CONTENTS\n\n"+tocBody;
- pre.dataset.raw=updated;pre.dataset.syncedToc=tocText;
- const orderNo=Number(pre.dataset.orderNo||0),projectId=pre.dataset.projectId,tocCode=pre.dataset.tocCode;
- pre.innerHTML=`<div style="font-weight:700;color:var(--text);margin:6px 0 10px">Preliminary Pages and Table of Contents</div>${createA4Pages(markdownToHTML(updated),updated.split(/\s+/).filter(Boolean).length,{kind:"preliminary",startPage:1})}<div class="workflow-output-actions"><button data-action="edit">Edit</button><button data-action="resend">Resend</button><button class="primary" data-action="next">Pull Next</button></div>`;
- Object.assign(pre.dataset,{orderNo:String(orderNo),projectId:String(projectId||""),tocCode:String(tocCode||""),kind:"preliminary",pageStart:"i",pageCount:String(paginateContent(markdownToHTML(updated)).length||1)});
- pre.querySelectorAll("[data-action]").forEach(b=>b.addEventListener("click",()=>handleWorkflowAction(b,pre)));
+  const pre = document.querySelector('#chatArea .chat-msg[data-kind="preliminary"]');
+  if (!pre || !tocText) return;
+
+  const current = pre.dataset.raw || "";
+  const tocBody = String(tocText)
+    .split(/\r?\n/)
+    .filter(line => !/^\s*#{0,3}\s*(table of contents|contents)\s*$/i.test(line.trim()))
+    .join("\n")
+    .trim();
+
+  const marker = /(^|\n)\s*(?:#{1,3}\s*)?(?:table of contents|contents)\s*\n/i;
+  let updated;
+
+  if (marker.test(current)) {
+    updated = current.replace(marker, (match, prefix) => `${prefix}# TABLE OF CONTENTS\n`)
+      .replace(/(^|\n)# TABLE OF CONTENTS\n[\s\S]*$/i, (match, prefix) => `${prefix}# TABLE OF CONTENTS\n\n${tocBody}`);
+  } else {
+    updated = current + "\n\n# TABLE OF CONTENTS\n\n" + tocBody;
+  }
+
+  pre.dataset.raw = updated;
+  pre.dataset.syncedToc = tocText;
+
+  const orderNo = Number(pre.dataset.orderNo || 0);
+  const projectId = pre.dataset.projectId;
+  const tocCode = pre.dataset.tocCode;
+
+  pre.innerHTML = `
+    <div style="font-weight:700;color:var(--text);margin:6px 0 10px">Preliminary Pages and Table of Contents</div>
+    ${createA4Pages(markdownToHTML(updated), updated.split(/\s+/).filter(Boolean).length, { kind: "preliminary", startPage: 1 })}
+    <div class="workflow-output-actions">
+      <button data-action="edit">Edit</button>
+      <button data-action="resend">Resend</button>
+      <button class="primary" data-action="next">Pull Next</button>
+    </div>
+  `;
+
+  Object.assign(pre.dataset, {
+    orderNo: String(orderNo),
+    projectId: String(projectId || ""),
+    tocCode: String(tocCode || ""),
+    kind: "preliminary",
+    pageStart: "i",
+    pageCount: String(paginateContent(markdownToHTML(updated)).length || 1)
+  });
+
+  pre.querySelectorAll("[data-action]").forEach(b => {
+    b.addEventListener("click", () => handleWorkflowAction(b, pre));
+  });
+
+  renderFloatingToc(tocText);
 }
 
 function addWorkflowSection(data,isInitial=false){
- const chatArea=document.getElementById("chatArea"),container=document.createElement("div");container.className="chat-msg";
- const content=cleanPaperText(data.result||""),words=data.word_count||content.split(/\s+/).filter(Boolean).length;
- const kind=data.kind||(isInitial?"preliminary":"chapter"),start=kind==="preliminary"?1:workflowArabicPage;
- container.innerHTML=`<div style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(data.title||"Generated section")}</div>${createA4Pages(markdownToHTML(content),words,{kind,startPage:start})}<div class="workflow-output-actions"><button data-action="edit">Edit</button><button data-action="resend">Resend</button><button class="primary" data-action="next">Pull Next</button></div>`;
- Object.assign(container.dataset,{orderNo:String(data.order_no??0),title:data.title||"Generated section",raw:content,kind,projectId:String(data.project_id||activePaperProjectId||""),tocCode:data.toc_code||activeTocCode||"",pageStart:kind==="preliminary"?"i":String(start)});
- container.querySelectorAll("[data-action]").forEach(b=>b.addEventListener("click",()=>handleWorkflowAction(b,container)));
- chatArea.appendChild(container);chatArea.scrollTop=chatArea.scrollHeight;
- const pageCount=paginateContent(markdownToHTML(content)).length||1;
- container.dataset.pageCount=String(pageCount);
- workflowArabicPage=kind==="preliminary"?1:Math.max(workflowArabicPage,start+pageCount);activeSectionOrder=Math.max(activeSectionOrder,Number(data.order_no||0));
- latestResultText=content;toggleCopyButton(content);
+  const chatArea=document.getElementById("chatArea"),container=document.createElement("div");container.className="chat-msg";
+  const content=cleanPaperText(data.result||""),words=data.word_count||content.split(/\s+/).filter(Boolean).length;
+  const kind=data.kind||(isInitial?"preliminary":"chapter"),start=kind==="preliminary"?1:workflowArabicPage;
+  container.innerHTML=`<div style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(data.title||"Generated section")}</div>${createA4Pages(markdownToHTML(content),words,{kind,startPage:start})}<div class="workflow-output-actions"><button data-action="edit">Edit</button><button data-action="resend">Resend</button><button class="primary" data-action="next">Pull Next</button></div>`;
+  Object.assign(container.dataset,{orderNo:String(data.order_no??0),title:data.title||"Generated section",raw:content,kind,projectId:String(data.project_id||activePaperProjectId||""),tocCode:data.toc_code||activeTocCode||"",pageStart:kind==="preliminary"?"i":String(start)});
+  container.querySelectorAll("[data-action]").forEach(b=>b.addEventListener("click",()=>handleWorkflowAction(b,container)));
+  chatArea.appendChild(container);chatArea.scrollTop=chatArea.scrollHeight;
+  const pageCount=paginateContent(markdownToHTML(content)).length||1;
+  container.dataset.pageCount=String(pageCount);
+  workflowArabicPage=kind==="preliminary"?1:Math.max(workflowArabicPage,start+pageCount);activeSectionOrder=Math.max(activeSectionOrder,Number(data.order_no||0));
+  latestResultText=content;toggleCopyButton(content);
 }
 async function handleWorkflowAction(button,container){
  if(workflowBusy)return;const action=button.dataset.action,userId=getWorkflowUserId(),projectId=container.dataset.projectId,orderNo=Number(container.dataset.orderNo||0);
@@ -1707,7 +2031,7 @@ async function handleWorkflowAction(button,container){
   }else{
    const res=await fetch(`${API_URL}/pull-next`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user_id:userId,project_id:projectId,action:"next"})});const d=await res.json();if(!res.ok)throw new Error(d.error||"Could not generate next section.");if(d.done){alert(d.message||"All sections have been generated.");return;}
    addWorkflowSection({...d,project_id:projectId,toc_code:activeTocCode,kind:"chapter"});activeChatHistory.push({prompt:"Pull Next: "+d.title,result:d.result,isPaper:true,workflow:true,project_id:projectId,order_no:d.order_no,kind:"chapter"});saveChatSession();
-   if(activeTocCode){const map={};document.querySelectorAll("#chatArea .chat-msg[data-order-no]").forEach(el=>{const isPre=el.dataset.kind==="preliminary",sectionStart=el.dataset.pageStart||"1";map[el.dataset.title||`Section ${el.dataset.orderNo}`]={order_no:Number(el.dataset.orderNo),page_start:sectionStart,page_count:Number(el.dataset.pageCount||1)};const pages=[...el.querySelectorAll(".a4-page")];pages.forEach((page,pi)=>{const pageLabel=isPre?(pi===0?"":romanNumber(pi)):String(Number(sectionStart)+pi);page.querySelectorAll("h1,h2,h3").forEach(h=>{const heading=(h.textContent||"").trim();if(heading)map[heading]={order_no:Number(el.dataset.orderNo),page_start:pageLabel,page_count:1};});});});fetch(`${API_URL}/sync-toc-pages`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user_id:userId,toc_code:activeTocCode,page_map:map})}).then(r=>r.json()).then(d=>{if(d.toc){updateDisplayedTableOfContents(d.toc);addFloatingMsg("ai",`Table of contents page numbers refreshed from the current rendered pages (same code ${activeTocCode}).`);}}).catch(()=>{});}
+   if(activeTocCode){const map={};document.querySelectorAll("#chatArea .chat-msg[data-order-no]").forEach(el=>{const isPre=el.dataset.kind==="preliminary",sectionStart=el.dataset.pageStart||"1";map[el.dataset.title||`Section ${el.dataset.orderNo}`]={order_no:Number(el.dataset.orderNo),page_start:sectionStart,page_count:Number(el.dataset.pageCount||1)};const pages=[...el.querySelectorAll(".a4-page")];pages.forEach((page,pi)=>{const pageLabel=isPre?(pi===0?"":romanNumber(pi)):String(Number(sectionStart)+pi);page.querySelectorAll("h1,h2,h3").forEach(h=>{const heading=(h.textContent||"").trim();if(heading)map[heading]={order_no:Number(el.dataset.orderNo),page_start:pageLabel,page_count:1};});});});fetch(`${API_URL}/sync-toc-pages`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user_id:userId,toc_code:activeTocCode,page_map:map})}).then(r=>r.json()).then(d=>{if(d.toc){updateDisplayedTableOfContents(d.toc);renderFloatingToc(d.toc);}}).catch(()=>{});}
   }
  }catch(err){alert(err.message||"Workflow action failed.");}finally{workflowBusy=false;buttons.forEach(b=>b.disabled=false);}
 }
@@ -1902,7 +2226,20 @@ async function sendFloatingMessage() {
   if (!text) return;
   addFloatingMsg("user", text);
   document.getElementById("aiChatInput").value = "";
-  addFloatingMsg("ai", "Thinking...");
+
+  const body = document.getElementById("aiChatBody");
+  const typing = document.createElement("div");
+  typing.className = "ai-chat-msg ai typing";
+  typing.innerHTML = `
+    <div class="dot-loader" style="justify-content:flex-start; gap: 7px; padding: 0;">
+      <div class="dot" style="width: 9px; height: 9px;"></div>
+      <div class="dot" style="width: 9px; height: 9px;"></div>
+      <div class="dot" style="width: 9px; height: 9px;"></div>
+    </div>
+  `;
+  body.appendChild(typing);
+  body.scrollTop = body.scrollHeight;
+
   const codeMatch=text.match(/\b([A-Z0-9]{5})\b/i);
   const workflowUserId=getWorkflowUserId();
 
@@ -1910,10 +2247,11 @@ async function sendFloatingMessage() {
     if(codeMatch && workflowUserId){
       const tocRes=await fetch(`${API_URL}/build-toc`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user_id:workflowUserId,prompt_code:codeMatch[1].toUpperCase()})});
       const tocData=await tocRes.json();
-      const pending=document.getElementById("aiChatBody").lastElementChild;
-      if(pending&&pending.classList.contains("ai"))pending.remove();
+      if (body.querySelector(".typing")) body.querySelector(".typing").remove();
+
       if(!tocRes.ok)throw new Error(tocData.error||"Could not build table of contents.");
       addFloatingMsg("ai",`TABLE OF CONTENTS\n\n${tocData.toc}\n\nTOC code: ${tocData.toc_code}\n\nPaste both codes in the main chat:\nPROMPT: ${codeMatch[1].toUpperCase()} TOC: ${tocData.toc_code}`,true);
+      renderFloatingToc(tocData.toc);
       await copyTextToClipboard(`PROMPT: ${codeMatch[1].toUpperCase()} TOC: ${tocData.toc_code}`);
       return;
     }
@@ -1927,8 +2265,7 @@ async function sendFloatingMessage() {
       })
     });
     const data = await res.json();
-    const last = document.getElementById("aiChatBody").lastElementChild;
-    if (last && last.classList.contains("ai")) last.remove();
+    if (body.querySelector(".typing")) body.querySelector(".typing").remove();
 
     if (res.ok && data.result) {
       addFloatingMsg("ai", data.result, true);
@@ -1936,8 +2273,7 @@ async function sendFloatingMessage() {
       addFloatingMsg("ai", data.error || "Assistant error. Try again.");
     }
   } catch (e) {
-    const last = document.getElementById("aiChatBody").lastElementChild;
-    if (last && last.classList.contains("ai")) last.remove();
+    if (body.querySelector(".typing")) body.querySelector(".typing").remove();
     addFloatingMsg("ai", "Network error. Try again.");
   }
 }
