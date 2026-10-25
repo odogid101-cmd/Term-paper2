@@ -994,112 +994,7 @@ svg { display: block; }
 .toc-row .toc-leader{flex:1 1 auto;border-bottom:1px dotted #64748b;min-width:12px;transform:translateY(-3px);}
 .toc-row .toc-page{flex:0 0 auto;text-align:right;min-width:24px;font-variant-numeric:tabular-nums;}
 .workflow-output-actions button.update-toc{border-color:rgba(99,102,241,.45);}
-
-/* FULLSCREEN WORD-LIKE EDITOR STYLES */
-.editor-modal {
-  display: none;
-  position: fixed;
-  inset: 0;
-  z-index: 5000;
-  background: #f1f5f9;
-  flex-direction: column;
-  color: #0f172a;
-}
-.editor-modal.show { display: flex; }
-[data-theme="dark"] .editor-modal {
-  background: #0f172a;
-  color: #f8fafc;
-}
-.editor-header {
-  height: 52px;
-  background: #1e293b;
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 20px;
-  border-bottom: 1px solid rgba(255,255,255,0.1);
-  flex-shrink: 0;
-}
-.editor-title {
-  font-weight: 700;
-  font-size: 15px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.editor-toolbar {
-  background: #ffffff;
-  border-bottom: 1px solid #cbd5e1;
-  padding: 8px 16px;
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  flex-wrap: wrap;
-  flex-shrink: 0;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-}
-[data-theme="dark"] .editor-toolbar {
-  background: #1e293b;
-  border-color: rgba(255,255,255,0.1);
-}
-.editor-tool-btn {
-  padding: 6px 10px;
-  border-radius: 4px;
-  border: 1px solid #cbd5e1;
-  background: #f8fafc;
-  color: #334155;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 32px;
-  height: 32px;
-}
-[data-theme="dark"] .editor-tool-btn {
-  border-color: rgba(255,255,255,0.15);
-  background: rgba(255,255,255,0.05);
-  color: #e2e8f0;
-}
-.editor-tool-btn:hover { background: #e2e8f0; }
-[data-theme="dark"] .editor-tool-btn:hover { background: rgba(255,255,255,0.1); }
-.editor-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 30px 20px;
-  display: flex;
-  justify-content: center;
-  background: #cbd5e1;
-}
-[data-theme="dark"] .editor-body {
-  background: #090d16;
-}
-.word-page {
-  width: 100%;
-  max-width: 850px;
-  min-height: 1056px;
-  background: #ffffff;
-  color: #0f172a;
-  padding: 70px 80px;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-  border-radius: 2px;
-  outline: none;
-  font-family: 'Merriweather', Georgia, serif;
-  line-height: 1.82;
-  font-size: 15px;
-}
-.word-page h1, .word-page h2, .word-page h3 {
-  font-family: 'Inter', sans-serif;
-  color: #0f172a;
-}
-.word-page h1 { font-size: 26px; font-weight: 800; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 20px; }
-.word-page h2 { font-size: 19px; font-weight: 700; border-left: 4px solid #4f46e5; padding-left: 12px; margin: 24px 0 12px; }
-.word-page h3 { font-size: 16px; font-weight: 700; margin: 18px 0 10px; }
-.word-page p { margin-bottom: 14px; text-align: justify; }
-
-@media(max-width:600px){.ai-chat-window{width:calc(100vw - 20px)!important;right:10px!important;left:10px!important;bottom:90px!important;height:min(68dvh,540px)!important}.ai-fab{right:16px;bottom:16px}.a4-page.cover-page .a4-content{min-height:65vh}.a4-page.toc-page .a4-content{font-size:13px}.toc-row{gap:5px}.word-page{padding:30px 20px;min-height:auto;}}
+@media(max-width:600px){.ai-chat-window{width:calc(100vw - 20px)!important;right:10px!important;left:10px!important;bottom:90px!important;height:min(68dvh,540px)!important}.ai-fab{right:16px;bottom:16px}.a4-page.cover-page .a4-content{min-height:65vh}.a4-page.toc-page .a4-content{font-size:13px}.toc-row{gap:5px}}
 </style>
 </head>
 <body>
@@ -1226,40 +1121,6 @@ svg { display: block; }
   </div>
 </div>
 
-<!-- FULLSCREEN MS WORD-LIKE EDITOR MODAL -->
-<div class="editor-modal" id="wordEditorModal">
-  <div class="editor-header">
-    <div class="editor-title" id="editorTitle">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-      <span>Edit Section - Document View</span>
-    </div>
-    <div style="display:flex; gap:10px;">
-      <button class="workflow-primary" id="editorSaveBtn" style="padding: 6px 14px; font-size: 13px;">Save & Apply</button>
-      <button class="workflow-secondary" id="editorCloseBtn" style="padding: 6px 14px; font-size: 13px; background: rgba(255,255,255,0.1); color: white; border-color: transparent;">Cancel</button>
-    </div>
-  </div>
-  <div class="editor-toolbar">
-    <button class="editor-tool-btn" onclick="execCmd('bold')" title="Bold"><b>B</b></button>
-    <button class="editor-tool-btn" onclick="execCmd('italic')" title="Italic"><i>I</i></button>
-    <button class="editor-tool-btn" onclick="execCmd('underline')" title="Underline"><u>U</u></button>
-    <div style="width:1px; height:20px; background:#cbd5e1; margin:0 4px;"></div>
-    <button class="editor-tool-btn" onclick="execCmd('justifyLeft')" title="Align Left">Left</button>
-    <button class="editor-tool-btn" onclick="execCmd('justifyCenter')" title="Align Center">Center</button>
-    <button class="editor-tool-btn" onclick="execCmd('justifyRight')" title="Align Right">Right</button>
-    <button class="editor-tool-btn" onclick="execCmd('justifyFull')" title="Justify">Justify</button>
-    <div style="width:1px; height:20px; background:#cbd5e1; margin:0 4px;"></div>
-    <button class="editor-tool-btn" onclick="execCmd('insertUnorderedList')" title="Bullet List">• List</button>
-    <button class="editor-tool-btn" onclick="execCmd('insertOrderedList')" title="Numbered List">1. List</button>
-    <div style="width:1px; height:20px; background:#cbd5e1; margin:0 4px;"></div>
-    <button class="editor-tool-btn" onclick="execCmd('formatBlock', '<h1>')" title="Heading 1">H1</button>
-    <button class="editor-tool-btn" onclick="execCmd('formatBlock', '<h2>')" title="Heading 2">H2</button>
-    <button class="editor-tool-btn" onclick="execCmd('formatBlock', '<h3>')" title="Heading 3">H3</button>
-    <button class="editor-tool-btn" onclick="execCmd('formatBlock', '<p>')" title="Paragraph">P</button>
-  </div>
-  <div class="editor-body">
-    <div class="word-page" id="wordEditableContent" contenteditable="true" spellcheck="true"></div>
-  </div>
-</div>
 
 <div class="workflow-modal-backdrop" id="promptBuilderModal" role="dialog" aria-modal="true" aria-labelledby="promptBuilderTitle">
   <div class="workflow-modal">
@@ -1305,11 +1166,6 @@ let tocGenerated = false;
 let activeSectionOrder = 0;
 let workflowArabicPage = 1;
 let workflowBusy = false;
-let activeEditingContainer = null;
-
-function execCmd(command, value = null) {
-  document.execCommand(command, false, value);
-}
 
 // Clean model text before rendering
 function cleanPaperText(text){
@@ -1381,58 +1237,6 @@ function markdownToHTML(markdown) {
   }
   flushParagraph(); flushList();
   return out.join("\n");
-}
-
-function htmlToMarkdown(html) {
-  if (!html) return "";
-  const container = document.createElement("div");
-  container.innerHTML = html;
-  
-  let md = "";
-  
-  function parseNodes(nodes) {
-    for (let node of nodes) {
-      if (node.nodeType === Node.TEXT_NODE) {
-        md += node.textContent;
-      } else if (node.nodeType === Node.ELEMENT_NODE) {
-        const tag = node.tagName.toLowerCase();
-        if (tag === 'h1') {
-          md += "\n\n# " + node.textContent.trim() + "\n\n";
-        } else if (tag === 'h2') {
-          md += "\n\n## " + node.textContent.trim() + "\n\n";
-        } else if (tag === 'h3') {
-          md += "\n\n### " + node.textContent.trim() + "\n\n";
-        } else if (tag === 'p') {
-          md += "\n\n" + node.textContent.trim() + "\n\n";
-        } else if (tag === 'strong' || tag === 'b') {
-          md += "**" + node.textContent + "**";
-        } else if (tag === 'em' || tag === 'i') {
-          md += "*" + node.textContent + "*";
-        } else if (tag === 'ul') {
-          for (let li of node.children) {
-            if (li.tagName.toLowerCase() === 'li') {
-              md += "\n- " + li.textContent.trim();
-            }
-          }
-          md += "\n\n";
-        } else if (tag === 'ol') {
-          let idx = 1;
-          for (let li of node.children) {
-            if (li.tagName.toLowerCase() === 'li') {
-              md += `\n${idx}. ` + li.textContent.trim();
-              idx++;
-            }
-          }
-          md += "\n\n";
-        } else {
-          parseNodes(node.childNodes);
-        }
-      }
-    }
-  }
-
-  parseNodes(container.childNodes);
-  return cleanPaperText(md);
 }
 
 // FIXED: no double append
@@ -1720,10 +1524,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("promptBuilderModal").addEventListener("click",e=>{if(e.target.id==="promptBuilderModal")closePromptBuilder();});
   document.getElementById("promptBuilderForm").addEventListener("submit",savePromptBuilder);
 
-  // Bind MS Word Fullscreen Editor handlers
-  document.getElementById("editorCloseBtn").onclick = closeWordEditor;
-  document.getElementById("editorSaveBtn").onclick = saveWordEditor;
-
   document.addEventListener("click", (e) => {
     if (!e.target.closest(".top-actions")) closeDots();
   });
@@ -1988,89 +1788,17 @@ function addWorkflowSection(data,isInitial=false){
  workflowArabicPage=kind==="preliminary"?1:Math.max(workflowArabicPage,start+pageCount);activeSectionOrder=Math.max(activeSectionOrder,Number(data.order_no||0));
  latestResultText=content;toggleCopyButton(content);
 }
-
-// MS Word-like Document View Editor Functions
-function openWordEditor(container) {
-  activeEditingContainer = container;
-  const rawText = container.dataset.raw || "";
-  const title = container.dataset.title || "Section";
-  
-  document.getElementById("editorTitle").querySelector("span").textContent = `Editing: ${title}`;
-  const editable = document.getElementById("wordEditableContent");
-  editable.innerHTML = markdownToHTML(rawText);
-  
-  document.getElementById("wordEditorModal").classList.add("show");
-}
-
-function closeWordEditor() {
-  document.getElementById("wordEditorModal").classList.remove("show");
-  activeEditingContainer = null;
-}
-
-async function saveWordEditor() {
-  if (!activeEditingContainer || workflowBusy) return;
-  const container = activeEditingContainer;
-  const editable = document.getElementById("wordEditableContent");
-  
-  const editedMarkdown = htmlToMarkdown(editable.innerHTML);
-  if (!editedMarkdown.trim()) {
-    alert("Section content cannot be empty.");
-    return;
-  }
-  
-  const userId = getWorkflowUserId();
-  const projectId = container.dataset.projectId;
-  const orderNo = Number(container.dataset.orderNo || 0);
-
-  workflowBusy = true;
-  const saveBtn = document.getElementById("editorSaveBtn");
-  saveBtn.disabled = true;
-  saveBtn.textContent = "Saving...";
-
-  try {
-    const res = await fetch(`${API_URL}/pull-next`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        user_id: userId,
-        project_id: projectId,
-        action: "edit",
-        order_no: orderNo,
-        content: editedMarkdown
-      })
-    });
-    const d = await res.json();
-    if (!res.ok) throw new Error(d.error || "Edit failed.");
-
-    container.dataset.raw = editedMarkdown;
-    const kind = container.dataset.kind;
-    const pageStart = container.dataset.pageStart || "1";
-    const startPage = kind === "preliminary" ? 1 : Number(pageStart);
-
-    container.innerHTML = `<div style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(d.title || container.dataset.title)}</div>${createA4Pages(markdownToHTML(editedMarkdown), editedMarkdown.split(/\s+/).length, { kind: kind, startPage: startPage })}<div class="workflow-output-actions"><button data-action="edit">Edit</button>${kind==="toc"?`<button class="update-toc" data-action="update-toc">↻ Update TOC</button>`:`<button data-action="resend">Resend</button>`}<button class="primary" data-action="next">Pull Next</button></div>`;
-    
-    Object.assign(container.dataset, { raw: editedMarkdown, orderNo: String(orderNo), projectId: String(projectId) });
-    bindWorkflowButtons(container);
-    latestResultText = editedMarkdown;
-    toggleCopyButton(editedMarkdown);
-
-    closeWordEditor();
-  } catch (err) {
-    alert(err.message || "Could not save edit.");
-  } finally {
-    workflowBusy = false;
-    saveBtn.disabled = false;
-    saveBtn.textContent = "Save & Apply";
-  }
-}
-
 async function handleWorkflowAction(button,container){
  if(workflowBusy)return;const action=button.dataset.action,userId=getWorkflowUserId(),projectId=container.dataset.projectId,orderNo=Number(container.dataset.orderNo||0);
  if(!userId||!projectId){alert("This paper is not linked to a signed-in account.");return;}
  if(action==="update-toc"){try{await updateCurrentTOC(button,container);}catch(err){alert(err.message||"TOC update failed.");}return;}
  if(action==="edit"){
-  openWordEditor(container);
-  return;
+  const edited=prompt("Edit this section:",container.dataset.raw||"");if(edited===null)return;if(!edited.trim()){alert("Section cannot be empty.");return;}
+  workflowBusy=true;button.disabled=true;
+  try{const res=await fetch(`${API_URL}/pull-next`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user_id:userId,project_id:projectId,action:"edit",order_no:orderNo,content:edited})});const d=await res.json();if(!res.ok)throw new Error(d.error||"Edit failed.");
+   container.dataset.raw=edited;container.innerHTML=`<div style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(d.title||container.dataset.title)}</div>${createA4Pages(markdownToHTML(edited),edited.split(/\s+/).length,{kind:container.dataset.kind,startPage:orderNo===0?1:Math.max(1,orderNo)})}<div class="workflow-output-actions"><button data-action="edit">Edit</button><button data-action="resend">Resend</button><button class="primary" data-action="next">Pull Next</button></div>`;
+   Object.assign(container.dataset,{raw:edited,orderNo:String(orderNo),projectId:String(projectId)});container.querySelectorAll("[data-action]").forEach(b=>b.addEventListener("click",()=>handleWorkflowAction(b,container)));latestResultText=edited;toggleCopyButton(edited);
+  }catch(err){alert(err.message||"Could not save edit.");}finally{workflowBusy=false;button.disabled=false;}return;
  }
  workflowBusy=true;const buttons=[...container.querySelectorAll("button")];buttons.forEach(b=>b.disabled=true);
  try{
@@ -2159,8 +1887,10 @@ function addLoadingMessage() {
         <div class="dot"></div>
         <div class="dot"></div>
       </div>
-      <div class="loading-text">Generating academic paper...</div>
-    </div>`;
+      <div class="loading-text">Generating your paper...</div>
+    </div>
+  `;
+
   chatArea.appendChild(container);
   chatArea.scrollTop = chatArea.scrollHeight;
 }
@@ -2170,44 +1900,95 @@ function removeLoadingMessage() {
   if (loading) loading.remove();
 }
 
-function addMessage(type, content) {
+function addMessage(role, content) {
   const chatArea = document.getElementById("chatArea");
   const welcomeMsg = document.getElementById("welcomeMsg");
   if (welcomeMsg) welcomeMsg.remove();
 
-  const msg = document.createElement("div");
-  msg.className = "chat-msg " + (type === "user" ? "user" : "ai-normal");
-  msg.innerHTML = content;
-  chatArea.appendChild(msg);
+  const container = document.createElement("div");
+  container.className = role === "user" ? "chat-msg user" : "chat-msg";
+
+  if (role === "user") {
+    container.innerText = content;
+  } else if (role === "paper") {
+    container.innerHTML = content;
+  } else if (role === "error") {
+    container.innerHTML = `
+      <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: #f87171; padding: 16px 20px; border-radius: 10px; font-size: 14px;">
+        <strong>Error:</strong> ${content}
+      </div>
+    `;
+  }
+
+  chatArea.appendChild(container);
   chatArea.scrollTop = chatArea.scrollHeight;
 }
 
-function sendFloatingMessage() {
-  const input = document.getElementById("aiChatInput");
-  const text = input.value.trim();
-  if (!text) return;
-  addFloatingMsg("user", text);
-  input.value = "";
+function getChatKey() {
+  return "chats_" + (currentUser?.id || "guest");
+}
 
-  const codes = extractWorkflowCodes(text);
-  if (codes) {
-    addFloatingMsg("ai", "Received prompt and TOC code. Initializing paper workflow in the main chat view...");
-    document.getElementById("promptInput").value = text;
-    generatePaper();
+function saveChatSession() {
+  const first = activeChatHistory.find(item => item && item.prompt);
+  if (!first) return;
+
+  let chats = JSON.parse(localStorage.getItem(getChatKey()) || "[]");
+
+  const sessionData = {
+    id: first.id || Date.now(),
+    title: first.prompt.substring(0, 50),
+    messages: activeChatHistory,
+    time: Date.now()
+  };
+
+  first.id = sessionData.id;
+
+  const existingIdx = chats.findIndex(c => c.id === sessionData.id);
+  if (existingIdx !== -1) {
+    chats[existingIdx] = sessionData;
   } else {
-    setTimeout(() => {
-      addFloatingMsg("ai", "I'm here to assist with your academic project. Enter a 5-character prompt code to load saved configurations.");
-    }, 600);
+    chats.unshift(sessionData);
+  }
+
+  localStorage.setItem(getChatKey(), JSON.stringify(chats.slice(0, 20)));
+  loadChats();
+}
+
+function loadChats() {
+  let chats = JSON.parse(localStorage.getItem(getChatKey()) || "[]");
+  const submenu = document.getElementById("historySubmenu");
+
+  if (chats.length) {
+    submenu.innerHTML = chats.map((c, i) =>
+      `<div class="submenu-item" onclick="openChatSession(${i})">${(c.title || "Paper").substring(0, 30)}...</div>`
+    ).join("");
+  } else {
+    submenu.innerHTML = `<div class="submenu-item" style="color:var(--muted)">No history yet</div>`;
   }
 }
 
-function addFloatingMsg(sender, text) {
-  const body = document.getElementById("aiChatBody");
-  const msg = document.createElement("div");
-  msg.className = `ai-chat-msg ${sender}`;
-  msg.textContent = text;
-  body.appendChild(msg);
-  body.scrollTop = body.scrollHeight;
+function openChatSession(index) {
+  let chats = JSON.parse(localStorage.getItem(getChatKey()) || "[]");
+  const session = chats[index];
+  document.getElementById("chatArea").innerHTML = "";
+
+  if (session && session.messages && session.messages.length) {
+    activeChatHistory = session.messages;
+    session.messages.forEach(m => {
+      if (m.prompt) addMessage("user", m.prompt);
+      if (m.isPaper && m.result) {
+        const htmlContent = markdownToHTML(m.result);
+        const wordCount = m.result.split(/\s+/).length;
+        const pageCount = Math.max(1, Math.ceil(wordCount / 250));
+        const paginatedHTML = createA4Pages(htmlContent, wordCount, pageCount);
+        addMessage("paper", paginatedHTML);
+        latestResultText = m.result;
+        toggleCopyButton(m.result);
+      }
+    });
+  }
+
+  toggleHistory();
 }
 
 function toggleHistory() {
@@ -2217,52 +1998,71 @@ function toggleHistory() {
   arrow.style.transform = submenu.classList.contains("show") ? "rotate(90deg)" : "rotate(0deg)";
 }
 
-function loadChats() {
-  const saved = localStorage.getItem("tempaper_chats");
-  const submenu = document.getElementById("historySubmenu");
-  submenu.innerHTML = "";
-  if (saved) {
-    const chats = JSON.parse(saved);
-    chats.forEach((chat, idx) => {
-      const item = document.createElement("div");
-      item.className = "submenu-item";
-      item.textContent = chat.title || `Paper ${idx + 1}`;
-      item.onclick = () => loadChatSession(chat);
-      submenu.appendChild(item);
-    });
-  }
+function logout() {
+  localStorage.removeItem("user_id");
+  window.location.href = "index.html";
 }
 
-function saveChatSession() {
-  let chats = JSON.parse(localStorage.getItem("tempaper_chats") || "[]");
-  if (activeChatHistory.length > 0) {
-    const title = activeChatHistory[0].prompt.slice(0, 30) + "...";
-    chats.unshift({ title, history: activeChatHistory });
-    chats = chats.slice(0, 10);
-    localStorage.setItem("tempaper_chats", JSON.stringify(chats));
-    loadChats();
-  }
-}
+async function sendFloatingMessage() {
+  const text = document.getElementById("aiChatInput").value.trim();
+  if (!text) return;
+  addFloatingMsg("user", text);
+  document.getElementById("aiChatInput").value = "";
+  addFloatingMsg("ai", "Thinking...");
+  const codeMatch=text.match(/\b([A-Z0-9]{5})\b/i);
+  const workflowUserId=getWorkflowUserId();
 
-function loadChatSession(chat) {
-  startNewChat();
-  chat.history.forEach(item => {
-    addMessage("user", escapeHTML(item.prompt));
-    if (item.workflow) {
-      addWorkflowSection({
-        title: item.prompt.replace("Pull Next: ", ""),
-        result: item.result,
-        order_no: item.order_no,
-        project_id: item.project_id,
-        kind: item.kind
-      });
-    } else if (item.isPaper) {
-      const htmlContent = markdownToHTML(item.result);
-      const paginatedHTML = createA4Pages(htmlContent, item.result.split(/\s+/).length);
-      addMessage("paper", paginatedHTML);
+  try {
+    if(codeMatch && workflowUserId){
+      const tocRes=await fetch(`${API_URL}/build-toc`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user_id:workflowUserId,prompt_code:codeMatch[1].toUpperCase()})});
+      const tocData=await tocRes.json();
+      const pending=document.getElementById("aiChatBody").lastElementChild;
+      if(pending&&pending.classList.contains("ai"))pending.remove();
+      if(!tocRes.ok)throw new Error(tocData.error||"Could not build table of contents.");
+      addFloatingMsg("ai",`TABLE OF CONTENTS\n\n${tocData.toc}\n\nTOC code: ${tocData.toc_code}\n\nPaste both codes in the main chat:\nPROMPT: ${codeMatch[1].toUpperCase()} TOC: ${tocData.toc_code}`,true);
+      await copyTextToClipboard(`PROMPT: ${codeMatch[1].toUpperCase()} TOC: ${tocData.toc_code}`);
+      return;
     }
-  });
+    const res = await fetch(`${API_URL}/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prompt: text,
+        user_id: localStorage.getItem("user_id") || "guest",
+        save: false
+      })
+    });
+    const data = await res.json();
+    const last = document.getElementById("aiChatBody").lastElementChild;
+    if (last && last.classList.contains("ai")) last.remove();
+
+    if (res.ok && data.result) {
+      addFloatingMsg("ai", data.result, true);
+    } else {
+      addFloatingMsg("ai", data.error || "Assistant error. Try again.");
+    }
+  } catch (e) {
+    const last = document.getElementById("aiChatBody").lastElementChild;
+    if (last && last.classList.contains("ai")) last.remove();
+    addFloatingMsg("ai", "Network error. Try again.");
+  }
 }
+
+function addFloatingMsg(role, text, renderMarkdown=false) {
+  const aiChatBody = document.getElementById("aiChatBody");
+  const el = document.createElement("div");
+  el.className = `ai-chat-msg ${role}`;
+  if (renderMarkdown) {
+    const cleaned = cleanPaperText(text);
+    el.innerHTML = markdownToHTML(cleaned);
+  } else {
+    el.innerText = text;
+  }
+  aiChatBody.appendChild(el);
+  aiChatBody.scrollTop = aiChatBody.scrollHeight;
+}
+
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
 </script>
 </body>
 </html>
