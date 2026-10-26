@@ -1,1079 +1,213 @@
 <!doctype html>
 <html lang="en">
 <head>
+<link rel="stylesheet" href="dashboard.css">
 <meta charset="utf-8" />
 <title>Tempaper | Academic Workspace</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300&display=swap" rel="stylesheet">
-<style>
-:root {
-  --bg: #090d16;
-  --sidebar: #0f172a;
-  --panel: rgba(15, 23, 42, 0.95);
-  --card: #1e293b;
-  --card-hover: #334155;
-  --accent: #4f46e5;
-  --accent-hover: #4338ca;
-  --accent-gradient: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-  --text: #f8fafc;
-  --muted: #94a3b8;
-  --border: rgba(255, 255, 255, 0.08);
-  --soft-border: rgba(255, 255, 255, 0.04);
-  --danger: #ef4444;
-  --sidebar-width: 280px;
-  --studio-width: 380px;
-  --topbar-height: 62px;
-  --paper-bg: #ffffff;
-  --paper-text: #1e293b;
-  --shadow-soft: 0 18px 40px rgba(2, 6, 23, 0.28);
-  --shadow-card: 0 10px 22px rgba(15, 23, 42, 0.18);
-}
 
-[data-theme="light"] {
-  --bg: #f1f5f9;
-  --sidebar: #ffffff;
-  --panel: rgba(255, 255, 255, 0.96);
-  --card: #ffffff;
-  --card-hover: #f8fafc;
-  --text: #0f172a;
-  --muted: #64748b;
-  --border: rgba(15, 23, 42, 0.08);
-  --soft-border: rgba(15, 23, 42, 0.04);
-  --paper-bg: #ffffff;
-  --paper-text: #0f172a;
-  --shadow-soft: 0 12px 28px rgba(15, 23, 42, 0.08);
-  --shadow-card: 0 8px 18px rgba(15, 23, 42, 0.06);
-}
-
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  -webkit-tap-highlight-color: transparent;
-}
-
-html { scroll-behavior: smooth; }
-
-body {
-  background: var(--bg);
-  color: var(--text);
-  width: 100vw;
-  height: 100vh;
-  height: 100dvh;
-  overflow: hidden;
-  user-select: text;
-}
-
-button, input, textarea, select { font: inherit; }
-button { border: none; background: none; }
-svg { display: block; }
-
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.26);
-  border-radius: 10px;
-}
-::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.42); }
-
-/* LAYOUT STRUCTURE */
-.app-container {
-  display: flex;
-  width: 100vw;
-  height: 100vh;
-  height: 100dvh;
-  overflow: hidden;
-}
-
-.sidebar {
-  position: fixed;
-  inset: 0 auto 0 0;
-  width: var(--sidebar-width);
-  background: var(--sidebar);
-  border-right: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  padding: 20px 16px 14px;
-  z-index: 1000;
-  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.logo {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 4px 8px 18px;
-  font-weight: 800;
-  font-size: 18px;
-  letter-spacing: -0.03em;
-  color: var(--text);
-}
-
-.logo-dot {
-  width: 30px;
-  height: 30px;
-  border-radius: 9px;
-  background: var(--accent-gradient);
-  box-shadow: 0 10px 22px rgba(79, 70, 229, 0.34);
-}
-
-.menu-section-title {
-  margin: 12px 8px 8px;
-  color: var(--muted);
-  font-size: 10.5px;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
-  font-weight: 700;
-}
-
-.menu-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 11px 12px;
-  margin-bottom: 4px;
-  border: 1px solid transparent;
-  border-radius: 10px;
-  color: var(--muted);
-  cursor: pointer;
-  transition: all 0.18s ease;
-}
-.menu-item:hover, .menu-item.active {
-  color: var(--text);
-  background: rgba(255,255,255,0.04);
-  border-color: var(--soft-border);
-}
-
-.menu-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-weight: 500;
-  font-size: 13.5px;
-}
-.menu-left svg {
-  width: 16px; height: 16px;
-  stroke: currentColor; fill: none; stroke-width: 2;
-}
-
-.submenu {
-  display: none;
-  margin: 2px 0 8px;
-  padding-left: 8px;
-  max-height: 220px;
-  overflow-y: auto;
-}
-.submenu.show { display: block; }
-
-.submenu-item {
-  padding: 8px 12px;
-  border-radius: 8px;
-  color: var(--muted);
-  font-size: 12.5px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.submenu-item:hover {
-  background: rgba(255,255,255,0.04);
-  color: var(--text);
-  transform: translateX(2px);
-}
-
-.sidebar-bottom {
-  margin-top: auto;
-  padding-top: 14px;
-  border-top: 1px solid var(--border);
-}
-
-.profile-box {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 8px;
-  border-radius: 10px;
-  cursor: pointer;
-}
-
-.profile-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: var(--accent-gradient);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  color: white;
-  font-size: 14px;
-}
-
-.profile-info { overflow: hidden; }
-.profile-info .name {
-  font-size: 13.5px;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.profile-info .email {
-  font-size: 11.4px;
-  color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* MAIN CONTENT AREA */
-.main {
-  margin-left: var(--sidebar-width);
-  width: calc(100% - var(--sidebar-width));
-  height: 100vh;
-  height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  transition: margin-left 0.28s ease;
-}
-
-.topbar {
-  height: var(--topbar-height);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 24px;
-  border-bottom: 1px solid var(--border);
-  background: rgba(9, 13, 22, 0.72);
-  backdrop-filter: blur(12px);
-  position: relative;
-  z-index: 20;
-}
-
-.topbar .heading {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.top-actions { display: flex; align-items: center; gap: 10px; position: relative; }
-
-.dots-btn, .toggle-studio-btn {
-  height: 36px;
-  padding: 0 12px;
-  border-radius: 9px;
-  border: 1px solid var(--border);
-  background: rgba(255,255,255,0.04);
-  color: var(--text);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  transition: background 0.15s ease;
-}
-.dots-btn:hover, .toggle-studio-btn:hover { background: rgba(255,255,255,0.08); }
-
-.nav-toggle { display: none; }
-
-.dropdown-menu {
-  position: absolute;
-  right: 0;
-  top: 46px;
-  min-width: 180px;
-  background: var(--sidebar);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: var(--shadow-soft);
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(-8px);
-  transition: all 0.2s ease;
-  overflow: hidden;
-  z-index: 1000;
-}
-.dropdown-menu.show { opacity: 1; visibility: visible; transform: translateY(0); }
-.dropdown-menu div {
-  padding: 11px 14px;
-  font-size: 13px;
-  color: var(--text);
-  cursor: pointer;
-}
-.dropdown-menu div:hover { background: rgba(255,255,255,0.05); }
-
-/* WORKSPACE LAYOUT (PAPER CHAT + STUDIO SIDE PANEL) */
-.workspace-body {
-  flex: 1;
-  display: flex;
-  overflow: hidden;
-  position: relative;
-}
-
-.chat-area {
-  flex: 1;
-  overflow-y: auto;
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  scroll-behavior: smooth;
-}
-
-.chat-msg {
-  max-width: 880px;
-  width: 100%;
-  margin: 0 auto;
-  position: relative;
-  animation: fadeIn 0.28s ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.chat-msg.user {
-  align-self: flex-end;
-  background: var(--accent-gradient);
-  color: white;
-  border-radius: 14px 14px 4px 14px;
-  padding: 14px 18px;
-  line-height: 1.55;
-  font-size: 14.5px;
-  box-shadow: 0 10px 20px rgba(79, 70, 229, 0.18);
-}
-
-/* STUDIO SIDE PANEL (PROMPT & TOC TAB SWITCH) */
-.studio-panel {
-  width: var(--studio-width);
-  background: var(--sidebar);
-  border-left: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  transition: transform 0.28s ease, width 0.28s ease;
-  z-index: 900;
-}
-
-.studio-panel.collapsed {
-  display: none;
-}
-
-.studio-tabs {
-  display: flex;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--border);
-  gap: 8px;
-  background: rgba(0,0,0,0.15);
-}
-
-.tab-btn {
-  flex: 1;
-  padding: 9px 12px;
-  border-radius: 10px;
-  border: 1px solid transparent;
-  color: var(--muted);
-  font-size: 12.5px;
-  font-weight: 600;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-.tab-btn.active {
-  background: var(--accent-gradient);
-  color: white;
-  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
-}
-
-.studio-content {
-  flex: 1;
-  overflow-y: auto;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.tab-pane { display: none; flex-direction: column; gap: 14px; }
-.tab-pane.active { display: flex; }
-
-.form-group { display: flex; flex-direction: column; gap: 6px; }
-.form-group label { font-size: 11.5px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
-.form-group input, .form-group select, .form-group textarea {
-  width: 100%;
-  border: 1px solid var(--border);
-  background: rgba(0,0,0,0.2);
-  color: var(--text);
-  border-radius: 8px;
-  padding: 9px 11px;
-  outline: none;
-  font-size: 13px;
-}
-.form-group textarea { resize: vertical; min-height: 70px; }
-
-.code-display-box {
-  background: rgba(79, 70, 229, 0.1);
-  border: 1px dashed var(--accent);
-  border-radius: 10px;
-  padding: 12px;
-  text-align: center;
-  margin-top: 6px;
-}
-.code-display-box .code { font-weight: 800; font-size: 18px; letter-spacing: 0.15em; color: #a5b4fc; margin-top: 4px; }
-
-.studio-btn {
-  width: 100%;
-  padding: 11px 14px;
-  border-radius: 10px;
-  background: var(--accent-gradient);
-  color: white;
-  font-weight: 700;
-  font-size: 13px;
-  cursor: pointer;
-  box-shadow: 0 8px 16px rgba(79, 70, 229, 0.2);
-  transition: transform 0.15s ease;
-}
-.studio-btn:hover { transform: translateY(-1px); }
-
-/* A4 PAPER ACCORDING TO ACADEMIC SPECIFICATIONS */
-.pages-container {
-  max-width: 860px;
-  width: 100%;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.a4-page {
-  position: relative;
-  width: 100%;
-  min-height: 1056px;
-  background: var(--paper-bg);
-  color: var(--paper-text);
-  padding: 75px 80px 60px;
-  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.25);
-  border-radius: 2px;
-  font-family: 'Merriweather', Georgia, serif;
-  line-height: 1.85;
-  font-size: 14.5px;
-  word-wrap: break-word;
-  page-break-after: always;
-  break-after: page;
-}
-
-.page-number {
-  position: absolute;
-  bottom: 22px;
-  right: 32px;
-  background: rgba(15, 23, 42, 0.05);
-  color: var(--paper-text);
-  font-family: 'Inter', sans-serif;
-  font-weight: 700;
-  font-size: 12px;
-  padding: 4px 10px;
-  border-radius: 999px;
-}
-
-.a4-content { position: relative; z-index: 1; text-align: justify; }
-
-/* DEDICATED PRELIMINARY AND CHAPTER PAGE BREAK RULES */
-.a4-page.cover-page .a4-content {
-  text-align: center !important;
-  display: flex;
-  min-height: 840px;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  font-size: 20px !important;
-  font-weight: 800 !important;
-  text-transform: uppercase !important;
-  line-height: 1.5 !important;
-}
-
-.a4-page.preliminary-page { page-break-before: always; break-before: page; }
-.a4-page.preliminary-page .a4-content h1,
-.a4-page.preliminary-page .a4-content h2 { text-align: center; font-weight: 800; margin-bottom: 24px; text-transform: uppercase; }
-
-.a4-page.body-page { page-break-before: always; break-before: page; }
-
-.a4-content h1 {
-  font-family: 'Inter', sans-serif;
-  font-size: 24px;
-  font-weight: 800;
-  margin: 0 0 24px 0;
-  color: #0f172a;
-  text-align: center;
-  border-bottom: 2px solid #e2e8f0;
-  padding-bottom: 14px;
-  text-transform: uppercase;
-}
-
-.a4-content h2 {
-  font-family: 'Inter', sans-serif;
-  font-size: 17px;
-  font-weight: 700;
-  margin: 24px 0 12px 0;
-  color: #0f172a;
-  border-left: 4px solid var(--accent);
-  padding-left: 12px;
-}
-
-.a4-content h3 {
-  font-family: 'Inter', sans-serif;
-  font-size: 15px;
-  font-weight: 700;
-  margin: 18px 0 10px 0;
-  color: #1e293b;
-}
-
-.a4-content p { margin-bottom: 14px; text-align: justify; color: #334155; }
-
-/* SINGLE PAGE FLOW TABLE OF CONTENTS */
-.toc-container { width: 100%; font-family: 'Merriweather', serif; font-size: 13.5px; line-height: 1.8; }
-.toc-title { font-family: 'Inter', sans-serif; font-size: 22px; font-weight: 800; text-align: center; margin-bottom: 24px; text-transform: uppercase; }
-.toc-row { display: flex; align-items: baseline; gap: 8px; width: 100%; margin-bottom: 10px; }
-.toc-label { flex: 0 1 auto; font-weight: 500; }
-.toc-leader { flex: 1 1 auto; border-bottom: 1px dotted #94a3b8; transform: translateY(-4px); }
-.toc-page { flex: 0 0 auto; text-align: right; min-width: 28px; font-weight: 700; }
-
-/* INPUT & FOOTER CONTAINER */
-.input-container {
-  padding: 16px 24px 20px;
-  background: var(--bg);
-  border-top: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-.input-bar {
-  display: flex;
-  align-items: flex-end;
-  gap: 12px;
-  max-width: 880px;
-  margin: 0 auto;
-  background: rgba(255,255,255,0.02);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 10px 12px 10px 14px;
-  box-shadow: var(--shadow-card);
-}
-
-.input {
-  flex: 1;
-  background: transparent;
-  border: none;
-  resize: none;
-  outline: none;
-  color: var(--text);
-  font-size: 14px;
-  min-height: 22px;
-  max-height: 160px;
-}
-
-.action-buttons { display: flex; align-items: center; gap: 8px; }
-
-.btn-icon {
-  width: 38px; height: 38px;
-  border-radius: 10px;
-  display: flex; align-items: center; justify-content: center;
-  background: var(--accent-gradient);
-  color: white;
-  cursor: pointer;
-}
-
-.welcome-placeholder {
-  margin: auto;
-  max-width: 500px;
-  background: rgba(255,255,255,0.02);
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 28px 24px;
-  text-align: center;
-  color: var(--muted);
-  line-height: 1.7;
-}
-
-/* FULL-SCREEN INTEGRATED DOCUMENT EDITOR MODAL */
-.editor-modal {
-  position: fixed;
-  inset: 0;
-  z-index: 10050;
-  background: rgba(2, 6, 23, 0.85);
-  backdrop-filter: blur(8px);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-}
-.editor-modal.show { display: flex; }
-
-.editor-dialog {
-  width: min(1000px, 100%);
-  height: min(92vh, 900px);
-  background: var(--sidebar);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  box-shadow: 0 30px 90px rgba(0,0,0,0.6);
-}
-
-.editor-dialog-head, .editor-dialog-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 20px;
-  border-bottom: 1px solid var(--border);
-}
-.editor-dialog-foot { border-top: 1px solid var(--border); border-bottom: 0; }
-
-.editor-scroll { flex: 1; overflow: auto; padding: 20px; background: rgba(0,0,0,0.2); }
-.editor-page {
-  width: min(794px, 100%);
-  min-height: 950px;
-  margin: 0 auto;
-  background: #fff;
-  color: #111827;
-  padding: 60px 58px;
-  font-family: "Merriweather", serif;
-  font-size: 14px;
-  line-height: 1.8;
-  outline: none;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
-}
-
-.editor-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 10px 16px;
-  background: rgba(255,255,255,0.03);
-  border-bottom: 1px solid var(--border);
-}
-.editor-toolbar button {
-  padding: 6px 10px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  color: var(--text);
-  font-size: 12px;
-  cursor: pointer;
-}
-.editor-toolbar button:hover { background: rgba(255,255,255,0.1); }
-
-@media (max-width: 900px) {
-  .studio-panel { position: fixed; right: 0; top: var(--topbar-height); bottom: 0; transform: translateX(100%); }
-  .studio-panel.show-mobile { transform: translateX(0); }
-  .main { width: 100%; margin-left: 0; }
-  .nav-toggle { display: flex; }
-}
-</style>
 </head>
 <body>
 
-<div class="app-container">
-  <!-- SIDEBAR -->
-  <div class="sidebar" id="sidebar">
-    <div class="logo">
-      <div class="logo-dot"></div>
-      Tempaper
-    </div>
+<div class="overlay" id="overlay"></div>
 
-    <div class="menu-section-title">Workspace</div>
+<div class="sidebar" id="sidebar">
+  <div class="logo">
+    <div class="logo-dot"></div>
+    Tempaper
+  </div>
 
-    <div class="menu-item active" id="newChatBtn">
-      <div class="menu-left">
-        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
-        New Project
-      </div>
-    </div>
+  <div class="menu-section-title">Workspace</div>
 
-    <div class="menu-item" id="historyToggle">
-      <div class="menu-left">
-        <svg viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-        Recent Papers
-      </div>
-      <span id="historyArrow" style="font-size:10px;">❯</span>
-    </div>
-    <div class="submenu" id="historySubmenu"></div>
-
-    <div class="sidebar-bottom">
-      <div class="profile-box">
-        <div class="profile-avatar" id="profileAvatar">G</div>
-        <div class="profile-info">
-          <div class="name" id="profileName">Guest User</div>
-          <div class="email" id="profileEmail">guest@tempaper.com</div>
-        </div>
-      </div>
+  <div class="menu-item active" id="newChatBtn">
+    <div class="menu-left">
+      <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+      New Project
     </div>
   </div>
 
-  <!-- MAIN AREA -->
-  <div class="main">
-    <div class="topbar">
-      <button class="dots-btn nav-toggle" id="navToggle">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+  <div class="menu-item" id="promptBuilderBtn">
+    <div class="menu-left"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 10h16M4 15h10M4 20h7"/><path d="M18 15v6m-3-3h6"/></svg>Prompt Builder</div>
+  </div>
+  <div class="menu-item" id="historyToggle">
+    <div class="menu-left">
+      <svg viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      Recent Papers
+    </div>
+    <span id="historyArrow" style="font-size:10px; transition: transform 0.2s ease;">❯</span>
+  </div>
+  <div class="submenu" id="historySubmenu"></div>
+
+  <div class="menu-item" onclick="window.location='settings.html'">
+    <div class="menu-left">
+      <svg viewBox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>
+      Settings
+    </div>
+  </div>
+
+  <div class="sidebar-bottom">
+    <div class="profile-box" onclick="window.location='settings.html'">
+      <div class="profile-avatar" id="profileAvatar">G</div>
+      <div class="profile-info">
+        <div class="name" id="profileName">Guest User</div>
+        <div class="email" id="profileEmail">guest@tempaper.com</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="topbar">
+    <button class="dots-btn nav-toggle" id="navToggle" aria-label="Toggle Navigation">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+
+    <div class="heading">Academic Editor</div>
+
+    <div class="top-actions">
+      <button class="dots-btn" id="dotsBtn" aria-label="More options">
+        <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
       </button>
-
-      <div class="heading">Academic Editor</div>
-
-      <div class="top-actions">
-        <button class="toggle-studio-btn" id="toggleStudioBtn">
-          <span>Studio Controls</span>
-        </button>
-        <button class="dots-btn" id="dotsBtn">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
-        </button>
-        <div class="dropdown-menu" id="dotsMenu">
-          <div id="menuNewChat">New Workspace</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="workspace-body">
-      <!-- PAPER DISPLAY & CHAT AREA -->
-      <div class="chat-area" id="chatArea">
-        <div class="welcome-placeholder" id="welcomeMsg">
-          <h2>Academic Paper Generator</h2>
-          Configure your paper requirements in the side Studio control panel or enter your research prompt below.
-        </div>
-      </div>
-
-      <!-- INTEGRATED TABBED STUDIO CONTROL PANEL (PROMPT & TOC SWITCH) -->
-      <div class="studio-panel" id="studioPanel">
-        <div class="studio-tabs">
-          <button class="tab-btn active" id="tabPromptBtn">Prompt Builder</button>
-          <button class="tab-btn" id="tabTocBtn">Table of Contents</button>
-        </div>
-
-        <div class="studio-content">
-          <!-- PROMPT BUILDER TAB -->
-          <div class="tab-pane active" id="panePrompt">
-            <form id="promptBuilderForm">
-              <div class="form-group">
-                <label>Paper Topic *</label>
-                <input id="pbTopic" required placeholder="Complete research paper topic">
-              </div>
-              <div style="display:flex; gap:10px;">
-                <div class="form-group" style="flex:1;">
-                  <label>A4 Pages</label>
-                  <input id="pbPages" type="number" min="1" max="500" value="20">
-                </div>
-                <div class="form-group" style="flex:1;">
-                  <label>Chapters</label>
-                  <input id="pbChapters" type="number" min="1" max="12" value="5">
-                </div>
-              </div>
-              <div class="form-group">
-                <label>Institution / University</label>
-                <input id="pbInstitution" placeholder="University of Nigeria, Nsukka">
-              </div>
-              <div class="form-group">
-                <label>Student Name</label>
-                <input id="pbStudentName" placeholder="Odo Gideon">
-              </div>
-              <div class="form-group">
-                <label>Academic Guidelines</label>
-                <textarea id="pbInstructions" placeholder="Specify citation style, prelims, methodology..."></textarea>
-              </div>
-              <button class="studio-btn" type="submit">Save & Copy Code</button>
-            </form>
-
-            <div class="code-display-box" id="codeDisplayBox" style="display:none;">
-              <span style="font-size:11px; color:var(--muted);">ACTIVE PROMPT CODE</span>
-              <div class="code" id="activePromptCodeText">-----</div>
-            </div>
-          </div>
-
-          <!-- TABLE OF CONTENTS TAB -->
-          <div class="tab-pane" id="paneToc">
-            <div style="font-size:12px; color:var(--muted); line-height:1.5;">
-              Manage and synchronize page numbers across your preliminary pages and main chapters.
-            </div>
-            <div class="form-group">
-              <label>TOC Code</label>
-              <input id="tocCodeInput" readonly placeholder="No TOC code active">
-            </div>
-            <button class="studio-btn" id="syncTocBtn">↻ Sync TOC Page Numbers</button>
-            <div class="form-group" style="margin-top:10px;">
-              <label>TOC Outline Content</label>
-              <textarea id="tocRawEditor" rows="12" placeholder="Table of Contents structure..."></textarea>
-            </div>
-            <button class="studio-btn" id="saveTocContentBtn" style="background:var(--card);">Update TOC Display</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- MAIN INPUT BAR -->
-    <div class="input-container">
-      <div class="input-bar">
-        <textarea class="input" id="promptInput" rows="1" placeholder="Paste PROMPT code or write a paper query..."></textarea>
-        <div class="action-buttons">
-          <button class="btn-icon" id="sendBtn" aria-label="Generate">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
-          </button>
-        </div>
+      <div class="dropdown-menu" id="dotsMenu">
+        <div id="menuNewChat">New Workspace</div>
+        <div onclick="window.location='settings.html'">Account Settings</div>
+        <div class="danger" onclick="window.location='index.html'">Sign Out</div>
       </div>
     </div>
   </div>
-</div>
 
-<!-- INLINE DOCUMENT EDITOR MODAL -->
-<div class="editor-modal" id="documentEditorModal" role="dialog">
-  <div class="editor-dialog">
-    <div class="editor-dialog-head">
-      <h3 id="documentEditorTitle">Edit Document Section</h3>
-      <button class="studio-btn" id="documentEditorClose" style="width:auto; padding:6px 12px; background:var(--card);">Close</button>
+  <div class="chat-area" id="chatArea">
+    <div class="welcome-placeholder" id="welcomeMsg">
+      <h2>Academic Paper Generator</h2>
+      Enter your topic or prompt below to research, structure, and generate a fully-formatted paper.
     </div>
-    <div class="editor-toolbar">
-      <button onclick="document.execCommand('bold', false, null)"><b>B</b></button>
-      <button onclick="document.execCommand('italic', false, null)"><i>I</i></button>
-      <button onclick="document.execCommand('underline', false, null)"><u>U</u></button>
-      <button onclick="document.execCommand('justifyLeft', false, null)">Left</button>
-      <button onclick="document.execCommand('justifyCenter', false, null)">Center</button>
-      <button onclick="document.execCommand('justifyRight', false, null)">Right</button>
-      <button onclick="document.execCommand('justifyFull', false, null)">Justify</button>
-      <button onclick="document.execCommand('insertUnorderedList', false, null)">Bullet List</button>
+  </div>
+
+  <div class="chat-actions" id="chatActions">
+    <button class="copy-latest-btn" id="copyLatestBtn">Copy</button>
+  </div>
+
+  <div class="input-container">
+    <div class="input-bar">
+      <textarea class="input" id="promptInput" rows="1" placeholder="Write a research paper outline on..."></textarea>
+      <div class="action-buttons">
+        <button class="btn-icon" id="micBtn" aria-label="Voice Input">
+          <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/></svg>
+        </button>
+        <button class="btn-icon" id="sendBtn" aria-label="Generate">
+          <svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+        </button>
+      </div>
     </div>
-    <div class="editor-scroll">
-      <div id="documentEditorContent" class="editor-page" contenteditable="true" spellcheck="true"></div>
-    </div>
-    <div class="editor-dialog-foot">
-      <div id="documentEditorStatus" style="font-size:12px; color:var(--muted);">Ready to edit.</div>
-      <button class="studio-btn" id="documentEditorCommit" style="width:auto; padding:8px 20px;">Commit Changes</button>
-    </div>
+    <div class="input-hint">Press <b>Shift + Enter</b> for a new line. Click Send to submit.</div>
   </div>
 </div>
 
-<script>
-const API_URL = "https://term-paper-n4kl.onrender.com";
-let activePaperProjectId = null;
-let activePromptCode = null;
-let activeTocCode = null;
-let latestResultText = "";
+<div class="ai-fab" id="aiFab" title="AI Assistant">
+  <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10c1.19 0 2.34-.21 3.41-.59l4.17 1.38-1.38-4.17A9.957 9.957 0 0022 12c0-5.52-4.48-10-10-10zm-1 13H9v-2h2v2zm4 0h-2v-2h2v2zm2-4H7V9h10v2z"/></svg>
+</div>
 
-document.addEventListener("DOMContentLoaded", () => {
-  // STUDIO TAB SWITCHING
-  const tabPromptBtn = document.getElementById("tabPromptBtn");
-  const tabTocBtn = document.getElementById("tabTocBtn");
-  const panePrompt = document.getElementById("panePrompt");
-  const paneToc = document.getElementById("paneToc");
-
-  tabPromptBtn.onclick = () => {
-    tabPromptBtn.classList.add("active");
-    tabTocBtn.classList.remove("active");
-    panePrompt.classList.add("active");
-    paneToc.classList.remove("active");
-  };
-
-  tabTocBtn.onclick = () => {
-    tabTocBtn.classList.add("active");
-    tabPromptBtn.classList.remove("active");
-    paneToc.classList.add("active");
-    panePrompt.classList.remove("active");
-  };
-
-  // TOGGLE STUDIO PANEL
-  document.getElementById("toggleStudioBtn").onclick = () => {
-    document.getElementById("studioPanel").classList.toggle("collapsed");
-  };
-
-  document.getElementById("navToggle").onclick = () => {
-    document.getElementById("sidebar").classList.toggle("open");
-  };
-
-  document.getElementById("promptBuilderForm").onsubmit = savePromptBuilder;
-  document.getElementById("sendBtn").onclick = handleMainSend;
-  document.getElementById("documentEditorClose").onclick = () => {
-    document.getElementById("documentEditorModal").classList.remove("show");
-  };
-  document.getElementById("documentEditorCommit").onclick = commitDocumentEdit;
-});
-
-// COPY TO CLIPBOARD
-async function copyToClipboard(text) {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch (err) {
-    return false;
-  }
-}
-
-// SAVE PROMPT BUILDER
-async function savePromptBuilder(e) {
-  e.preventDefault();
-  const userId = localStorage.getItem("user_id") || "demo_user";
-  const config = {
-    topic: document.getElementById("pbTopic").value.trim(),
-    pages: document.getElementById("pbPages").value,
-    chapters: document.getElementById("pbChapters").value,
-    institution: document.getElementById("pbInstitution").value.trim(),
-    student_name: document.getElementById("pbStudentName").value.trim(),
-    instructions: document.getElementById("pbInstructions").value.trim()
-  };
-
-  try {
-    const res = await fetch(`${API_URL}/prompt-builder`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id: userId, config })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Could not save prompt.");
-
-    activePromptCode = data.prompt_code;
-    document.getElementById("activePromptCodeText").textContent = activePromptCode;
-    document.getElementById("codeDisplayBox").style.display = "block";
-    document.getElementById("promptInput").value = `PROMPT: ${activePromptCode}`;
-
-    await copyToClipboard(activePromptCode);
-    alert(`Prompt saved! Code ${activePromptCode} copied to clipboard.`);
-  } catch (err) {
-    alert(err.message);
-  }
-}
-
-// HANDLE MAIN SEND
-async function handleMainSend() {
-  const input = document.getElementById("promptInput");
-  const prompt = input.value.trim();
-  if (!prompt) return;
-
-  addMessage("user", prompt);
-  input.value = "";
-
-  const userId = localStorage.getItem("user_id") || "demo_user";
-
-  // Check for saved code execution
-  const match = prompt.match(/PROMPT\s*[:=]\s*([A-Z0-9]{5})/i);
-  if (match) {
-    const code = match[1].toUpperCase();
-    try {
-      const res = await fetch(`${API_URL}/build-toc`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: userId, prompt_code: code })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to generate TOC.");
-
-      activeTocCode = data.toc_code;
-      document.getElementById("tocCodeInput").value = activeTocCode;
-      document.getElementById("tocRawEditor").value = data.toc;
-
-      renderSinglePageTOC(data.toc);
-      return;
-    } catch (err) {
-      addMessage("error", err.message);
-      return;
-    }
-  }
-
-  // Standard paper output fallback
-  try {
-    const res = await fetch(`${API_URL}/generate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, user_id: userId })
-    });
-    const data = await res.json();
-    if (res.ok && data.result) {
-      renderStandardA4Document(data.result);
-    }
-  } catch (e) {
-    addMessage("error", "Network connection error.");
-  }
-}
-
-// SINGLE PAGE FLOW TOC RENDERER
-function renderSinglePageTOC(tocMarkdown) {
-  const chatArea = document.getElementById("chatArea");
-  const lines = tocMarkdown.split("\n").filter(l => l.trim());
-  
-  let rowsHtml = "";
-  lines.forEach(line => {
-    const clean = line.replace(/^[\s*#-]+/, "").trim();
-    if (!clean) return;
-    const match = clean.match(/^(.*?)(?:\s*\.{2,}|\s+)([ivxlcdm]+|\d+)\s*$/i);
-    if (match) {
-      rowsHtml += `<div class="toc-row"><span class="toc-label">${match[1].trim()}</span><span class="toc-leader"></span><span class="toc-page">${match[2].trim()}</span></div>`;
-    } else {
-      rowsHtml += `<div class="toc-row" style="font-weight:700; margin-top:10px;"><span class="toc-label">${clean}</span></div>`;
-    }
-  });
-
-  const pageHtml = `
-    <div class="pages-container">
-      <div class="a4-page body-page">
-        <div class="a4-content">
-          <div class="toc-container">
-            <div class="toc-title">Table of Contents</div>
-            ${rowsHtml}
-          </div>
-        </div>
-        <div class="page-number">i</div>
-      </div>
+<div class="ai-chat-window" id="aiChatWindow">
+  <div class="ai-chat-header" id="aiChatHeader">
+    <div class="title">
+      <div class="dot"></div>
+      Tempaper Copilot
     </div>
-  `;
+    <div class="controls">
+      <button id="aiMinimizeBtn" aria-label="Minimize">−</button>
+      <button id="aiCloseBtn" aria-label="Close">×</button>
+    </div>
+  </div>
 
-  const msg = document.createElement("div");
-  msg.className = "chat-msg";
-  msg.innerHTML = pageHtml;
-  chatArea.appendChild(msg);
-  chatArea.scrollTop = chatArea.scrollHeight;
-}
+  <div class="ai-chat-body" id="aiChatBody">
+    <div class="ai-chat-msg ai">Hello! Paste a saved five-character prompt code here to create its table of contents, or ask a question.</div>
+  </div>
 
-// RENDER A4 DOCUMENT WITH STRICT PAGE BREAKS
-function renderStandardA4Document(markdownText) {
-  const chatArea = document.getElementById("chatArea");
-  const sections = markdownText.split(/(?=^#{1,2}\s+)/m);
-  
-  let pagesHtml = '<div class="pages-container">';
-  sections.forEach((sec, idx) => {
-    if (!sec.trim()) return;
-    const isCover = idx === 0 && /university|term paper|submitted/i.test(sec);
-    const pageClass = isCover ? "cover-page" : "body-page";
-    
-    pagesHtml += `
-      <div class="a4-page ${pageClass}">
-        <div class="a4-content">${sec.replace(/^#+\s+/gm, '<h2>') + '</h2>'}</div>
-        <div class="page-number">${idx + 1}</div>
-      </div>
-    `;
-  });
-  pagesHtml += '</div>';
+  <div class="ai-chat-input">
+    <input type="text" id="aiChatInput" placeholder="Ask assistant...">
+    <button id="aiChatSendBtn" aria-label="Send">
+      <svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+    </button>
+  </div>
+</div>
 
-  const msg = document.createElement("div");
-  msg.className = "chat-msg";
-  msg.innerHTML = pagesHtml;
-  chatArea.appendChild(msg);
-  chatArea.scrollTop = chatArea.scrollHeight;
-}
 
-function addMessage(role, content) {
-  const chatArea = document.getElementById("chatArea");
-  const welcome = document.getElementById("welcomeMsg");
-  if (welcome) welcome.remove();
+<div class="workflow-modal-backdrop" id="promptBuilderModal" role="dialog" aria-modal="true" aria-labelledby="promptBuilderTitle">
+  <div class="workflow-modal">
+    <div class="workflow-modal-head"><div><h2 id="promptBuilderTitle">Build your term-paper prompt</h2><p>Save academic requirements and receive a reusable five-character code.</p></div><button class="workflow-close" id="promptBuilderClose" aria-label="Close">×</button></div>
+    <form id="promptBuilderForm"><div class="workflow-grid">
+      <div class="workflow-field full"><label for="pbTopic">Term-paper topic *</label><input id="pbTopic" required maxlength="300" placeholder="Enter the complete research topic"></div>
+      <div class="workflow-field"><label for="pbPages">Target A4 pages</label><input id="pbPages" type="number" min="1" max="500" value="20"></div>
+      <div class="workflow-field"><label for="pbChapters">Number of chapters</label><input id="pbChapters" type="number" min="1" max="12" value="5"></div>
+      <div class="workflow-field"><label for="pbBodySize">Body font size (pt)</label><input id="pbBodySize" type="number" min="8" max="24" value="12"></div>
+      <div class="workflow-field"><label for="pbStructure">Academic structure</label><select id="pbStructure"><option value="Standard academic structure">Standard academic structure</option><option value="Five-chapter research project">Five-chapter research project</option><option value="Essay with introduction, body and conclusion">Essay: introduction, body and conclusion</option><option value="Use the institution's specified structure">Institution-specific structure</option><option value="Custom structure supplied in instructions">Custom structure</option></select></div>
+      <div class="workflow-field"><label for="pbInstitution">Institution / University</label><input id="pbInstitution" placeholder="Leave blank if not provided"></div>
+      <div class="workflow-field"><label for="pbFaculty">Faculty</label><input id="pbFaculty" placeholder="Optional"></div>
+      <div class="workflow-field"><label for="pbDepartment">Department</label><input id="pbDepartment" placeholder="Optional"></div>
+      <div class="workflow-field"><label for="pbCourseTitle">Course title</label><input id="pbCourseTitle" placeholder="Optional"></div>
+      <div class="workflow-field"><label for="pbCourseCode">Course code</label><input id="pbCourseCode" placeholder="Optional"></div>
+      <div class="workflow-field"><label for="pbStudentName">Student name</label><input id="pbStudentName" placeholder="Optional"></div>
+      <div class="workflow-field"><label for="pbRegNo">Registration / matric number</label><input id="pbRegNo" placeholder="Optional"></div>
+      <div class="workflow-field"><label for="pbLecturer">Lecturer / supervisor</label><input id="pbLecturer" placeholder="Optional"></div>
+      <div class="workflow-field"><label for="pbSession">Academic session</label><input id="pbSession" placeholder="e.g. 2026/2027"></div>
+      <div class="workflow-field"><label for="pbSubmissionDate">Submission date</label><input id="pbSubmissionDate" placeholder="Optional"></div>
+      <div class="workflow-field"><label for="pbH1">Heading 1 size (pt)</label><input id="pbH1" type="number" min="8" max="36" value="14"></div>
+      <div class="workflow-field"><label for="pbH2">Heading 2 size (pt)</label><input id="pbH2" type="number" min="8" max="32" value="14"></div>
+      <div class="workflow-field"><label for="pbH3">Heading 3 size (pt)</label><input id="pbH3" type="number" min="8" max="28" value="12"></div>
+      <div class="workflow-field full"><label>Heading emphasis</label><div class="workflow-checks"><label><input type="checkbox" id="pbH1Bold" checked> Heading 1 bold</label><label><input type="checkbox" id="pbH2Bold" checked> Heading 2 bold</label><label><input type="checkbox" id="pbH3Bold" checked> Heading 3 bold</label></div></div>
+      <div class="workflow-field full"><label for="pbInstructions">Other academic requirements</label><textarea id="pbInstructions" placeholder="Citation style, institution guidelines, required preliminary pages, margins, line spacing, methodology, sources, and other instructions..."></textarea></div>
+    </div><div class="workflow-actions"><button class="workflow-primary" id="pbSaveBtn" type="submit">Save Prompt & Generate Code</button><button class="workflow-secondary" id="pbCancelBtn" type="button">Cancel</button></div><div class="workflow-status" id="pbStatus" aria-live="polite"></div></form>
+  </div>
+</div>
 
-  const msg = document.createElement("div");
-  msg.className = role === "user" ? "chat-msg user" : "chat-msg";
-  msg.textContent = content;
-  chatArea.appendChild(msg);
-  chatArea.scrollTop = chatArea.scrollHeight;
-}
 
-function commitDocumentEdit() {
-  const content = document.getElementById("documentEditorContent").innerHTML;
-  alert("Edits committed to active paper workspace.");
-  document.getElementById("documentEditorModal").classList.remove("show");
-}
-</script>
+
+
+<div class="editor-modal" id="documentEditorModal" role="dialog" aria-modal="true" aria-labelledby="documentEditorTitle">
+ <div class="editor-dialog">
+  <div class="editor-dialog-head"><h3 id="documentEditorTitle">Edit document</h3><button type="button" class="editor-close" id="documentEditorClose">Close</button></div>
+  <div class="editor-scroll"><div id="documentEditorContent" class="editor-page" contenteditable="true" spellcheck="true" aria-label="Editable academic document"></div></div>
+  <div class="editor-dialog-foot">
+   <label class="inline-toggle-row"><input id="inlineEditToggle" type="checkbox" checked> <span><strong>Inline Edit</strong><br><small>Send edits to Groq to improve flow</small></span></label>
+   <button type="button" id="documentEditorCancel" class="editor-close">Cancel</button>
+   <button type="button" id="documentEditorCommit" class="editor-commit">Commit</button>
+   <div id="documentEditorStatus" class="editor-status" aria-live="polite"></div>
+  </div>
+ </div>
+</div>
+<div class="inline-toolbar" id="inlineFormattingToolbar" aria-label="Inline formatting toolbar">
+ <div class="inline-toolbar-head" id="inlineToolbarHandle"><span>⠿ Move formatting toolbar</span><span>Drag here</span></div>
+ <div class="inline-toolbar-grid">
+  <button type="button" data-editor-command="bold" title="Bold"><b>B</b></button>
+  <button type="button" data-editor-command="italic" title="Italic"><i>I</i></button>
+  <button type="button" data-editor-command="underline" title="Underline"><u>U</u></button>
+  <button type="button" data-editor-command="strikeThrough" title="Strikethrough"><s>S</s></button>
+  <button type="button" data-editor-command="justifyLeft" title="Left align">⇤</button>
+  <button type="button" data-editor-command="justifyCenter" title="Center align">☷</button>
+  <button type="button" data-editor-command="justifyRight" title="Right align">⇥</button>
+  <button type="button" data-editor-command="justifyFull" title="Justify">☰</button>
+  <button type="button" data-editor-command="insertUnorderedList" title="Bullets">• List</button>
+  <button type="button" data-editor-command="insertOrderedList" title="Numbering">1. List</button>
+  <button type="button" data-editor-command="indent" title="Indent">Indent</button>
+  <button type="button" data-editor-command="outdent" title="Outdent">Outdent</button>
+  <button type="button" data-editor-command="selectAll" title="Select all">Select</button>
+  <button type="button" data-editor-command="copy" title="Copy">Copy</button>
+  <button type="button" data-editor-command="cut" title="Cut">Cut</button>
+  <button type="button" data-editor-command="tab" title="Insert tab spacing">Tab</button>
+  <button type="button" data-editor-command="all-caps" title="Convert selection to uppercase">ALL CAPS</button>
+  <button type="button" data-editor-command="fontName" title="Font family">Font</button>
+  <button type="button" data-editor-command="fontSize" title="Custom font size">Size</button>
+  <button type="button" data-editor-command="foreColor" title="Text colour">Text colour</button>
+  <button type="button" data-editor-command="hiliteColor" title="Highlight">Highlight</button>
+  <button type="button" data-editor-command="undo" title="Undo">↶</button>
+  <button type="button" data-editor-command="redo" title="Redo">↷</button>
+ </div>
+</div>
+
+<script src="dashboard.js" defer></script>
 </body>
 </html>
+
