@@ -950,73 +950,348 @@ svg { display: block; }
   }
 }
 
-/* Prompt Builder and staged-paper workflow */
-.workflow-modal-backdrop{display:none;position:fixed;inset:0;z-index:3000;background:rgba(2,6,23,.72);backdrop-filter:blur(7px);padding:18px;overflow:auto}
-.workflow-modal-backdrop.show{display:flex;align-items:center;justify-content:center}
-.workflow-modal{width:min(780px,100%);max-height:94dvh;overflow:auto;background:var(--sidebar);border:1px solid var(--border);border-radius:18px;box-shadow:0 30px 80px rgba(0,0,0,.5);padding:22px}
-.workflow-modal-head{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:18px}
-.workflow-modal-head h2{font-size:20px;color:var(--text)}.workflow-modal-head p{font-size:12px;color:var(--muted);margin-top:5px}
-.workflow-close{color:var(--text);font-size:24px;cursor:pointer;padding:4px 9px;border-radius:8px;background:rgba(255,255,255,.05)}
-.workflow-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
-.workflow-field{display:flex;flex-direction:column;gap:6px;min-width:0}.workflow-field.full{grid-column:1/-1}
-.workflow-field label{font-size:12px;font-weight:600;color:var(--muted)}
-.workflow-field input,.workflow-field select,.workflow-field textarea{width:100%;border:1px solid var(--border);background:rgba(0,0,0,.16);color:var(--text);border-radius:9px;padding:11px 12px;outline:none;font-size:13px}
-.workflow-field textarea{resize:vertical;min-height:78px}.workflow-checks{display:flex;flex-wrap:wrap;gap:14px;padding:4px 0}
-.workflow-checks label{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text)}
-.workflow-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:18px}
-.workflow-primary,.workflow-secondary{border-radius:9px;padding:11px 15px;font-size:13px;font-weight:700;cursor:pointer}
-.workflow-primary{background:var(--accent-gradient);color:#fff}.workflow-secondary{border:1px solid var(--border);color:var(--text);background:rgba(255,255,255,.04)}
-.workflow-status{font-size:12px;color:var(--muted);margin-top:12px;white-space:pre-wrap;overflow-wrap:anywhere}.workflow-code{font-weight:800;letter-spacing:.13em;color:#a5b4fc}
-.workflow-output-actions{max-width:860px;width:100%;margin:8px auto 18px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
-.workflow-output-actions button{border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);background:rgba(255,255,255,.04);font-size:12px;cursor:pointer}
-.workflow-output-actions button.primary{background:var(--accent-gradient);border-color:transparent;color:white}.workflow-output-actions button:disabled{opacity:.55;cursor:wait}
-@media(max-width:600px){.workflow-grid{grid-template-columns:1fr}.workflow-modal{padding:16px}.workflow-field.full{grid-column:auto}.workflow-modal-backdrop{padding:8px}.workflow-output-actions{justify-content:stretch}.workflow-output-actions button{flex:1}}
+/* Prompt Builder / TOC view styles */
+.prompt-toc-shell {
+  width: min(1120px, 100%);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
 
+.prompt-toc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-card);
+}
 
-/* Refined mobile-first AI workspace and academic page rules */
-.chat-area{padding-bottom:28px;}
-.input-container{background:linear-gradient(180deg,transparent,var(--bg) 24%);}
-.input-bar{border-radius:22px;padding:11px 12px 11px 18px;background:var(--panel);}
-.ai-chat-window{border-radius:20px;box-shadow:0 24px 80px rgba(0,0,0,.45);}
-.ai-chat-header{background:linear-gradient(135deg,rgba(99,102,241,.18),rgba(15,23,42,.7));}
-.a4-page.cover-page .a4-content{ text-align:center!important; display:flex; min-height:820px; flex-direction:column; justify-content:center; align-items:center; font-size:25px!important; font-weight:900!important; text-transform:uppercase!important; line-height:1.35!important; }
-.a4-page.cover-page .a4-content,
-.a4-page.cover-page .a4-content *{ font-size:25px!important; font-weight:900!important; text-transform:uppercase!important; letter-spacing:.015em; text-align:center!important; }
-.a4-page.cover-page .a4-content h1,.a4-page.cover-page .a4-content h2,.a4-page.cover-page .a4-content h3{ border:0!important; padding:0; margin:0 0 18px; line-height:1.35!important; }
-.a4-page.cover-page .a4-content p{ margin:0 0 12px!important; line-height:1.35!important; }
-.a4-page.preliminary-page .a4-content h1,.a4-page.preliminary-page .a4-content h2,.a4-page.preliminary-page .a4-content h3{text-align:center;}
-.a4-page.toc-page .a4-content{text-align:left;}
-.a4-page.toc-page .a4-content h1,.a4-page.toc-page .a4-content h2,.a4-page.toc-page .a4-content h3{font-size:18px!important;text-align:left!important;font-weight:400;border:0;padding:0;margin:0 0 20px;}
-.a4-page.toc-page .a4-content h1:first-child,.a4-page.toc-page .a4-content h2:first-child,.a4-page.toc-page .a4-content h3:first-child{font-weight:800!important;text-transform:uppercase;}
-.toc-lines{width:100%;font-family:'Merriweather',Georgia,serif;font-size:13px;line-height:1.65;}
-.toc-row{display:flex;align-items:baseline;gap:8px;width:100%;margin:0 0 8px;text-align:left;}
-.toc-row .toc-label{flex:0 1 auto;min-width:0;}
-.toc-row .toc-leader{flex:1 1 auto;border-bottom:1px dotted #64748b;min-width:12px;transform:translateY(-3px);}
-.toc-row .toc-page{flex:0 0 auto;text-align:right;min-width:24px;font-variant-numeric:tabular-nums;}
-.workflow-output-actions button.update-toc{border-color:rgba(99,102,241,.45);}
-@media(max-width:600px){.ai-chat-window{width:calc(100vw - 20px)!important;right:10px!important;left:10px!important;bottom:90px!important;height:min(68dvh,540px)!important}.ai-fab{right:16px;bottom:16px}.a4-page.cover-page .a4-content{min-height:65vh}.a4-page.toc-page .a4-content{font-size:13px}.toc-row{gap:5px}}
+.prompt-toc-kicker {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.13em;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
 
-/* Integrated Prompt / TOC workspace */
-.ai-fab,#aiFab,.ai-chat-window,#aiChatWindow{display:none!important;visibility:hidden!important;pointer-events:none!important}
-.prompt-toc-top-btn{margin-right:10px;padding:9px 12px!important;white-space:nowrap}
-.toc-workspace-backdrop{display:none;position:fixed;inset:0;z-index:3100;background:rgba(2,6,23,.74);backdrop-filter:blur(7px);padding:16px;overflow:auto}
-.toc-workspace-backdrop.show{display:flex;align-items:center;justify-content:center}
-.toc-workspace{width:min(780px,100%);max-height:94dvh;overflow:auto;background:var(--sidebar);border:1px solid var(--border);border-radius:18px;box-shadow:0 30px 80px rgba(0,0,0,.5);padding:22px;color:var(--text)}
-.toc-workspace-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:18px}
-.toc-workspace-head h2{font-size:20px}.toc-workspace-head p{font-size:12px;color:var(--muted);margin-top:5px;line-height:1.5}
-.toc-workspace-close{color:var(--text);font-size:24px;cursor:pointer;padding:2px 9px;border-radius:8px;background:rgba(255,255,255,.05)}
-.toc-workspace label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:7px}
-.toc-workspace input,.toc-workspace textarea{width:100%;border:1px solid var(--border);background:rgba(0,0,0,.16);color:var(--text);border-radius:9px;padding:11px 12px;outline:none;font-size:13px}
-.toc-workspace textarea{min-height:180px;resize:vertical;line-height:1.55}
-.toc-workspace-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px}
-.toc-workspace-status{font-size:12px;color:var(--muted);margin-top:12px;white-space:pre-wrap;overflow-wrap:anywhere}
-.toc-workspace-output{display:none;margin-top:18px;border-top:1px solid var(--border);padding-top:16px}
-.toc-workspace-output.show{display:block}.toc-workspace-output h3{font-size:14px;margin:0 0 8px}
-.toc-workspace-output textarea{min-height:230px}
-.prompt-result-box{margin-top:14px;padding:14px;border:1px solid var(--border);border-radius:10px;background:rgba(255,255,255,.025)}
-.prompt-result-box textarea{min-height:150px;margin-top:8px}
-@media(max-width:600px){.toc-workspace{padding:15px}.toc-workspace-backdrop{padding:8px}.prompt-toc-top-btn{font-size:11px;padding:8px!important;margin-right:6px}.topbar{gap:6px}.topbar .heading{max-width:34vw}}
+.prompt-toc-header h2 {
+  font-size: clamp(20px, 2vw, 28px);
+  letter-spacing: -0.03em;
+  color: var(--text);
+}
 
+.prompt-toc-switch {
+  min-height: 42px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.04);
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.prompt-toc-switch:hover {
+  transform: translateY(-1px);
+  background: rgba(255,255,255,0.07);
+}
+.prompt-toc-switch.primary {
+  background: var(--accent-gradient);
+  border-color: transparent;
+  box-shadow: 0 12px 22px rgba(79, 70, 229, 0.18);
+}
+
+.prompt-builder-panel,
+.prompt-toc-panel,
+.ai-message-board {
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+.prompt-builder-panel { padding: 18px; }
+
+.prompt-builder-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.prompt-builder-form .full {
+  grid-column: 1 / -1;
+}
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+.form-field label {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.form-field input,
+.form-field select,
+.form-field textarea {
+  width: 100%;
+  background: rgba(2,6,23,0.18);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 11px 12px;
+  outline: none;
+  color: var(--text);
+  font-size: 13px;
+}
+.form-field textarea {
+  min-height: 82px;
+  resize: vertical;
+}
+.form-field input:focus,
+.form-field select:focus,
+.form-field textarea:focus {
+  border-color: rgba(99,102,241,0.8);
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
+}
+
+.checkbox-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  padding-top: 4px;
+}
+.checkbox-row label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 500;
+}
+.checkbox-row input {
+  accent-color: var(--accent);
+}
+
+.form-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.primary-btn, .secondary-btn, .subtle-btn, .code-btn {
+  min-height: 42px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+.primary-btn:hover, .secondary-btn:hover, .subtle-btn:hover, .code-btn:hover {
+  transform: translateY(-1px);
+}
+.primary-btn {
+  background: var(--accent-gradient);
+  color: white;
+  border: 1px solid transparent;
+}
+.secondary-btn {
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.04);
+  color: var(--text);
+}
+.subtle-btn, .code-btn {
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.02);
+  color: var(--text);
+}
+.primary-btn:disabled, .secondary-btn:disabled, .subtle-btn:disabled, .code-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.status-box {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--muted);
+  min-height: 18px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.status-box.success {
+  color: #a7f3d0;
+}
+.status-box.error {
+  color: #fca5a5;
+}
+
+.prompt-toc-panel {
+  padding: 18px;
+}
+.toc-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.toc-label {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.toc-input {
+  width: 100%;
+  min-height: 48px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(2,6,23,0.18);
+  color: var(--text);
+  padding: 12px 14px;
+  font-size: 14px;
+  letter-spacing: 0.12em;
+  outline: none;
+}
+.toc-input:focus {
+  border-color: rgba(99,102,241,0.8);
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
+}
+
+.ai-message-board { padding: 18px; }
+
+.ai-message {
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px;
+}
+.ai-message .message-header {
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin-bottom: 12px;
+  font-weight: 700;
+}
+.ai-message .message-body {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.75;
+  color: var(--text);
+  font-size: 14px;
+}
+.ai-message .message-body strong { color: var(--text); }
+.ai-message .message-body code {
+  background: rgba(148,163,184,0.12);
+  border-radius: 6px;
+  padding: 2px 6px;
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+}
+.ai-message .code-banner {
+  margin-top: 18px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(79, 70, 229, 0.12);
+  border: 1px solid rgba(99,102,241,0.2);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.ai-message .code-banner strong {
+  color: #c7d2fe;
+}
+.message-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+.message-actions button {
+  min-height: 38px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.04);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+.message-actions button.primary {
+  background: var(--accent-gradient);
+  border-color: transparent;
+}
+
+.inline-loader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+.inline-loader .mini-loader {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: miniPulse 1.2s infinite ease-in-out;
+}
+@keyframes miniPulse {
+  0% { transform: scale(0.7); opacity: 0.4; }
+  50% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.7); opacity: 0.4; }
+}
+
+@media (max-width: 760px) {
+  .prompt-builder-form {
+    grid-template-columns: 1fr;
+  }
+  .prompt-toc-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .prompt-toc-switch {
+    width: 100%;
+  }
+  .form-actions {
+    width: 100%;
+  }
+  .form-actions button {
+    flex: 1 1 100%;
+  }
+  .message-actions button {
+    flex: 1 1 calc(50% - 8px);
+  }
+}
+
+@media (max-width: 520px) {
+  .prompt-builder-panel,
+  .prompt-toc-panel,
+  .ai-message-board {
+    padding: 14px;
+  }
+  .prompt-toc-header h2 {
+    font-size: 20px;
+  }
+  .ai-message .message-body {
+    font-size: 13px;
+  }
+  .toc-input {
+    letter-spacing: 0.08em;
+    font-size: 13px;
+  }
+}
 </style>
 </head>
 <body>
@@ -1038,9 +1313,13 @@ svg { display: block; }
     </div>
   </div>
 
-  <div class="menu-item" id="promptBuilderBtn">
-    <div class="menu-left"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 10h16M4 15h10M4 20h7"/><path d="M18 15v6m-3-3h6"/></svg>Prompt / TOC</div>
+  <div class="menu-item" id="promptTocBtn">
+    <div class="menu-left">
+      <svg viewBox="0 0 24 24"><path d="M4 5h16M4 10h16M4 15h10M4 20h7"/><path d="M18 15v6m-3-3h6"/></svg>
+      Prompt / TOC
+    </div>
   </div>
+
   <div class="menu-item" id="historyToggle">
     <div class="menu-left">
       <svg viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -1077,7 +1356,6 @@ svg { display: block; }
     <div class="heading">Academic Editor</div>
 
     <div class="top-actions">
-      <button class="workflow-primary prompt-toc-top-btn" id="promptTocTopBtn" type="button">Prompt / TOC</button>
       <button class="dots-btn" id="dotsBtn" aria-label="More options">
         <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
       </button>
@@ -1144,59 +1422,6 @@ svg { display: block; }
   </div>
 </div>
 
-
-<div class="workflow-modal-backdrop" id="promptBuilderModal" role="dialog" aria-modal="true" aria-labelledby="promptBuilderTitle">
-  <div class="workflow-modal">
-    <div class="workflow-modal-head"><div><h2 id="promptBuilderTitle">Build your term-paper prompt</h2><p>Save academic requirements and receive a reusable five-character code.</p></div><button class="workflow-close" id="promptBuilderClose" aria-label="Close">×</button></div>
-    <form id="promptBuilderForm"><div class="workflow-grid">
-      <div class="workflow-field full"><label for="pbTopic">Term-paper topic *</label><input id="pbTopic" required maxlength="300" placeholder="Enter the complete research topic"></div>
-      <div class="workflow-field"><label for="pbPages">Target A4 pages</label><input id="pbPages" type="number" min="1" max="500" value="20"></div>
-      <div class="workflow-field"><label for="pbChapters">Number of chapters</label><input id="pbChapters" type="number" min="1" max="12" value="5"></div>
-      <div class="workflow-field"><label for="pbBodySize">Body font size (pt)</label><input id="pbBodySize" type="number" min="8" max="24" value="12"></div>
-      <div class="workflow-field"><label for="pbStructure">Academic structure</label><select id="pbStructure"><option value="Standard academic structure">Standard academic structure</option><option value="Five-chapter research project">Five-chapter research project</option><option value="Essay with introduction, body and conclusion">Essay: introduction, body and conclusion</option><option value="Use the institution's specified structure">Institution-specific structure</option><option value="Custom structure supplied in instructions">Custom structure</option></select></div>
-      <div class="workflow-field"><label for="pbInstitution">Institution / University</label><input id="pbInstitution" placeholder="Leave blank if not provided"></div>
-      <div class="workflow-field"><label for="pbFaculty">Faculty</label><input id="pbFaculty" placeholder="Optional"></div>
-      <div class="workflow-field"><label for="pbDepartment">Department</label><input id="pbDepartment" placeholder="Optional"></div>
-      <div class="workflow-field"><label for="pbCourseTitle">Course title</label><input id="pbCourseTitle" placeholder="Optional"></div>
-      <div class="workflow-field"><label for="pbCourseCode">Course code</label><input id="pbCourseCode" placeholder="Optional"></div>
-      <div class="workflow-field"><label for="pbStudentName">Student name</label><input id="pbStudentName" placeholder="Optional"></div>
-      <div class="workflow-field"><label for="pbRegNo">Registration / matric number</label><input id="pbRegNo" placeholder="Optional"></div>
-      <div class="workflow-field"><label for="pbLecturer">Lecturer / supervisor</label><input id="pbLecturer" placeholder="Optional"></div>
-      <div class="workflow-field"><label for="pbSession">Academic session</label><input id="pbSession" placeholder="e.g. 2026/2027"></div>
-      <div class="workflow-field"><label for="pbSubmissionDate">Submission date</label><input id="pbSubmissionDate" placeholder="Optional"></div>
-      <div class="workflow-field"><label for="pbH1">Heading 1 size (pt)</label><input id="pbH1" type="number" min="8" max="36" value="14"></div>
-      <div class="workflow-field"><label for="pbH2">Heading 2 size (pt)</label><input id="pbH2" type="number" min="8" max="32" value="14"></div>
-      <div class="workflow-field"><label for="pbH3">Heading 3 size (pt)</label><input id="pbH3" type="number" min="8" max="28" value="12"></div>
-      <div class="workflow-field full"><label>Heading emphasis</label><div class="workflow-checks"><label><input type="checkbox" id="pbH1Bold" checked> Heading 1 bold</label><label><input type="checkbox" id="pbH2Bold" checked> Heading 2 bold</label><label><input type="checkbox" id="pbH3Bold" checked> Heading 3 bold</label></div></div>
-      <div class="workflow-field full"><label for="pbInstructions">Other academic requirements</label><textarea id="pbInstructions" placeholder="Citation style, institution guidelines, required preliminary pages, margins, line spacing, methodology, sources, and other instructions..."></textarea></div>
-    </div><div class="workflow-actions"><button class="workflow-primary" id="pbSaveBtn" type="submit">Save Prompt & Generate Code</button><button class="workflow-secondary" id="pbCancelBtn" type="button">Cancel</button></div><div class="workflow-status" id="pbStatus" aria-live="polite"></div></form>
-    <div class="prompt-result-box" id="promptResultBox" style="display:none">
-      <h3 style="font-size:14px;margin-bottom:8px">Generated prompt</h3>
-      <textarea id="generatedPromptText" readonly style="width:100%;border:1px solid var(--border);background:rgba(0,0,0,.16);color:var(--text);border-radius:9px;padding:11px 12px;min-height:170px;line-height:1.55"></textarea>
-      <div class="workflow-status" id="generatedPromptCode"></div>
-      <div class="workflow-actions"><button class="workflow-primary" id="promptCopyTextBtn" type="button">Copy Prompt</button><button class="workflow-secondary" id="promptSwitchToTocBtn" type="button">Switch to TOC</button><button class="workflow-secondary" id="promptStartOverBtn" type="button">Edit Prompt</button></div>
-    </div>
-  </div>
-</div>
-
-
-<div class="toc-workspace-backdrop" id="tocWorkspaceModal" role="dialog" aria-modal="true" aria-labelledby="tocWorkspaceTitle">
-  <div class="toc-workspace">
-    <div class="toc-workspace-head"><div><h2 id="tocWorkspaceTitle">Prompt / TOC</h2><p>Paste the five-character prompt code to generate a table of contents. The TOC code is copied automatically when generation succeeds.</p></div><button class="toc-workspace-close" id="tocWorkspaceClose" aria-label="Close">×</button></div>
-    <div id="tocWorkspaceInputArea">
-      <label for="tocPromptCodeInput">Saved prompt code</label>
-      <input id="tocPromptCodeInput" maxlength="5" autocomplete="off" placeholder="e.g. A1B2C" />
-      <div class="toc-workspace-actions"><button class="workflow-primary" id="generateTocBtn" type="button">Generate TOC</button><button class="workflow-secondary" id="switchToPromptBtn" type="button">Switch to Prompt</button></div>
-      <div class="toc-workspace-status" id="tocWorkspaceStatus" aria-live="polite"></div>
-    </div>
-    <div class="toc-workspace-output" id="tocWorkspaceOutput">
-      <h3>Generated table of contents</h3><textarea id="tocWorkspaceText" readonly></textarea>
-      <label for="tocCodeOutput" style="margin-top:12px">TOC code (automatically copied)</label><input id="tocCodeOutput" readonly />
-      <div class="toc-workspace-actions"><button class="workflow-primary" id="copyTocBtn" type="button">Copy TOC</button><button class="workflow-secondary" id="copyTocCodeBtn" type="button">Copy TOC Code</button><button class="workflow-secondary" id="switchToPromptFromOutputBtn" type="button">Switch to Prompt</button></div>
-    </div>
-  </div>
-</div>
-
 <script>
 const API_URL = "https://term-paper-n4kl.onrender.com";
 let currentUser = null;
@@ -1214,7 +1439,44 @@ let activeSectionOrder = 0;
 let workflowArabicPage = 1;
 let workflowBusy = false;
 
-// Clean model text before rendering
+const APP_VIEWS = {
+  CHAT: "chat",
+  PROMPT: "prompt",
+  TOC: "toc"
+};
+
+const appState = {
+  view: APP_VIEWS.CHAT,
+  promptBuilderDraft: null,
+  promptBuilderResult: null,
+  tocResult: null,
+  tocLoading: false,
+  tocDraft: ""
+};
+
+function firstAvailable(...values) {
+  for (const value of values) {
+    if (value !== undefined && value !== null) {
+      const text = String(value).trim();
+      if (text !== "") return text;
+    }
+  }
+  return "";
+}
+
+function escapeHTML(value) {
+  return String(value ?? "").replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function formatTextBlock(text) {
+  if (!text) return "";
+  return escapeHTML(String(text)).replace(/\\n/g, "<br>");
+}
+
 function cleanPaperText(text){
   if(!text) return "";
   return text
@@ -1254,22 +1516,17 @@ function markdownToHTML(markdown) {
   for (const rawLine of lines) {
     const line = rawLine.trim();
     if (!line) { flushParagraph(); flushList(); continue; }
-    // Explicit Markdown headings.
     let m = line.match(/^(#{1,3})\s+(.+)$/);
     if (m) { flushParagraph(); flushList(); out.push(`<h${m[1].length}>${inline(m[2])}</h${m[1].length}>`); continue; }
-    // Bold standalone numbered headings such as **1.1 Meaning of ...**.
     m = line.match(/^\*\*\s*(\d+\.\d+(?:\.\d+)?\s+.+?)\s*\*\*$/);
     if (m) { flushParagraph(); flushList(); out.push(`<h3>${inline(m[1])}</h3>`); continue; }
-    // Plain numbered academic subheadings, not list items: 1.1, 1.2.1, etc.
     m = line.match(/^(\d+\.\d+(?:\.\d+)?)[.)]?\s+(.+)$/);
     if (m && (m[2].length < 160) && !/^\*\*/.test(m[2])) {
       flushParagraph(); flushList(); out.push(`<h3>${inline(m[1] + " " + m[2])}</h3>`); continue;
     }
-    // Chapter-level titles.
     if (/^chapter\s+(?:\d+|[ivxlcdm]+|one|two|three|four|five|six|seven|eight|nine|ten)\b/i.test(line)) {
       flushParagraph(); flushList(); out.push(`<h1>${inline(line.replace(/^\*\*|\*\*$/g, ""))}</h1>`); continue;
     }
-    // Lists. Keep list numbering separate from heading numbers like 1.1.
     m = line.match(/^\s*(\d+)[.)]\s+(.+)$/);
     if (m || /^[-*+]\s+/.test(line)) {
       flushParagraph();
@@ -1351,7 +1608,6 @@ function paginateContent(html) {
       measureContent.innerHTML = '';
     }
 
-    // Keep a heading together with the first following content block where possible.
     const isSectionHeading = /^H[1-3]$/.test(clone.tagName || "");
     if (isSectionHeading && i + 1 < blocks.length) {
       const nextBlock = blocks[i + 1].cloneNode(true);
@@ -1360,7 +1616,6 @@ function paginateContent(html) {
       pair.appendChild(nextBlock);
       measureContent.appendChild(pair);
       if (fits()) { i++; continue; }
-      // Undo the pair; if current page has content, start a new page and retry together.
       measureContent.removeChild(measureContent.lastChild);
       measureContent.removeChild(measureContent.lastChild);
       if (measureContent.childNodes.length > 0) {
@@ -1376,7 +1631,6 @@ function paginateContent(html) {
       measureContent.removeChild(measureContent.lastChild);
     }
 
-    // IMPORTANT: testAppend already appended the node if it fits, so do not append again.
     if (testAppend(clone.cloneNode(true))) {
       continue;
     }
@@ -1392,7 +1646,7 @@ function paginateContent(html) {
 
     const text = (clone.textContent || '').trim();
     if (!text) continue;
-    const words = text.split(/\s+/);
+    const words = text.split(/\\s+/);
     let buffer = '';
 
     for (let w = 0; w < words.length; w++) {
@@ -1565,24 +1819,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("historyToggle").onclick = toggleHistory;
   document.getElementById("newChatBtn").onclick = startNewChat;
   document.getElementById("menuNewChat").onclick = () => { startNewChat(); closeDots(); };
-  document.getElementById("promptBuilderBtn").onclick = openPromptBuilder;
-  document.getElementById("promptBuilderClose").onclick = closePromptBuilder;
-  document.getElementById("pbCancelBtn").onclick = closePromptBuilder;
-  document.getElementById("promptBuilderModal").addEventListener("click",e=>{if(e.target.id==="promptBuilderModal")closePromptBuilder();});
-  document.getElementById("promptBuilderForm").addEventListener("submit",savePromptBuilder);
-  document.getElementById("promptTocTopBtn").addEventListener("click",openTocWorkspace);
-  document.getElementById("tocWorkspaceClose").addEventListener("click",closeTocWorkspace);
-  document.getElementById("tocWorkspaceModal").addEventListener("click",e=>{if(e.target.id==="tocWorkspaceModal")closeTocWorkspace();});
-  document.getElementById("generateTocBtn").addEventListener("click",generateTocFromPromptCode);
-  document.getElementById("tocPromptCodeInput").addEventListener("input",e=>{e.target.value=e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,5);});
-  document.getElementById("tocPromptCodeInput").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();generateTocFromPromptCode();}});
-  document.getElementById("switchToPromptBtn").addEventListener("click",()=>{closeTocWorkspace();openPromptBuilder();});
-  document.getElementById("switchToPromptFromOutputBtn").addEventListener("click",()=>{closeTocWorkspace();openPromptBuilder();});
-  document.getElementById("promptSwitchToTocBtn").addEventListener("click",()=>{closePromptBuilder();openTocWorkspace();const saved=document.getElementById("generatedPromptCode").textContent.match(/[A-Z0-9]{5}/);if(saved)document.getElementById("tocPromptCodeInput").value=saved[0];});
-  document.getElementById("promptStartOverBtn").addEventListener("click",resetPromptBuilderView);
-  document.getElementById("promptCopyTextBtn").addEventListener("click",async()=>{const ok=await copyTextToClipboard(document.getElementById("generatedPromptText").value);document.getElementById("promptCopyTextBtn").textContent=ok?"Copied!":"Copy failed";});
-  document.getElementById("copyTocBtn").addEventListener("click",async()=>{const ok=await copyTextToClipboard(document.getElementById("tocWorkspaceText").value);document.getElementById("copyTocBtn").textContent=ok?"Copied!":"Copy failed";});
-  document.getElementById("copyTocCodeBtn").addEventListener("click",async()=>{const ok=await copyTextToClipboard(document.getElementById("tocCodeOutput").value);document.getElementById("copyTocCodeBtn").textContent=ok?"Copied!":"Copy failed";});
+  document.getElementById("promptTocBtn").onclick = () => {
+    setView(APP_VIEWS.PROMPT);
+    closeDots();
+  };
 
   document.addEventListener("click", (e) => {
     if (!e.target.closest(".top-actions")) closeDots();
@@ -1590,7 +1830,68 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   repositionChatWindowAboveInput();
   autoResizeTextarea();
+  setView(APP_VIEWS.CHAT);
 });
+
+function getWorkflowUserId(){const id=localStorage.getItem("user_id")||"";return /^\d+$/.test(String(id))?String(id):"";}
+
+function setView(view) {
+  appState.view = view;
+  updateSidebarHighlight();
+
+  const aiFab = document.getElementById("aiFab");
+  const aiChatWindow = document.getElementById("aiChatWindow");
+  if (aiFab) {
+    aiFab.style.display = (view === APP_VIEWS.CHAT) ? "" : "none";
+  }
+  if (aiChatWindow) aiChatWindow.classList.remove("show");
+
+  const chatArea = document.getElementById("chatArea");
+  if (!chatArea) return;
+
+  if (view === APP_VIEWS.PROMPT) {
+    renderPromptBuilderView();
+  } else if (view === APP_VIEWS.TOC) {
+    renderTOCView();
+  } else {
+    renderDefaultChatView();
+  }
+}
+
+function updateSidebarHighlight() {
+  const promptBtn = document.getElementById("promptTocBtn");
+  const newChatBtn = document.getElementById("newChatBtn");
+  const active = appState.view === APP_VIEWS.PROMPT || appState.view === APP_VIEWS.TOC;
+
+  if (newChatBtn) {
+    newChatBtn.classList.toggle("active", appState.view === APP_VIEWS.CHAT);
+  }
+  if (promptBtn) {
+    promptBtn.classList.toggle("active", active);
+  }
+}
+
+function renderDefaultChatView() {
+  const chatArea = document.getElementById("chatArea");
+  chatArea.innerHTML = `
+    <div class="welcome-placeholder" id="welcomeMsg">
+      <h2>Academic Paper Generator</h2>
+      Enter your topic or prompt below to research, structure, and generate a fully-formatted paper.
+    </div>`;
+  document.getElementById("promptInput").value = "";
+  latestResultText = "";
+  toggleCopyButton("");
+  autoResizeTextarea();
+}
+
+function setFloatingAssistantVisibility() {
+  const aiFab = document.getElementById("aiFab");
+  if (aiFab) {
+    aiFab.style.display = (appState.view === APP_VIEWS.CHAT) ? "" : "none";
+  }
+  const aiChatWindow = document.getElementById("aiChatWindow");
+  if (aiChatWindow) aiChatWindow.classList.remove("show");
+}
 
 function repositionChatWindowAboveInput() {
   const aiWindow = document.getElementById('aiChatWindow');
@@ -1717,11 +2018,20 @@ async function loadProfile(userId) {
 
 function autoResizeTextarea() {
   const textarea = document.getElementById("promptInput");
+  if (!textarea) return;
   textarea.style.height = "auto";
   textarea.style.height = Math.min(textarea.scrollHeight, 160) + "px";
 }
 
 function startNewChat() {
+  appState.view = APP_VIEWS.CHAT;
+  setView(APP_VIEWS.CHAT);
+  appState.promptBuilderDraft = null;
+  appState.promptBuilderResult = null;
+  appState.tocResult = null;
+  appState.tocDraft = "";
+  appState.tocLoading = false;
+
   document.getElementById("chatArea").innerHTML = `
     <div class="welcome-placeholder" id="welcomeMsg">
       <h2>Academic Paper Generator</h2>
@@ -1772,141 +2082,677 @@ function copyLatestText() {
   return copyTextToClipboard(latestResultText);
 }
 
+function renderPromptBuilderView() {
+  const chatArea = document.getElementById("chatArea");
+  const draft = appState.promptBuilderDraft || defaultPromptBuilderDraft();
+  const result = appState.promptBuilderResult;
 
-function getWorkflowUserId(){const id=localStorage.getItem("user_id")||"";return /^\d+$/.test(String(id))?String(id):"";}
-function openPromptBuilder(){document.getElementById("promptBuilderModal").classList.add("show");if(document.getElementById("promptResultBox").style.display!=="block")document.getElementById("pbTopic").focus();}
-function closePromptBuilder(){document.getElementById("promptBuilderModal").classList.remove("show");}
-function resetPromptBuilderView(){document.getElementById("promptResultBox").style.display="none";document.querySelector("#promptBuilderForm .workflow-grid").style.display="grid";document.querySelector("#promptBuilderForm .workflow-actions").style.display="flex";document.getElementById("pbStatus").textContent="";}
-function openTocWorkspace(){document.getElementById("tocWorkspaceModal").classList.add("show");document.getElementById("tocPromptCodeInput").focus();}
-function closeTocWorkspace(){document.getElementById("tocWorkspaceModal").classList.remove("show");}
-async function generateTocFromPromptCode(){
- const input=document.getElementById("tocPromptCodeInput"),status=document.getElementById("tocWorkspaceStatus"),btn=document.getElementById("generateTocBtn");
- const code=input.value.trim().toUpperCase();input.value=code;
- if(!/^[A-Z0-9]{5}$/.test(code)){status.textContent="Enter a valid five-character prompt code.";return;}
- const userId=getWorkflowUserId();if(!userId){status.textContent="Please sign in before generating a table of contents.";return;}
- btn.disabled=true;status.textContent="Generating your table of contents...";
- try{
-  const response=await fetch(`${API_URL}/build-toc`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user_id:userId,prompt_code:code})});
-  const data=await response.json();if(!response.ok)throw new Error(data.error||"Could not generate the table of contents.");
-  const tocText=data.toc||data.result||"";if(!tocText)throw new Error("The server did not return a table of contents.");
-  document.getElementById("tocWorkspaceText").value=tocText;
-  document.getElementById("tocCodeOutput").value=data.toc_code||"";
-  document.getElementById("tocWorkspaceOutput").classList.add("show");
-  status.textContent="Table of contents generated successfully.";
-  if(data.toc_code)await copyTextToClipboard(data.toc_code);
- }catch(error){status.textContent=error.message||"Network error generating the table of contents.";}finally{btn.disabled=false;}
-}
+  if (result && result.promptText) {
+    chatArea.innerHTML = `
+      <div class="prompt-toc-shell">
+        <div class="prompt-toc-header">
+          <div>
+            <div class="prompt-toc-kicker">Prompt Builder</div>
+            <h2>Generated Prompt</h2>
+          </div>
+          <button class="prompt-toc-switch primary" id="switchToTocFromResultBtn" type="button">Switch to Table of Contents</button>
+        </div>
+        <div class="ai-message-board">
+          <div class="ai-message">
+            <div class="message-header">Generated prompt</div>
+            <div class="message-body">${formatTextBlock(result.promptText)}</div>
+            <div class="code-banner">
+              Prompt code: <strong>${escapeHTML(result.promptCode || "N/A")}</strong>
+            </div>
+            <div class="message-actions">
+              <button type="button" id="copyPromptTextBtn">Copy Prompt</button>
+              <button type="button" id="copyPromptCodeBtn">Copy Code</button>
+              <button type="button" id="editPromptBtn">Edit Prompt</button>
+              <button type="button" id="switchToTocFromResultBtn2" class="primary">Switch to Table of Contents</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
 
-function escapeHTML(value){return String(value??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");}
-async function savePromptBuilder(e){
- e.preventDefault();const userId=getWorkflowUserId(),status=document.getElementById("pbStatus"),btn=document.getElementById("pbSaveBtn");
- if(!userId){status.textContent="Please sign in to save this prompt to your account.";return;}
- const config={topic:document.getElementById("pbTopic").value.trim(),pages:document.getElementById("pbPages").value,chapters:document.getElementById("pbChapters").value,
- body_font_size:document.getElementById("pbBodySize").value,heading1_size:document.getElementById("pbH1").value,heading2_size:document.getElementById("pbH2").value,heading3_size:document.getElementById("pbH3").value,
- heading1_bold:document.getElementById("pbH1Bold").checked,heading2_bold:document.getElementById("pbH2Bold").checked,heading3_bold:document.getElementById("pbH3Bold").checked,
- structure:document.getElementById("pbStructure").value,instructions:document.getElementById("pbInstructions").value.trim(),
- institution:document.getElementById("pbInstitution").value.trim(),faculty:document.getElementById("pbFaculty").value.trim(),department:document.getElementById("pbDepartment").value.trim(),
- course_title:document.getElementById("pbCourseTitle").value.trim(),course_code:document.getElementById("pbCourseCode").value.trim(),student_name:document.getElementById("pbStudentName").value.trim(),
- registration_number:document.getElementById("pbRegNo").value.trim(),lecturer_name:document.getElementById("pbLecturer").value.trim(),academic_session:document.getElementById("pbSession").value.trim(),submission_date:document.getElementById("pbSubmissionDate").value.trim()};
- btn.disabled=true;status.textContent="Saving prompt to your account...";
- try{const res=await fetch(`${API_URL}/prompt-builder`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user_id:userId,config})});const data=await res.json();if(!res.ok)throw new Error(data.error||"Could not save prompt.");
- const generatedPrompt=[
-   `Research topic: ${config.topic}`,`Target length: ${config.pages} A4 pages`,`Number of chapters: ${config.chapters}`,`Academic structure: ${config.structure}`,`Body font size: ${config.body_font_size} pt`,
-   `Heading sizes: H1 ${config.heading1_size} pt${config.heading1_bold?" bold":""}; H2 ${config.heading2_size} pt${config.heading2_bold?" bold":""}; H3 ${config.heading3_size} pt${config.heading3_bold?" bold":""}`,
-   config.institution?`Institution: ${config.institution}`:"",config.faculty?`Faculty: ${config.faculty}`:"",config.department?`Department: ${config.department}`:"",config.course_title?`Course title: ${config.course_title}`:"",config.course_code?`Course code: ${config.course_code}`:"",config.student_name?`Student: ${config.student_name}`:"",config.registration_number?`Registration number: ${config.registration_number}`:"",config.lecturer_name?`Lecturer/supervisor: ${config.lecturer_name}`:"",config.academic_session?`Academic session: ${config.academic_session}`:"",config.submission_date?`Submission date: ${config.submission_date}`:"",config.instructions?`Additional requirements: ${config.instructions}`:"",
-   "Follow the academic and formatting requirements above. Use credible sources and the requested citation style; never invent references."
- ].filter(Boolean).join("\n\n");
- document.getElementById("generatedPromptText").value=generatedPrompt;
- document.getElementById("generatedPromptCode").innerHTML=`Prompt code: <span class="workflow-code">${escapeHTML(data.prompt_code)}</span> (copied to clipboard)`;
- document.getElementById("promptResultBox").style.display="block";
- document.querySelector("#promptBuilderForm .workflow-grid").style.display="none";
- document.querySelector("#promptBuilderForm .workflow-actions").style.display="none";
- status.textContent="Prompt saved successfully.";
- await copyTextToClipboard(data.prompt_code);
- }catch(err){status.textContent=err.message||"Network error saving prompt.";}finally{btn.disabled=false;}
-}
-function extractWorkflowCodes(text){
- const pm=text.match(/PROMPT(?:_CODE)?\s*[:=]\s*([A-Z0-9]{5})/i),tm=text.match(/TOC(?:_CODE)?\s*[:=]\s*([A-Z0-9]{5})/i);
- if(pm&&tm)return {prompt_code:pm[1].toUpperCase(),toc_code:tm[1].toUpperCase()};
- const unique=[...new Set([...text.toUpperCase().matchAll(/\b[A-Z0-9]{5}\b/g)].map(m=>m[0]))];
- return unique.length>=2?{prompt_code:unique[0],toc_code:unique[1]}:null;
-}
-async function startPaperWithCodes(codes,userPrompt){
- const userId=getWorkflowUserId();if(!userId)throw new Error("Please sign in to retrieve your saved prompt and table of contents.");
- const res=await fetch(`${API_URL}/paper-start`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...codes,user_id:userId})});const data=await res.json();if(!res.ok)throw new Error(data.error||"Could not start paper.");
- activePaperProjectId=data.project_id;activeTocCode=codes.toc_code;activePromptCode=codes.prompt_code;tocGenerated=false;activeSectionOrder=0;workflowArabicPage=1;document.getElementById("chatArea").innerHTML="";
- addMessage("user",userPrompt);
- // The first pull deliberately contains preliminary pages only; TOC is a separate stage.
- let preliminary="";
- if(data.result) preliminary=removeTocFromPreliminary(cleanPaperText(data.result));
- else if(data.sections){const first=data.sections.find(x=>Number(x.order_no||0)===0)||data.sections[0];preliminary=removeTocFromPreliminary(cleanPaperText(first?.content||""));}
- if(preliminary)addWorkflowSection({title:"Preliminary Pages",result:preliminary,order_no:0,project_id:data.project_id,toc_code:codes.toc_code,kind:"preliminary"},true);
- activeChatHistory.push({prompt:userPrompt,result:preliminary,isPaper:true,workflow:true,project_id:data.project_id,order_no:0,kind:"preliminary"});saveChatSession();
-}
-function updateDisplayedTableOfContents(tocText){
- if(!tocText)return;
- const existing=document.querySelector('#chatArea .chat-msg[data-kind="toc"]');
- if(existing){existing.dataset.raw=tocText;existing.innerHTML=`<div class="section-label">Table of Contents</div>${createA4Pages(markdownToHTML(tocText),tocText.split(/\s+/).filter(Boolean).length,{kind:"toc",startPage:1})}<div class="workflow-output-actions"><button data-action="edit">Edit</button><button class="update-toc" data-action="update-toc">↻ Update TOC</button><button class="primary" data-action="next">Pull Next</button></div>`;bindWorkflowButtons(existing);return;}
- addWorkflowSection({title:"Table of Contents",result:tocText,order_no:1,project_id:activePaperProjectId,toc_code:activeTocCode,kind:"toc"});
- const toc=document.querySelector('#chatArea .chat-msg[data-kind="toc"]');if(toc){toc.querySelector('[data-action="resend"]')?.remove();const actions=toc.querySelector('.workflow-output-actions');if(actions&&!actions.querySelector('[data-action="update-toc"]')){const b=document.createElement('button');b.className='update-toc';b.dataset.action='update-toc';b.textContent='↻ Update TOC';actions.insertBefore(b,actions.querySelector('[data-action="next"]'));bindWorkflowButtons(toc);}}
- tocGenerated=true;
-}
-function bindWorkflowButtons(container){container.querySelectorAll("[data-action]").forEach(b=>b.addEventListener("click",()=>handleWorkflowAction(b,container)));}
-async function updateCurrentTOC(button,container){
- const userId=getWorkflowUserId();if(!userId||!activeTocCode)throw new Error("This TOC is not linked to a signed-in paper.");
- button.disabled=true;button.textContent="Updating…";
- try{
-  const map={};document.querySelectorAll('#chatArea .chat-msg[data-order-no]').forEach(el=>{
-   const isPre=el.dataset.kind==="preliminary",start=Number(el.dataset.pageStart||1);
-   const pages=[...el.querySelectorAll('.a4-page')];
-   map[el.dataset.title||`Section ${el.dataset.orderNo}`]={order_no:Number(el.dataset.orderNo),page_start:isPre?"i":String(start),page_count:Number(el.dataset.pageCount||pages.length||1)};
-   pages.forEach((page,pi)=>page.querySelectorAll('h1,h2,h3').forEach(h=>{const heading=(h.textContent||"").trim();if(heading)map[heading]={order_no:Number(el.dataset.orderNo),page_start:isPre?romanNumber(Math.max(1,pi)):String(start+pi),page_count:1};}));
+    document.getElementById("switchToTocFromResultBtn").addEventListener("click", () => setView(APP_VIEWS.TOC));
+    document.getElementById("switchToTocFromResultBtn2").addEventListener("click", () => setView(APP_VIEWS.TOC));
+    document.getElementById("copyPromptTextBtn").addEventListener("click", async () => {
+      const ok = await copyTextToClipboard(result.promptText);
+      if (ok) alert("Prompt text copied.");
+    });
+    document.getElementById("copyPromptCodeBtn").addEventListener("click", async () => {
+      const ok = await copyTextToClipboard(result.promptCode || "");
+      if (ok) alert("Prompt code copied.");
+    });
+    document.getElementById("editPromptBtn").addEventListener("click", () => {
+      appState.promptBuilderResult = null;
+      renderPromptBuilderView();
+    });
+    return;
+  }
+
+  chatArea.innerHTML = `
+    <div class="prompt-toc-shell">
+      <div class="prompt-toc-header">
+        <div>
+          <div class="prompt-toc-kicker">Prompt Builder</div>
+          <h2>Build your term-paper prompt</h2>
+        </div>
+        <button class="prompt-toc-switch primary" id="switchToTocBtn" type="button">Switch to Table of Contents</button>
+      </div>
+      <div class="prompt-builder-panel">
+        <form id="promptBuilderPageForm" class="prompt-builder-form">
+          <div class="form-field full">
+            <label for="pbTopic">Term-paper topic *</label>
+            <input id="pbTopic" name="pbTopic" required maxlength="300" value="${escapeHTML(draft.topic || "")}" placeholder="Enter the complete research topic">
+          </div>
+
+          <div class="form-field">
+            <label for="pbPages">Target A4 pages</label>
+            <input id="pbPages" name="pbPages" type="number" min="1" max="500" value="${escapeHTML(draft.pages || 20)}">
+          </div>
+
+          <div class="form-field">
+            <label for="pbChapters">Number of chapters</label>
+            <input id="pbChapters" name="pbChapters" type="number" min="1" max="12" value="${escapeHTML(draft.chapters || 5)}">
+          </div>
+
+          <div class="form-field">
+            <label for="pbBodySize">Body font size (pt)</label>
+            <input id="pbBodySize" name="pbBodySize" type="number" min="8" max="24" value="${escapeHTML(draft.body_font_size || 12)}">
+          </div>
+
+          <div class="form-field">
+            <label for="pbStructure">Academic structure</label>
+            <select id="pbStructure" name="pbStructure">
+              <option value="Standard academic structure" ${draft.structure === "Standard academic structure" ? "selected" : ""}>Standard academic structure</option>
+              <option value="Five-chapter research project" ${draft.structure === "Five-chapter research project" ? "selected" : ""}>Five-chapter research project</option>
+              <option value="Essay with introduction, body and conclusion" ${draft.structure === "Essay with introduction, body and conclusion" ? "selected" : ""}>Essay: introduction, body and conclusion</option>
+              <option value="Use the institution's specified structure" ${draft.structure === "Use the institution's specified structure" ? "selected" : ""}>Institution-specific structure</option>
+              <option value="Custom structure supplied in instructions" ${draft.structure === "Custom structure supplied in instructions" ? "selected" : ""}>Custom structure</option>
+            </select>
+          </div>
+
+          <div class="form-field">
+            <label for="pbInstitution">Institution / University</label>
+            <input id="pbInstitution" name="pbInstitution" value="${escapeHTML(draft.institution || "")}" placeholder="Leave blank if not provided">
+          </div>
+
+          <div class="form-field">
+            <label for="pbFaculty">Faculty</label>
+            <input id="pbFaculty" name="pbFaculty" value="${escapeHTML(draft.faculty || "")}" placeholder="Optional">
+          </div>
+
+          <div class="form-field">
+            <label for="pbDepartment">Department</label>
+            <input id="pbDepartment" name="pbDepartment" value="${escapeHTML(draft.department || "")}" placeholder="Optional">
+          </div>
+
+          <div class="form-field">
+            <label for="pbCourseTitle">Course title</label>
+            <input id="pbCourseTitle" name="pbCourseTitle" value="${escapeHTML(draft.course_title || "")}" placeholder="Optional">
+          </div>
+
+          <div class="form-field">
+            <label for="pbCourseCode">Course code</label>
+            <input id="pbCourseCode" name="pbCourseCode" value="${escapeHTML(draft.course_code || "")}" placeholder="Optional">
+          </div>
+
+          <div class="form-field">
+            <label for="pbStudentName">Student name</label>
+            <input id="pbStudentName" name="pbStudentName" value="${escapeHTML(draft.student_name || "")}" placeholder="Optional">
+          </div>
+
+          <div class="form-field">
+            <label for="pbRegNo">Registration / matric number</label>
+            <input id="pbRegNo" name="pbRegNo" value="${escapeHTML(draft.registration_number || "")}" placeholder="Optional">
+          </div>
+
+          <div class="form-field">
+            <label for="pbLecturer">Lecturer / supervisor</label>
+            <input id="pbLecturer" name="pbLecturer" value="${escapeHTML(draft.lecturer_name || "")}" placeholder="Optional">
+          </div>
+
+          <div class="form-field">
+            <label for="pbSession">Academic session</label>
+            <input id="pbSession" name="pbSession" value="${escapeHTML(draft.academic_session || "")}" placeholder="e.g. 2026/2027">
+          </div>
+
+          <div class="form-field">
+            <label for="pbSubmissionDate">Submission date</label>
+            <input id="pbSubmissionDate" name="pbSubmissionDate" value="${escapeHTML(draft.submission_date || "")}" placeholder="Optional">
+          </div>
+
+          <div class="form-field">
+            <label for="pbH1">Heading 1 size (pt)</label>
+            <input id="pbH1" name="pbH1" type="number" min="8" max="36" value="${escapeHTML(draft.heading1_size || 14)}">
+          </div>
+
+          <div class="form-field">
+            <label for="pbH2">Heading 2 size (pt)</label>
+            <input id="pbH2" name="pbH2" type="number" min="8" max="32" value="${escapeHTML(draft.heading2_size || 14)}">
+          </div>
+
+          <div class="form-field">
+            <label for="pbH3">Heading 3 size (pt)</label>
+            <input id="pbH3" name="pbH3" type="number" min="8" max="28" value="${escapeHTML(draft.heading3_size || 12)}">
+          </div>
+
+          <div class="form-field full">
+            <label>Heading emphasis</label>
+            <div class="checkbox-row">
+              <label><input type="checkbox" id="pbH1Bold" name="pbH1Bold" ${draft.heading1_bold === false ? "" : "checked"}> Heading 1 bold</label>
+              <label><input type="checkbox" id="pbH2Bold" name="pbH2Bold" ${draft.heading2_bold === false ? "" : "checked"}> Heading 2 bold</label>
+              <label><input type="checkbox" id="pbH3Bold" name="pbH3Bold" ${draft.heading3_bold === false ? "" : "checked"}> Heading 3 bold</label>
+            </div>
+          </div>
+
+          <div class="form-field full">
+            <label for="pbInstructions">Other academic requirements</label>
+            <textarea id="pbInstructions" name="pbInstructions" placeholder="Citation style, institution guidelines, required preliminary pages, margins, line spacing, methodology, sources, and other instructions...">${escapeHTML(draft.instructions || "")}</textarea>
+          </div>
+
+          <div class="form-field full">
+            <div class="form-actions">
+              <button class="primary-btn" id="pbSaveBtn" type="submit">Save Prompt & Generate Code</button>
+              <button class="secondary-btn" id="pbResetBtn" type="button">Reset</button>
+            </div>
+            <div class="status-box" id="pbStatus" aria-live="polite"></div>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+
+  document.getElementById("switchToTocBtn").addEventListener("click", () => setView(APP_VIEWS.TOC));
+  document.getElementById("pbResetBtn").addEventListener("click", () => {
+    appState.promptBuilderDraft = defaultPromptBuilderDraft();
+    renderPromptBuilderView();
   });
-  const res=await fetch(`${API_URL}/sync-toc-pages`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user_id:userId,toc_code:activeTocCode,page_map:map})});const d=await res.json();if(!res.ok)throw new Error(d.error||"Could not update table of contents.");
-  if(d.toc)updateDisplayedTableOfContents(d.toc);else throw new Error("The server did not return an updated table of contents.");
- }finally{button.disabled=false;button.textContent="↻ Update TOC";}
+  document.getElementById("promptBuilderPageForm").addEventListener("submit", handlePromptBuilderSubmit);
 }
-function addWorkflowSection(data,isInitial=false){
- const chatArea=document.getElementById("chatArea"),container=document.createElement("div");container.className="chat-msg";
- const content=cleanPaperText(data.result||""),words=data.word_count||content.split(/\s+/).filter(Boolean).length;
- const kind=data.kind||(isInitial?"preliminary":"chapter"),start=kind==="preliminary"?1:workflowArabicPage;
- container.innerHTML=`<div style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(data.title||"Generated section")}</div>${createA4Pages(markdownToHTML(content),words,{kind,startPage:start})}<div class="workflow-output-actions"><button data-action="edit">Edit</button>${kind==="toc"?`<button class="update-toc" data-action="update-toc">↻ Update TOC</button>`:`<button data-action="resend">Resend</button>`}<button class="primary" data-action="next">Pull Next</button></div>`;
- Object.assign(container.dataset,{orderNo:String(data.order_no??0),title:data.title||"Generated section",raw:content,kind,projectId:String(data.project_id||activePaperProjectId||""),tocCode:data.toc_code||activeTocCode||"",pageStart:kind==="preliminary"?"i":String(start)});
- bindWorkflowButtons(container);
- chatArea.appendChild(container);chatArea.scrollTop=chatArea.scrollHeight;
- const pageCount=paginateContent(markdownToHTML(content)).length||1;
- container.dataset.pageCount=String(pageCount);
- workflowArabicPage=kind==="preliminary"?1:Math.max(workflowArabicPage,start+pageCount);activeSectionOrder=Math.max(activeSectionOrder,Number(data.order_no||0));
- latestResultText=content;toggleCopyButton(content);
+
+function defaultPromptBuilderDraft() {
+  return {
+    topic: "",
+    pages: 20,
+    chapters: 5,
+    body_font_size: 12,
+    heading1_size: 14,
+    heading2_size: 14,
+    heading3_size: 12,
+    heading1_bold: true,
+    heading2_bold: true,
+    heading3_bold: true,
+    structure: "Standard academic structure",
+    instructions: "",
+    institution: "",
+    faculty: "",
+    department: "",
+    course_title: "",
+    course_code: "",
+    student_name: "",
+    registration_number: "",
+    lecturer_name: "",
+    academic_session: "",
+    submission_date: ""
+  };
 }
-async function handleWorkflowAction(button,container){
- if(workflowBusy)return;const action=button.dataset.action,userId=getWorkflowUserId(),projectId=container.dataset.projectId,orderNo=Number(container.dataset.orderNo||0);
- if(!userId||!projectId){alert("This paper is not linked to a signed-in account.");return;}
- if(action==="update-toc"){try{await updateCurrentTOC(button,container);}catch(err){alert(err.message||"TOC update failed.");}return;}
- if(action==="edit"){
-  const edited=prompt("Edit this section:",container.dataset.raw||"");if(edited===null)return;if(!edited.trim()){alert("Section cannot be empty.");return;}
-  workflowBusy=true;button.disabled=true;
-  try{const res=await fetch(`${API_URL}/pull-next`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user_id:userId,project_id:projectId,action:"edit",order_no:orderNo,content:edited})});const d=await res.json();if(!res.ok)throw new Error(d.error||"Edit failed.");
-   container.dataset.raw=edited;container.innerHTML=`<div style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(d.title||container.dataset.title)}</div>${createA4Pages(markdownToHTML(edited),edited.split(/\s+/).length,{kind:container.dataset.kind,startPage:orderNo===0?1:Math.max(1,orderNo)})}<div class="workflow-output-actions"><button data-action="edit">Edit</button><button data-action="resend">Resend</button><button class="primary" data-action="next">Pull Next</button></div>`;
-   Object.assign(container.dataset,{raw:edited,orderNo:String(orderNo),projectId:String(projectId)});container.querySelectorAll("[data-action]").forEach(b=>b.addEventListener("click",()=>handleWorkflowAction(b,container)));latestResultText=edited;toggleCopyButton(edited);
-  }catch(err){alert(err.message||"Could not save edit.");}finally{workflowBusy=false;button.disabled=false;}return;
- }
- workflowBusy=true;const buttons=[...container.querySelectorAll("button")];buttons.forEach(b=>b.disabled=true);
- try{
-  if(action==="next" && container.dataset.kind==="preliminary" && !tocGenerated){
-   const tocRes=await fetch(`${API_URL}/build-toc`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user_id:userId,prompt_code:activePromptCode})});const td=await tocRes.json();if(!tocRes.ok)throw new Error(td.error||"Could not generate the table of contents.");
-   activeTocCode=td.toc_code||activeTocCode;updateDisplayedTableOfContents(td.toc||td.result||"");return;
+
+function getFormDraftFromInputs() {
+  return {
+    topic: document.getElementById("pbTopic") ? document.getElementById("pbTopic").value.trim() : "",
+    pages: document.getElementById("pbPages") ? document.getElementById("pbPages").value : 20,
+    chapters: document.getElementById("pbChapters") ? document.getElementById("pbChapters").value : 5,
+    body_font_size: document.getElementById("pbBodySize") ? document.getElementById("pbBodySize").value : 12,
+    heading1_size: document.getElementById("pbH1") ? document.getElementById("pbH1").value : 14,
+    heading2_size: document.getElementById("pbH2") ? document.getElementById("pbH2").value : 14,
+    heading3_size: document.getElementById("pbH3") ? document.getElementById("pbH3").value : 12,
+    heading1_bold: document.getElementById("pbH1Bold") ? document.getElementById("pbH1Bold").checked : true,
+    heading2_bold: document.getElementById("pbH2Bold") ? document.getElementById("pbH2Bold").checked : true,
+    heading3_bold: document.getElementById("pbH3Bold") ? document.getElementById("pbH3Bold").checked : true,
+    structure: document.getElementById("pbStructure") ? document.getElementById("pbStructure").value : "Standard academic structure",
+    instructions: document.getElementById("pbInstructions") ? document.getElementById("pbInstructions").value.trim() : "",
+    institution: document.getElementById("pbInstitution") ? document.getElementById("pbInstitution").value.trim() : "",
+    faculty: document.getElementById("pbFaculty") ? document.getElementById("pbFaculty").value.trim() : "",
+    department: document.getElementById("pbDepartment") ? document.getElementById("pbDepartment").value.trim() : "",
+    course_title: document.getElementById("pbCourseTitle") ? document.getElementById("pbCourseTitle").value.trim() : "",
+    course_code: document.getElementById("pbCourseCode") ? document.getElementById("pbCourseCode").value.trim() : "",
+    student_name: document.getElementById("pbStudentName") ? document.getElementById("pbStudentName").value.trim() : "",
+    registration_number: document.getElementById("pbRegNo") ? document.getElementById("pbRegNo").value.trim() : "",
+    lecturer_name: document.getElementById("pbLecturer") ? document.getElementById("pbLecturer").value.trim() : "",
+    academic_session: document.getElementById("pbSession") ? document.getElementById("pbSession").value.trim() : "",
+    submission_date: document.getElementById("pbSubmissionDate") ? document.getElementById("pbSubmissionDate").value.trim() : ""
+  };
+}
+
+async function handlePromptBuilderSubmit(event) {
+  event.preventDefault();
+
+  const form = document.getElementById("promptBuilderPageForm");
+  if (!form) return;
+
+  const draft = getFormDraftFromInputs();
+  appState.promptBuilderDraft = draft;
+
+  if (!draft.topic || !draft.topic.trim()) {
+    const status = document.getElementById("pbStatus");
+    status.textContent = "Please fill in the required Term-paper topic field.";
+    status.className = "status-box error";
+    return;
   }
-  if(action==="resend"){
-   const res=await fetch(`${API_URL}/pull-next`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user_id:userId,project_id:projectId,action:"resend",order_no:orderNo})});const d=await res.json();if(!res.ok)throw new Error(d.error||"Could not regenerate section.");
-   const replacement=document.createElement("div");replacement.className="chat-msg";replacement.innerHTML=`<div style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(d.title||container.dataset.title)}</div>${createA4Pages(markdownToHTML(d.result),d.result.split(/\s+/).length,{kind:container.dataset.kind,startPage:orderNo===0?1:Math.max(1,orderNo)})}<div class="workflow-output-actions"><button data-action="edit">Edit</button><button data-action="resend">Resend</button><button class="primary" data-action="next">Pull Next</button></div>`;
-   Object.assign(replacement.dataset,{orderNo:String(orderNo),raw:d.result,title:d.title||"",projectId:String(projectId),tocCode:activeTocCode||"",kind:container.dataset.kind});replacement.querySelectorAll("[data-action]").forEach(b=>b.addEventListener("click",()=>handleWorkflowAction(b,replacement)));container.replaceWith(replacement);latestResultText=d.result;toggleCopyButton(d.result);
-  }else{
-   const res=await fetch(`${API_URL}/pull-next`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user_id:userId,project_id:projectId,action:"next"})});const d=await res.json();if(!res.ok)throw new Error(d.error||"Could not generate next section.");if(d.done){alert(d.message||"All sections have been generated.");return;}
-   addWorkflowSection({...d,project_id:projectId,toc_code:activeTocCode,kind:"chapter"});activeChatHistory.push({prompt:"Pull Next: "+d.title,result:d.result,isPaper:true,workflow:true,project_id:projectId,order_no:d.order_no,kind:"chapter"});saveChatSession();
-   if(activeTocCode){const map={};document.querySelectorAll("#chatArea .chat-msg[data-order-no]").forEach(el=>{const isPre=el.dataset.kind==="preliminary",sectionStart=el.dataset.pageStart||"1";map[el.dataset.title||`Section ${el.dataset.orderNo}`]={order_no:Number(el.dataset.orderNo),page_start:sectionStart,page_count:Number(el.dataset.pageCount||1)};const pages=[...el.querySelectorAll(".a4-page")];pages.forEach((page,pi)=>{const pageLabel=isPre?(pi===0?"":romanNumber(pi)):String(Number(sectionStart)+pi);page.querySelectorAll("h1,h2,h3").forEach(h=>{const heading=(h.textContent||"").trim();if(heading)map[heading]={order_no:Number(el.dataset.orderNo),page_start:pageLabel,page_count:1};});});});fetch(`${API_URL}/sync-toc-pages`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user_id:userId,toc_code:activeTocCode,page_map:map})}).then(r=>r.json()).then(d=>{if(d.toc){updateDisplayedTableOfContents(d.toc);addFloatingMsg("ai",`Table of contents page numbers refreshed from the current rendered pages (same code ${activeTocCode}).`);}}).catch(()=>{});}
+
+  const userId = getWorkflowUserId();
+  if (!userId) {
+    const status = document.getElementById("pbStatus");
+    status.textContent = "Please sign in to save this prompt and generate its code.";
+    status.className = "status-box error";
+    return;
   }
- }catch(err){alert(err.message||"Workflow action failed.");}finally{workflowBusy=false;buttons.forEach(b=>b.disabled=false);}
+
+  const status = document.getElementById("pbStatus");
+  const submitBtn = document.getElementById("pbSaveBtn");
+  status.textContent = "Saving prompt and generating code...";
+  status.className = "status-box";
+  submitBtn.disabled = true;
+
+  try {
+    const config = {
+      topic: draft.topic,
+      pages: draft.pages,
+      chapters: draft.chapters,
+      body_font_size: draft.body_font_size,
+      heading1_size: draft.heading1_size,
+      heading2_size: draft.heading2_size,
+      heading3_size: draft.heading3_size,
+      heading1_bold: draft.heading1_bold,
+      heading2_bold: draft.heading2_bold,
+      heading3_bold: draft.heading3_bold,
+      structure: draft.structure,
+      instructions: draft.instructions,
+      institution: draft.institution,
+      faculty: draft.faculty,
+      department: draft.department,
+      course_title: draft.course_title,
+      course_code: draft.course_code,
+      student_name: draft.student_name,
+      registration_number: draft.registration_number,
+      lecturer_name: draft.lecturer_name,
+      academic_session: draft.academic_session,
+      submission_date: draft.submission_date
+    };
+
+    const res = await fetch(`${API_URL}/prompt-builder`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: userId, config })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || "Prompt generation failed.");
+    }
+
+    const extracted = extractPromptResult(data);
+
+    if (!extracted.promptText || !extracted.promptCode) {
+      throw new Error("The backend did not return a complete prompt and prompt code.");
+    }
+
+    appState.promptBuilderResult = extracted;
+    activePromptCode = extracted.promptCode;
+    latestResultText = extracted.promptText;
+    toggleCopyButton(extracted.promptText);
+
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        await copyTextToClipboard(extracted.promptCode);
+      } catch (err) {
+        console.warn("Clipboard permission denied for prompt code.");
+      }
+    }
+
+    renderPromptBuilderView();
+
+    status.textContent = "";
+  } catch (err) {
+    status.textContent = err.message || "Unable to save the prompt right now.";
+    status.className = "status-box error";
+  } finally {
+    submitBtn.disabled = false;
+  }
+}
+
+function extractPromptResult(data) {
+  const promptText = firstAvailable(
+    data.result,
+    data.generated_prompt,
+    data.prompt,
+    data.text,
+    data.output,
+    data.prompt_text,
+    data.generatedText,
+    data.generated_prompt_text,
+    data.generatedPrompt,
+    data.generated_prompt_text
+  );
+
+  const promptCode = firstAvailable(
+    data.prompt_code,
+    data.promptCode,
+    data.code,
+    data.generated_code,
+    data.generatedCode,
+    data.prompt_id
+  );
+
+  return {
+    promptText: String(promptText || "").trim(),
+    promptCode: String(promptCode || "").trim().toUpperCase()
+  };
+}
+
+function renderTOCView() {
+  const chatArea = document.getElementById("chatArea");
+  const currentCode = appState.tocDraft || "";
+
+  chatArea.innerHTML = `
+    <div class="prompt-toc-shell">
+      <div class="prompt-toc-header">
+        <div>
+          <div class="prompt-toc-kicker">Table of Contents</div>
+          <h2>Generate a Table of Contents</h2>
+        </div>
+        <button class="prompt-toc-switch primary" id="switchBackToPromptBtn" type="button">Switch Back to Prompts</button>
+      </div>
+
+      <div class="prompt-toc-panel">
+        <form id="tocForm" class="toc-form">
+          <label class="toc-label" for="tocPromptCodeInput">Paste saved five-character prompt code</label>
+          <input
+            class="toc-input"
+            id="tocPromptCodeInput"
+            name="tocPromptCodeInput"
+            maxlength="5"
+            value="${escapeHTML(currentCode)}"
+            placeholder="ABC12"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <div class="form-actions">
+            <button class="primary-btn" id="generateTocBtn" type="submit">
+              ${appState.tocLoading ? "Generating..." : "Generate Table of Contents"}
+            </button>
+            <button class="secondary-btn" id="clearTocBtn" type="button">Clear</button>
+          </div>
+          <div id="tocStatus" class="status-box" aria-live="polite"></div>
+        </form>
+      </div>
+
+      ${renderTOCResultBoard()}
+    </div>
+  `;
+
+  document.getElementById("switchBackToPromptBtn").addEventListener("click", () => setView(APP_VIEWS.PROMPT));
+  document.getElementById("clearTocBtn").addEventListener("click", () => {
+    appState.tocDraft = "";
+    appState.tocResult = null;
+    renderTOCView();
+  });
+  document.getElementById("tocForm").addEventListener("submit", handleTOCSubmit);
+}
+
+function renderTOCResultBoard() {
+  if (!appState.tocResult || !appState.tocResult.tocText) {
+    return "";
+  }
+
+  const { promptCode, tocCode, tocText } = appState.tocResult;
+
+  return `
+    <div class="ai-message-board">
+      <div class="ai-message">
+        <div class="message-header">Generated TOC</div>
+        <div class="message-body">${formatTextBlock(tocText)}</div>
+        <div class="code-banner">
+          Prompt code: <strong>${escapeHTML(promptCode || "N/A")}</strong><br>
+          TOC code: <strong>${escapeHTML(tocCode || "N/A")}</strong>
+        </div>
+        <div class="message-actions">
+          <button type="button" id="copyTocTextBtn">Copy TOC</button>
+          <button type="button" id="copyTocCodeBtn">Copy TOC Code</button>
+          <button type="button" id="copyBothCodesBtn">Copy Both Codes</button>
+          <button type="button" id="retryTOCBtn" class="primary">Generate Again</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function handleTOCSubmit(event) {
+  event.preventDefault();
+
+  const status = document.getElementById("tocStatus");
+  const input = document.getElementById("tocPromptCodeInput");
+  if (!input) return;
+
+  const promptCode = input.value.trim().toUpperCase();
+  appState.tocDraft = promptCode;
+
+  if (!/^[A-Z0-9]{5}$/i.test(promptCode)) {
+    status.textContent = "Please enter a valid five-character prompt code.";
+    status.className = "status-box error";
+    return;
+  }
+
+  const userId = getWorkflowUserId();
+  if (!userId) {
+    status.textContent = "Please sign in to generate a table of contents.";
+    status.className = "status-box error";
+    return;
+  }
+
+  status.textContent = "Generating table of contents...";
+  status.className = "status-box";
+  appState.tocLoading = true;
+  renderTOCView();
+
+  try {
+    const res = await fetch(`${API_URL}/build-toc`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: userId, prompt_code: promptCode })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || "Unable to generate the table of contents.");
+    }
+
+    const extracted = extractTOCResult(data, promptCode);
+
+    if (!extracted.tocText || !extracted.tocCode) {
+      throw new Error("The backend did not return a valid table of contents and TOC code.");
+    }
+
+    appState.tocResult = extracted;
+    appState.tocLoading = false;
+
+    const combined = `PROMPT: ${extracted.promptCode} TOC: ${extracted.tocCode}`;
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        await copyTextToClipboard(combined);
+      } catch (err) {
+        console.warn("Clipboard permission denied for TOC combined codes.");
+      }
+    }
+
+    renderTOCView();
+
+    const finalStatus = document.getElementById("tocStatus");
+    if (finalStatus) {
+      finalStatus.textContent = "Table of contents generated successfully.";
+      finalStatus.className = "status-box success";
+    }
+
+    setTimeout(() => {
+      const finalAction = document.getElementById("copyBothCodesBtn");
+      if (finalAction) {
+        finalAction.addEventListener("click", async () => {
+          const ok = await copyTextToClipboard(combined);
+          alert(ok ? "Combined codes copied." : "Unable to copy combined codes.");
+        });
+      }
+    }, 0);
+
+    const toctextBtn = document.getElementById("copyTocTextBtn");
+    if (toctextBtn) {
+      toctextBtn.addEventListener("click", async () => {
+        const ok = await copyTextToClipboard(extracted.tocText);
+        alert(ok ? "TOC text copied." : "Unable to copy TOC text.");
+      });
+    }
+
+    const tocCodeBtn = document.getElementById("copyTocCodeBtn");
+    if (tocCodeBtn) {
+      tocCodeBtn.addEventListener("click", async () => {
+        const ok = await copyTextToClipboard(extracted.tocCode);
+        alert(ok ? "TOC code copied." : "Unable to copy TOC code.");
+      });
+    }
+
+    const copyBothBtn = document.getElementById("copyBothCodesBtn");
+    if (copyBothBtn) {
+      copyBothBtn.addEventListener("click", async () => {
+        const ok = await copyTextToClipboard(combined);
+        alert(ok ? "Combined codes copied." : "Unable to copy combined codes.");
+      });
+    }
+
+    const retryBtn = document.getElementById("retryTOCBtn");
+    if (retryBtn) {
+      retryBtn.addEventListener("click", () => {
+        appState.tocResult = null;
+        renderTOCView();
+      });
+    }
+  } catch (err) {
+    appState.tocLoading = false;
+    renderTOCView();
+
+    const errorStatus = document.getElementById("tocStatus");
+    if (errorStatus) {
+      errorStatus.textContent = err.message || "Unable to generate the table of contents right now.";
+      errorStatus.className = "status-box error";
+    }
+  }
+}
+
+function extractTOCResult(data, fallbackPromptCode) {
+  const tocText = firstAvailable(
+    data.toc,
+    data.result,
+    data.table_of_contents,
+    data.generated_toc,
+    data.output,
+    data.text,
+    data.generatedTOC
+  );
+
+  const tocCode = firstAvailable(
+    data.toc_code,
+    data.tocCode,
+    data.code,
+    data.generated_code,
+    data.generatedCode
+  );
+
+  return {
+    promptCode: firstAvailable(data.prompt_code, data.promptCode, fallbackPromptCode, "").toUpperCase(),
+    tocCode: String(tocCode || "").trim().toUpperCase(),
+    tocText: String(tocText || "").trim()
+  };
+}
+
+function getChatKey() {
+  return "chats_" + (currentUser?.id || "guest");
+}
+
+function saveChatSession() {
+  const first = activeChatHistory.find(item => item && item.prompt);
+  if (!first) return;
+
+  let chats = JSON.parse(localStorage.getItem(getChatKey()) || "[]");
+
+  const sessionData = {
+    id: first.id || Date.now(),
+    title: first.prompt.substring(0, 50),
+    messages: activeChatHistory,
+    time: Date.now()
+  };
+
+  first.id = sessionData.id;
+
+  const existingIdx = chats.findIndex(c => c.id === sessionData.id);
+  if (existingIdx !== -1) {
+    chats[existingIdx] = sessionData;
+  } else {
+    chats.unshift(sessionData);
+  }
+
+  localStorage.setItem(getChatKey(), JSON.stringify(chats.slice(0, 20)));
+  loadChats();
+}
+
+function loadChats() {
+  let chats = JSON.parse(localStorage.getItem(getChatKey()) || "[]");
+  const submenu = document.getElementById("historySubmenu");
+
+  if (chats.length) {
+    submenu.innerHTML = chats.map((c, i) =>
+      `<div class="submenu-item" onclick="openChatSession(${i})">${(c.title || "Paper").substring(0, 30)}...</div>`
+    ).join("");
+  } else {
+    submenu.innerHTML = `<div class="submenu-item" style="color:var(--muted)">No history yet</div>`;
+  }
+}
+
+function openChatSession(index) {
+  let chats = JSON.parse(localStorage.getItem(getChatKey()) || "[]");
+  const session = chats[index];
+  document.getElementById("chatArea").innerHTML = "";
+
+  if (session && session.messages && session.messages.length) {
+    activeChatHistory = session.messages;
+    session.messages.forEach(m => {
+      if (m.prompt) addMessage("user", m.prompt);
+      if (m.isPaper && m.result) {
+        const htmlContent = markdownToHTML(m.result);
+        const wordCount = m.result.split(/\\s+/).length;
+        const pageCount = Math.max(1, Math.ceil(wordCount / 250));
+        const paginatedHTML = createA4Pages(htmlContent, wordCount, pageCount);
+        addMessage("paper", paginatedHTML);
+        latestResultText = m.result;
+        toggleCopyButton(m.result);
+      }
+    });
+  }
+
+  toggleHistory();
+}
+
+function toggleHistory() {
+  const submenu = document.getElementById("historySubmenu");
+  const arrow = document.getElementById("historyArrow");
+  submenu.classList.toggle("show");
+  arrow.style.transform = submenu.classList.contains("show") ? "rotate(90deg)" : "rotate(0deg)";
+}
+
+function logout() {
+  localStorage.removeItem("user_id");
+  window.location.href = "index.html";
 }
 
 async function generatePaper() {
@@ -1914,8 +2760,21 @@ async function generatePaper() {
   const input = document.getElementById("promptInput");
   const prompt = input.value.trim();
   if (!prompt) return;
-  const codes=extractWorkflowCodes(prompt);
-  if(codes){isGenerating=true;document.getElementById("sendBtn").disabled=true;try{await startPaperWithCodes(codes,prompt);}catch(err){addMessage("error",escapeHTML(err.message||"Could not retrieve codes."));}finally{isGenerating=false;document.getElementById("sendBtn").disabled=false;}return;}
+
+  const codes = extractWorkflowCodes(prompt);
+  if (codes) {
+    isGenerating = true;
+    document.getElementById("sendBtn").disabled = true;
+    try {
+      await startPaperWithCodes(codes, prompt);
+    } catch (err) {
+      addMessage("error", escapeHTML(err.message || "Could not retrieve codes."));
+    } finally {
+      isGenerating = false;
+      document.getElementById("sendBtn").disabled = false;
+    }
+    return;
+  }
 
   isGenerating = true;
   document.getElementById("sendBtn").disabled = true;
@@ -1937,7 +2796,7 @@ async function generatePaper() {
 
     if (res.ok && data.result) {
       const cleaned = cleanPaperText(data.result);
-      const wordCount = data.word_count || cleaned.split(/\s+/).length;
+      const wordCount = data.word_count || cleaned.split(/\\s+/).length;
       const pageCount = data.page_count || Math.max(1, Math.ceil(wordCount / 250));
       const htmlContent = markdownToHTML(cleaned);
       const paginatedHTML = createA4Pages(htmlContent, wordCount, pageCount);
@@ -2015,83 +2874,87 @@ function addMessage(role, content) {
   chatArea.scrollTop = chatArea.scrollHeight;
 }
 
-function getChatKey() {
-  return "chats_" + (currentUser?.id || "guest");
+function extractWorkflowCodes(text){
+  const pm=text.match(/PROMPT(?:_CODE)?\\s*[:=]\\s*([A-Z0-9]{5})/i),tm=text.match(/TOC(?:_CODE)?\\s*[:=]\\s*([A-Z0-9]{5})/i);
+  if(pm&&tm)return {prompt_code:pm[1].toUpperCase(),toc_code:tm[1].toUpperCase()};
+  const unique=[...new Set([...text.toUpperCase().matchAll(/\\b[A-Z0-9]{5}\\b/g)].map(m=>m[0]))];
+  return unique.length>=2?{prompt_code:unique[0],toc_code:unique[1]}:null;
 }
-
-function saveChatSession() {
-  const first = activeChatHistory.find(item => item && item.prompt);
-  if (!first) return;
-
-  let chats = JSON.parse(localStorage.getItem(getChatKey()) || "[]");
-
-  const sessionData = {
-    id: first.id || Date.now(),
-    title: first.prompt.substring(0, 50),
-    messages: activeChatHistory,
-    time: Date.now()
-  };
-
-  first.id = sessionData.id;
-
-  const existingIdx = chats.findIndex(c => c.id === sessionData.id);
-  if (existingIdx !== -1) {
-    chats[existingIdx] = sessionData;
-  } else {
-    chats.unshift(sessionData);
-  }
-
-  localStorage.setItem(getChatKey(), JSON.stringify(chats.slice(0, 20)));
-  loadChats();
+async function startPaperWithCodes(codes,userPrompt){
+  const userId=getWorkflowUserId();if(!userId)throw new Error("Please sign in to retrieve your saved prompt and table of contents.");
+  const res=await fetch(`${API_URL}/paper-start`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...codes,user_id:userId})});const data=await res.json();if(!res.ok)throw new Error(data.error||"Could not start paper.");
+  activePaperProjectId=data.project_id;activeTocCode=codes.toc_code;activePromptCode=codes.prompt_code;tocGenerated=false;activeSectionOrder=0;workflowArabicPage=1;document.getElementById("chatArea").innerHTML="";
+  addMessage("user",userPrompt);
+  let preliminary="";
+  if(data.result) preliminary=removeTocFromPreliminary(cleanPaperText(data.result));
+  else if(data.sections){const first=data.sections.find(x=>Number(x.order_no||0)===0)||data.sections[0];preliminary=removeTocFromPreliminary(cleanPaperText(first?.content||""));}
+  if(preliminary)addWorkflowSection({title:"Preliminary Pages",result:preliminary,order_no:0,project_id:data.project_id,toc_code:codes.toc_code,kind:"preliminary"},true);
+  activeChatHistory.push({prompt:userPrompt,result:preliminary,isPaper:true,workflow:true,project_id:data.project_id,order_no:0,kind:"preliminary"});saveChatSession();
 }
-
-function loadChats() {
-  let chats = JSON.parse(localStorage.getItem(getChatKey()) || "[]");
-  const submenu = document.getElementById("historySubmenu");
-
-  if (chats.length) {
-    submenu.innerHTML = chats.map((c, i) =>
-      `<div class="submenu-item" onclick="openChatSession(${i})">${(c.title || "Paper").substring(0, 30)}...</div>`
-    ).join("");
-  } else {
-    submenu.innerHTML = `<div class="submenu-item" style="color:var(--muted)">No history yet</div>`;
-  }
+function updateDisplayedTableOfContents(tocText){
+  if(!tocText)return;
+  const existing=document.querySelector('#chatArea .chat-msg[data-kind="toc"]');
+  if(existing){existing.dataset.raw=tocText;existing.innerHTML=`<div class="section-label">Table of Contents</div>${createA4Pages(markdownToHTML(tocText),tocText.split(/\\s+/).filter(Boolean).length,{kind:"toc",startPage:1})}<div class="workflow-output-actions"><button data-action="edit">Edit</button><button class="update-toc" data-action="update-toc">↻ Update TOC</button><button class="primary" data-action="next">Pull Next</button></div>`;bindWorkflowButtons(existing);return;}
+  addWorkflowSection({title:"Table of Contents",result:tocText,order_no:1,project_id:activePaperProjectId,toc_code:activeTocCode,kind:"toc"});
+  const toc=document.querySelector('#chatArea .chat-msg[data-kind="toc"]');if(toc){toc.querySelector('[data-action="resend"]')?.remove();const actions=toc.querySelector('.workflow-output-actions');if(actions&&!actions.querySelector('[data-action="update-toc"]')){const b=document.createElement('button');b.className='update-toc';b.dataset.action='update-toc';b.textContent='↻ Update TOC';actions.insertBefore(b,actions.querySelector('[data-action="next"]'));bindWorkflowButtons(toc);}}
+  tocGenerated=true;
 }
-
-function openChatSession(index) {
-  let chats = JSON.parse(localStorage.getItem(getChatKey()) || "[]");
-  const session = chats[index];
-  document.getElementById("chatArea").innerHTML = "";
-
-  if (session && session.messages && session.messages.length) {
-    activeChatHistory = session.messages;
-    session.messages.forEach(m => {
-      if (m.prompt) addMessage("user", m.prompt);
-      if (m.isPaper && m.result) {
-        const htmlContent = markdownToHTML(m.result);
-        const wordCount = m.result.split(/\s+/).length;
-        const pageCount = Math.max(1, Math.ceil(wordCount / 250));
-        const paginatedHTML = createA4Pages(htmlContent, wordCount, pageCount);
-        addMessage("paper", paginatedHTML);
-        latestResultText = m.result;
-        toggleCopyButton(m.result);
-      }
+function bindWorkflowButtons(container){container.querySelectorAll("[data-action]").forEach(b=>b.addEventListener("click",()=>handleWorkflowAction(b,container)));}
+async function updateCurrentTOC(button,container){
+  const userId=getWorkflowUserId();if(!userId||!activeTocCode)throw new Error("This TOC is not linked to a signed-in paper.");
+  button.disabled=true;button.textContent="Updating…";
+  try{
+    const map={};document.querySelectorAll('#chatArea .chat-msg[data-order-no]').forEach(el=>{
+      const isPre=el.dataset.kind==="preliminary",start=Number(el.dataset.pageStart||1);
+      const pages=[...el.querySelectorAll('.a4-page')];
+      map[el.dataset.title||`Section ${el.dataset.orderNo}`]={order_no:Number(el.dataset.orderNo),page_start:isPre?"i":String(start),page_count:Number(el.dataset.pageCount||pages.length||1)};
+      pages.forEach((page,pi)=>page.querySelectorAll('h1,h2,h3').forEach(h=>{const heading=(h.textContent||"").trim();if(heading)map[heading]={order_no:Number(el.dataset.orderNo),page_start:isPre?romanNumber(Math.max(1,pi)):String(start+pi),page_count:1};}));
     });
+    const res=await fetch(`${API_URL}/sync-toc-pages`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user_id:userId,toc_code:activeTocCode,page_map:map})});const d=await res.json();if(!res.ok)throw new Error(d.error||"Could not update table of contents.");
+    if(d.toc)updateDisplayedTableOfContents(d.toc);else throw new Error("The server did not return an updated table of contents.");
+  }finally{button.disabled=false;button.textContent="↻ Update TOC";}
+}
+function addWorkflowSection(data,isInitial=false){
+  const chatArea=document.getElementById("chatArea"),container=document.createElement("div");container.className="chat-msg";
+  const content=cleanPaperText(data.result||""),words=data.word_count||content.split(/\\s+/).filter(Boolean).length;
+  const kind=data.kind||(isInitial?"preliminary":"chapter"),start=kind==="preliminary"?1:workflowArabicPage;
+  container.innerHTML=`<div style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(data.title||"Generated section")}</div>${createA4Pages(markdownToHTML(content),words,{kind,startPage:start})}<div class="workflow-output-actions"><button data-action="edit">Edit</button>${kind==="toc"?`<button class="update-toc" data-action="update-toc">↻ Update TOC</button>`:`<button data-action="resend">Resend</button>`}<button class="primary" data-action="next">Pull Next</button></div>`;
+  Object.assign(container.dataset,{orderNo:String(data.order_no??0),title:data.title||"Generated section",raw:content,kind,projectId:String(data.project_id||activePaperProjectId||""),tocCode:data.toc_code||activeTocCode||"",pageStart:kind==="preliminary"?"i":String(start)});
+  bindWorkflowButtons(container);
+  chatArea.appendChild(container);chatArea.scrollTop=chatArea.scrollHeight;
+  const pageCount=paginateContent(markdownToHTML(content)).length||1;
+  container.dataset.pageCount=String(pageCount);
+  workflowArabicPage=kind==="preliminary"?1:Math.max(workflowArabicPage,start+pageCount);activeSectionOrder=Math.max(activeSectionOrder,Number(data.order_no||0));
+  latestResultText=content;toggleCopyButton(content);
+}
+async function handleWorkflowAction(button,container){
+  if(workflowBusy)return;const action=button.dataset.action,userId=getWorkflowUserId(),projectId=container.dataset.projectId,orderNo=Number(container.dataset.orderNo||0);
+  if(!userId||!projectId){alert("This paper is not linked to a signed-in account.");return;}
+  if(action==="update-toc"){try{await updateCurrentTOC(button,container);}catch(err){alert(err.message||"TOC update failed.");}return;}
+  if(action==="edit"){
+    const edited=prompt("Edit this section:",container.dataset.raw||"");if(edited===null)return;if(!edited.trim()){alert("Section cannot be empty.");return;}
+    workflowBusy=true;button.disabled=true;
+    try{const res=await fetch(`${API_URL}/pull-next`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user_id:userId,project_id:projectId,action:"edit",order_no:orderNo,content:edited})});const d=await res.json();if(!res.ok)throw new Error(d.error||"Edit failed.");
+      container.dataset.raw=edited;container.innerHTML=`<div style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(d.title||container.dataset.title)}</div>${createA4Pages(markdownToHTML(edited),edited.split(/\\s+/).length,{kind:container.dataset.kind,startPage:orderNo===0?1:Math.max(1,orderNo)})}<div class="workflow-output-actions"><button data-action="edit">Edit</button><button data-action="resend">Resend</button><button class="primary" data-action="next">Pull Next</button></div>`;
+      Object.assign(container.dataset,{raw:edited,orderNo:String(orderNo),projectId:String(projectId)});container.querySelectorAll("[data-action]").forEach(b=>b.addEventListener("click",()=>handleWorkflowAction(b,container)));latestResultText=edited;toggleCopyButton(edited);
+    }catch(err){alert(err.message||"Could not save edit.");}finally{workflowBusy=false;button.disabled=false;}return;
   }
-
-  toggleHistory();
-}
-
-function toggleHistory() {
-  const submenu = document.getElementById("historySubmenu");
-  const arrow = document.getElementById("historyArrow");
-  submenu.classList.toggle("show");
-  arrow.style.transform = submenu.classList.contains("show") ? "rotate(90deg)" : "rotate(0deg)";
-}
-
-function logout() {
-  localStorage.removeItem("user_id");
-  window.location.href = "index.html";
+  workflowBusy=true;const buttons=[...container.querySelectorAll("button")];buttons.forEach(b=>b.disabled=true);
+  try{
+    if(action==="next" && container.dataset.kind==="preliminary" && !tocGenerated){
+      const tocRes=await fetch(`${API_URL}/build-toc`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user_id:userId,prompt_code:activePromptCode})});const td=await tocRes.json();if(!tocRes.ok)throw new Error(td.error||"Could not generate the table of contents.");
+      activeTocCode=td.toc_code||activeTocCode;updateDisplayedTableOfContents(td.toc||td.result||"");return;
+    }
+    if(action==="resend"){
+      const res=await fetch(`${API_URL}/pull-next`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user_id:userId,project_id:projectId,action:"resend",order_no:orderNo})});const d=await res.json();if(!res.ok)throw new Error(d.error||"Could not regenerate section.");
+      const replacement=document.createElement("div");replacement.className="chat-msg";replacement.innerHTML=`<div style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(d.title||container.dataset.title)}</div>${createA4Pages(markdownToHTML(d.result),d.result.split(/\\s+/).length,{kind:container.dataset.kind,startPage:orderNo===0?1:Math.max(1,orderNo)})}<div class="workflow-output-actions"><button data-action="edit">Edit</button><button data-action="resend">Resend</button><button class="primary" data-action="next">Pull Next</button></div>`;
+      Object.assign(replacement.dataset,{orderNo:String(orderNo),raw:d.result,title:d.title||"",projectId:String(projectId),tocCode:activeTocCode||"",kind:container.dataset.kind});replacement.querySelectorAll("[data-action]").forEach(b=>b.addEventListener("click",()=>handleWorkflowAction(b,replacement)));container.replaceWith(replacement);latestResultText=d.result;toggleCopyButton(d.result);
+    }else{
+      const res=await fetch(`${API_URL}/pull-next`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user_id:userId,project_id:projectId,action:"next"})});const d=await res.json();if(!res.ok)throw new Error(d.error||"Could not generate next section.");if(d.done){alert(d.message||"All sections have been generated.");return;}
+      addWorkflowSection({...d,project_id:projectId,toc_code:activeTocCode,kind:"chapter"});activeChatHistory.push({prompt:"Pull Next: "+d.title,result:d.result,isPaper:true,workflow:true,project_id:projectId,order_no:d.order_no,kind:"chapter"});saveChatSession();
+      if(activeTocCode){const map={};document.querySelectorAll("#chatArea .chat-msg[data-order-no]").forEach(el=>{const isPre=el.dataset.kind==="preliminary",sectionStart=el.dataset.pageStart||"1";map[el.dataset.title||`Section ${el.dataset.orderNo}`]={order_no:Number(el.dataset.orderNo),page_start:sectionStart,page_count:Number(el.dataset.pageCount||1)};const pages=[...el.querySelectorAll(".a4-page")];pages.forEach((page,pi)=>{const pageLabel=isPre?(pi===0?"":romanNumber(pi)):String(Number(sectionStart)+pi);page.querySelectorAll("h1,h2,h3").forEach(h=>{const heading=(h.textContent||"").trim();if(heading)map[heading]={order_no:Number(el.dataset.orderNo),page_start:pageLabel,page_count:1};});});});fetch(`${API_URL}/sync-toc-pages`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user_id:userId,toc_code:activeTocCode,page_map:map})}).then(r=>r.json()).then(d=>{if(d.toc){updateDisplayedTableOfContents(d.toc);addFloatingMsg("ai",`Table of contents page numbers refreshed from the current rendered pages (same code ${activeTocCode}).`);}}).catch(()=>{});}
+    }
+  }catch(err){alert(err.message||"Workflow action failed.");}finally{workflowBusy=false;buttons.forEach(b=>b.disabled=false);}
 }
 
 async function sendFloatingMessage() {
@@ -2100,7 +2963,7 @@ async function sendFloatingMessage() {
   addFloatingMsg("user", text);
   document.getElementById("aiChatInput").value = "";
   addFloatingMsg("ai", "Thinking...");
-  const codeMatch=text.match(/\b([A-Z0-9]{5})\b/i);
+  const codeMatch=text.match(/\\b([A-Z0-9]{5})\\b/i);
   const workflowUserId=getWorkflowUserId();
 
   try {
@@ -2110,7 +2973,7 @@ async function sendFloatingMessage() {
       const pending=document.getElementById("aiChatBody").lastElementChild;
       if(pending&&pending.classList.contains("ai"))pending.remove();
       if(!tocRes.ok)throw new Error(tocData.error||"Could not build table of contents.");
-      addFloatingMsg("ai",`TABLE OF CONTENTS\n\n${tocData.toc}\n\nTOC code: ${tocData.toc_code}\n\nPaste both codes in the main chat:\nPROMPT: ${codeMatch[1].toUpperCase()} TOC: ${tocData.toc_code}`,true);
+      addFloatingMsg("ai",`TABLE OF CONTENTS\\n\\n${tocData.toc}\\n\\nTOC code: ${tocData.toc_code}\\n\\nPaste both codes in the main chat:\\nPROMPT: ${codeMatch[1].toUpperCase()} TOC: ${tocData.toc_code}`,true);
       await copyTextToClipboard(`PROMPT: ${codeMatch[1].toUpperCase()} TOC: ${tocData.toc_code}`);
       return;
     }
