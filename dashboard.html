@@ -1293,14 +1293,97 @@ svg { display: block; }
   }
 }
 
-
 /* A4 table-of-contents typography and aligned page-number leaders */
-.a4-page.toc-page .a4-content {text-align:left}
-.a4-page.toc-page .toc-lines h2 {border:0!important;border-left:0!important;padding:0!important;margin:0 0 20px!important;text-align:left!important;font-weight:800!important}
-.a4-page.toc-page .toc-row {display:flex;align-items:baseline;gap:7px;width:100%;margin:0 0 9px;line-height:1.45;text-align:left;break-inside:avoid}
-.a4-page.toc-page .toc-label {flex:0 1 auto;min-width:0;text-align:left;overflow-wrap:anywhere}
-.a4-page.toc-page .toc-leader {flex:1 1 auto;min-width:12px;border-bottom:1px dotted #64748b;transform:translateY(-3px)}
-.a4-page.toc-page .toc-page {flex:0 0 34px;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.a4-page.toc-page {
+  display: block;
+}
+
+.a4-page.toc-page .a4-content {
+  text-align: left;
+  width: 100%;
+}
+
+.a4-page.toc-page .toc-lines {
+  width: min(100%, 540px);
+  margin: 0 auto;
+  padding-top: 10px;
+}
+
+.a4-page.toc-page .toc-lines h2 {
+  margin: 0 0 20px;
+  padding: 0;
+  text-align: left;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #111827;
+  border: none !important;
+}
+
+.a4-page.toc-page .toc-row {
+  display: flex;
+  align-items: baseline;
+  width: 100%;
+  margin: 0 0 9px;
+  line-height: 1.45;
+  text-align: left;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.a4-page.toc-page .toc-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: left;
+  color: #1f2937;
+  font-weight: 600;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.a4-page.toc-page .toc-leader {
+  flex: 1 1 auto;
+  min-width: 18px;
+  max-width: 100%;
+  border-bottom: 1px dotted rgba(71, 85, 105, 0.82);
+  transform: translateY(-3px);
+  height: 1.1em;
+  margin: 0 4px;
+}
+
+.a4-page.toc-page .toc-page {
+  flex: 0 0 32px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: #1f2937;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.a4-page.toc-page .toc-level-1 .toc-label {
+  margin-left: 0;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.a4-page.toc-page .toc-level-2 .toc-label {
+  margin-left: 18px;
+  font-weight: 600;
+}
+
+.a4-page.toc-page .toc-level-3 .toc-label {
+  margin-left: 36px;
+  font-weight: 500;
+}
+
+.a4-page.toc-page .toc-level-1 .toc-page,
+.a4-page.toc-page .toc-level-2 .toc-page,
+.a4-page.toc-page .toc-level-3 .toc-page {
+  color: #1f2937;
+}
 
 /* Saved-paper workflow controls */
 .workflow-output-actions {
@@ -1755,21 +1838,90 @@ function romanNumber(num){
   let out=""; for(const [v,s] of vals){while(num>=v){out+=s;num-=v;}} return out;
 }
 function formatTOCHTML(bodyHtml){
-  const temp=document.createElement("div");temp.innerHTML=bodyHtml;
-  const rows=[];
+  const temp=document.createElement("div");
+  temp.innerHTML=bodyHtml;
+
+  const rawText=(temp.textContent||"").replace(/\s+/g," ").trim();
+
+  const splitPageEntries=(text)=>{
+    const entries=[];
+    const safeText=text.replace(/\s+/g," ").trim();
+    if(!safeText) return entries;
+
+    const pattern=/(.+?)(?:\s*(?:\.{2,}|…)\s*|\s{2,})([ivxlcdm]+|\d+)(?=(?:\s*(?:\.{2,}|…)\s*|\s{2,}|$))/gi;
+    let match; const found=[];
+
+    while((match=pattern.exec(safeText))!==null){
+      const label=(match[1]||"").replace(/\s+/g," ").trim();
+      const page=(match[2]||"").trim();
+      if(label && page) found.push({label,page});
+    }
+
+    if(found.length>0){
+      for(const item of found) entries.push(item);
+      return entries;
+    }
+
+    entries.push({label:safeText,page:""});
+    return entries;
+  };
+
+  const classifyLevel=(label)=>{
+    const text=(label||"").trim();
+    if(!text) return "toc-level-1";
+    const upper=text.toUpperCase();
+
+    if(/^(CERTIFICATION|DECLARATION|DEDICATION|ACKNOWLEDGEMENT|ACKNOWLEDGMENTS|ABSTRACT|TABLE OF CONTENTS|LIST OF TABLES|LIST OF FIGURES|LIST OF ABBREVIATIONS|APPENDICES|REFERENCES|BIBLIOGRAPHY)$/i.test(upper) || /^CHAPTER\b/i.test(upper) || /^CHAPTER\s+[IVXLCDM]+$/i.test(upper) || /^CHAPTER\s+[0-9]+$/i.test(upper)){
+      return "toc-level-1";
+    }
+
+    if(/^\d+\.\d+/.test(text) || /^(INTRODUCTION|LITERATURE REVIEW|METHODOLOGY|RESULTS|DISCUSSION|CONCLUSION|RECOMMENDATIONS|SUMMARY)$/i.test(upper)){
+      return "toc-level-2";
+    }
+
+    if(/^\d+\.\d+\.\d+/.test(text) || /^1\.\d+/.test(text) || /^(STATEMENT OF THE PROBLEM|PURPOSE OF THE STUDY|OBJECTIVES OF THE STUDY|RESEARCH QUESTIONS|RESEARCH HYPOTHESES|SIGNIFICANCE OF THE STUDY|SCOPE OF THE STUDY|OPERATIONAL DEFINITION OF TERMS|CONCEPT OF FOOD PRESERVATION|METHOD OF FOOD PRESERVATION|IMPORTANCE OF FOOD PRESERVATION)$/i.test(upper)){
+      return "toc-level-3";
+    }
+
+    return "toc-level-2";
+  };
+
+  const entries=[];
   temp.querySelectorAll("p,li,h1,h2,h3").forEach(node=>{
-    let line=(node.textContent||"").trim();if(!line)return;
-    if(/^table of contents$/i.test(line)) { rows.push({heading:true,label:"TABLE OF CONTENTS",page:""}); return; }
-    line=line.replace(/^[-*•]+\s*/,"");
-    let page="",label=line;
-    const match=line.match(/^(.*?)(?:\s*\.{2,}|\s+)([ivxlcdm]+|\d+)\s*$/i);
-    if(match){label=match[1].trim();page=match[2].trim();}
-    else { const tail=line.match(/^(.*?)(?:\s{2,}|\t+)([ivxlcdm]+|\d+)$/i); if(tail){label=tail[1].trim();page=tail[2].trim();} }
-    rows.push({label,page,heading:false});
+    const text=(node.textContent||"").replace(/\s+/g," ").trim();
+    if(!text) return;
+    const pieces=splitPageEntries(text);
+    for(const item of pieces){
+      if(!item.label) continue;
+      entries.push({label:item.label, page:item.page || "", level:classifyLevel(item.label)});
+    }
   });
-  if(!rows.some(r=>r.heading)) rows.unshift({heading:true,label:"TABLE OF CONTENTS",page:""});
-  return `<div class="toc-lines">${rows.map(r=>r.heading?`<h2 style="font-weight:800;text-align:left;margin:0 0 20px">${escapeHTML(r.label)}</h2>`:`<div class="toc-row"><span class="toc-label">${escapeHTML(r.label)}</span><span class="toc-leader"></span><span class="toc-page">${escapeHTML(r.page)}</span></div>`).join("")}</div>`;
+
+  if(!entries.length && rawText){
+    const pieces=splitPageEntries(rawText);
+    for(const item of pieces){
+      entries.push({label:item.label, page:item.page || "", level:classifyLevel(item.label)});
+    }
+  }
+
+  if(!entries.length){
+    return `<div class="toc-lines"><h2>Table of Contents</h2></div>`;
+  }
+
+  return `
+    <div class="toc-lines">
+      <h2>Table of Contents</h2>
+      ${entries.map(entry => `
+        <div class="toc-row ${entry.level}">
+          <span class="toc-label">${escapeHTML(entry.label)}</span>
+          <span class="toc-leader"></span>
+          <span class="toc-page">${escapeHTML(entry.page || "")}</span>
+        </div>
+      `).join("")}
+    </div>
+  `;
 }
+
 function removeTocFromPreliminary(text){
  const marker=/(^|\n)\s*(?:#{1,3}\s*)?(?:table of contents|contents)\s*(?:\n|$)/im;
  const match=marker.exec(text);return match?text.slice(0,match.index).trim():String(text||"").trim();
@@ -2969,7 +3121,6 @@ async function startPaperWithCodes(codes,userPrompt){
 
   const currentIndex=Number(data.current_index||0);
   if(currentIndex>=1){
-    // The TOC is intentionally a display stage, not a paper_sections row.
     const tocData=await workflowJSON("/build-toc",{user_id:userId,prompt_code:activePromptCode},"Could not retrieve the saved table of contents.");
     if(!tocData.toc||tocData.toc_code!==activeTocCode)throw new Error("The saved table of contents does not match this paper project.");
     updateDisplayedTableOfContents(tocData.toc);
@@ -3186,7 +3337,6 @@ async function handleWorkflowAction(button,container){
       if(!d.result||!d.title||!Number.isInteger(Number(d.order_no)))throw new Error("The server returned an incomplete section.");
       addWorkflowSection({...d,project_id:projectId,toc_code:activeTocCode,kind:"chapter"});
       activeChatHistory.push({prompt:"Pull Next: "+d.title,result:d.result,isPaper:true,workflow:true,project_id:projectId,order_no:d.order_no,kind:"chapter"});saveChatSession();
-      // Sync the same saved TOC code with actual rendered page positions.
       if(activeTocCode){
         try{const tocContainer=document.querySelector('#chatArea .chat-msg[data-kind="toc"]');if(tocContainer)await updateCurrentTOC(tocContainer.querySelector('[data-action="update-toc"]'),tocContainer);}catch(syncError){addWorkflowStatus("Section saved, but TOC page numbers could not be refreshed: "+syncError.message);}
       }
@@ -3201,7 +3351,7 @@ async function sendFloatingMessage() {
   addFloatingMsg("user", text);
   document.getElementById("aiChatInput").value = "";
   addFloatingMsg("ai", "Thinking...");
-  const codeMatch=text.match(/\\b([A-Z0-9]{5})\\b/i);
+  const codeMatch=text.match(/\b([A-Z0-9]{5})\b/i);
   const workflowUserId=getWorkflowUserId();
 
   try {
@@ -3211,7 +3361,7 @@ async function sendFloatingMessage() {
       const pending=document.getElementById("aiChatBody").lastElementChild;
       if(pending&&pending.classList.contains("ai"))pending.remove();
       if(!tocRes.ok)throw new Error(tocData.error||"Could not build table of contents.");
-      addFloatingMsg("ai",`TABLE OF CONTENTS\\n\\n${tocData.toc}\\n\\nTOC code: ${tocData.toc_code}\\n\\nPaste both codes in the main chat:\\nPROMPT: ${codeMatch[1].toUpperCase()} TOC: ${tocData.toc_code}`,true);
+      addFloatingMsg("ai",`TABLE OF CONTENTS\n\n${tocData.toc}\n\nTOC code: ${tocData.toc_code}\n\nPaste both codes in the main chat:\nPROMPT: ${codeMatch[1].toUpperCase()} TOC: ${tocData.toc_code}`,true);
       await copyTextToClipboard(`PROMPT: ${codeMatch[1].toUpperCase()} TOC: ${tocData.toc_code}`);
       return;
     }
@@ -3253,7 +3403,6 @@ function addFloatingMsg(role, text, renderMarkdown=false) {
   aiChatBody.appendChild(el);
   aiChatBody.scrollTop = aiChatBody.scrollHeight;
 }
-
 
 // Keep the composer and floating assistant usable when Android's keyboard changes the visual viewport.
 if (window.visualViewport) {
