@@ -1772,20 +1772,41 @@ function romanNumber(num){
   let out=""; for(const [v,s] of vals){while(num>=v){out+=s;num-=v;}} return out;
 }
 function formatTOCHTML(bodyHtml){
-  const temp=document.createElement("div");temp.innerHTML=bodyHtml;
-  const rows=[];
-  temp.querySelectorAll("p,li,h1,h2,h3").forEach(node=>{
-    let line=(node.textContent||"").trim();if(!line)return;
-    if(/^table of contents$/i.test(line)) { rows.push({heading:true,label:"TABLE OF CONTENTS",page:""}); return; }
-    line=line.replace(/^[-*•]+\s*/,"");
-    let page="",label=line;
-    const match=line.match(/^(.*?)(?:\s*\.{2,}|\s+)([ivxlcdm]+|\d+)\s*$/i);
-    if(match){label=match[1].trim();page=match[2].trim();}
-    else { const tail=line.match(/^(.*?)(?:\s{2,}|\t+)([ivxlcdm]+|\d+)$/i); if(tail){label=tail[1].trim();page=tail[2].trim();} }
-    rows.push({label,page,heading:false});
+  const temp = document.createElement("div");
+  temp.innerHTML = bodyHtml;
+  const rows = [];
+  temp.querySelectorAll("p, li, h1, h2, h3").forEach(node => {
+    let line = (node.textContent || "").trim();
+    if (!line) return;
+    if (/^table of contents$/i.test(line)) {
+      rows.push({ heading: true, label: "TABLE OF CONTENTS", page: "" });
+      return;
+    }
+    line = line.replace(/^[-*•]+\s*/, "");
+    // Split mashed preliminary lines more aggressively
+    const parts = line.split(/\s{2,}|\t+|\s*\.{2,}\s*/).filter(Boolean);
+    if (parts.length >= 2 && /[ivxlcdm\d]+$/i.test(parts[parts.length - 1])) {
+      const page = parts.pop().trim();
+      const label = parts.join(" ").trim();
+      rows.push({ label, page, heading: false });
+    } else {
+      let page = "", label = line;
+      const match = line.match(/^(.*?)(?:\s*\.{2,}|\s+)([ivxlcdm]+|\d+)\s*$/i);
+      if (match) {
+        label = match[1].trim();
+        page = match[2].trim();
+      }
+      rows.push({ label, page, heading: false });
+    }
   });
-  if(!rows.some(r=>r.heading)) rows.unshift({heading:true,label:"TABLE OF CONTENTS",page:""});
-  return `<div class="toc-lines">${rows.map(r=>r.heading?`<h2 style="font-weight:800;text-align:left;margin:0 0 20px">${escapeHTML(r.label)}</h2>`:`<div class="toc-row"><span class="toc-label">${escapeHTML(r.label)}</span><span class="toc-leader"></span><span class="toc-page">${escapeHTML(r.page)}</span></div>`).join("")}</div>`;
+  if (!rows.some(r => r.heading)) {
+    rows.unshift({ heading: true, label: "TABLE OF CONTENTS", page: "" });
+  }
+  return `<div class="toc-lines">${rows.map(r =>
+    r.heading
+      ? `<h2 style="font-weight:800;text-align:left;margin:0 0 20px">${escapeHTML(r.label)}</h2>`
+      : `<div class="toc-row"><span class="toc-label">${escapeHTML(r.label)}</span><span class="toc-leader"></span><span class="toc-page">${escapeHTML(r.page)}</span></div>`
+  ).join("")}</div>`;
 }
 function removeTocFromPreliminary(text){
  const marker=/(^|\n)\s*(?:#{1,3}\s*)?(?:table of contents|contents)\s*(?:\n|$)/im;
@@ -3039,30 +3060,62 @@ function workflowContentHTML(value){
   return raw.startsWith(marker)?raw.slice(marker.length):markdownToHTML(cleanPaperText(raw));
 }
 
-function addWorkflowSection(data,isInitial=false){
-  const chatArea=document.getElementById("chatArea"),container=document.createElement("div");
-  container.className="chat-msg";
-  const content=cleanPaperText(data.result||""),words=data.word_count||content.split(/\s+/).filter(Boolean).length;
-  const kind=data.kind||(isInitial?"preliminary":"chapter");
-  const start=kind==="preliminary"?1:workflowArabicPage;
-  const isToc=kind==="toc";
-  const actions=isToc
+function addWorkflowSection(data, isInitial = false) {
+  const chatArea = document.getElementById("chatArea");
+  const container = document.createElement("div");
+  container.className = "chat-msg";
+  const content = cleanPaperText(data.result || "");
+  const words = data.word_count || content.split(/\s+/).filter(Boolean).length;
+
+  let kind = data.kind || (isInitial ? "preliminary" : "chapter");
+  const title = (data.title || "").trim();
+  // Treat top-level Conclusion (not a numbered subsection like 2.5) as the whole-paper concluding chapter
+  if (/^conclusion$/i.test(title) || /^chapter\s+\d+\s*[-–:]?\s*conclusion/i.test(title)) {
+    kind = "conclusion";
+  } else if (/^recommendations?$/i.test(title) || /^chapter\s+\d+\s*[-–:]?\s*recommendation/i.test(title)) {
+    kind = "recommendations";
+  } else if (/^references?$|^bibliography$/i.test(title)) {
+    kind = "references";
+  } else if (/^appendices?$/i.test(title)) {
+    kind = "appendices";
+  }
+
+  const start = kind === "preliminary" ? 1 : workflowArabicPage;
+  const isToc = kind === "toc";
+  const actions = isToc
     ? `<button data-action="edit">Edit</button><button class="update-toc" data-action="update-toc">↻ Update TOC</button><button class="primary" data-action="next">Pull Next</button>`
-    : `<label class="inline-edit-toggle"><input type="checkbox" data-action="inline-toggle" ${activePaperMerged?"disabled":""}> Inline Edit with Groq</label><button data-action="edit">Edit</button><button data-action="resend" ${activePaperMerged?"disabled":""}>Resend</button><button class="primary" data-action="next">Pull Next</button>`;
-  container.innerHTML=`<div style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(data.title||"Generated section")}</div>${createA4Pages(workflowContentHTML(data.result||""),words,{kind,startPage:start})}<div class="workflow-output-actions">${actions}</div>`;
-  if(kind==="toc")document.querySelector('#chatArea .chat-msg[data-kind="preliminary"] [data-action="next"]')?.setAttribute("disabled","disabled");
-  else document.querySelectorAll('#chatArea .chat-msg .workflow-output-actions [data-action="next"]').forEach(b=>b.disabled=true);
-  Object.assign(container.dataset,{title:data.title||"Generated section",raw:content,kind,projectId:String(data.project_id||activePaperProjectId||""),tocCode:data.toc_code||activeTocCode||"",pageStart:kind==="preliminary"?"i":String(start)});
-  if(!isToc)container.dataset.orderNo=String(data.order_no??0);
+    : `<label class="inline-edit-toggle"><input type="checkbox" data-action="inline-toggle" ${activePaperMerged ? "disabled" : ""}> Inline Edit with Groq</label><button data-action="edit">Edit</button><button data-action="resend" ${activePaperMerged ? "disabled" : ""}>Resend</button><button class="primary" data-action="next">Pull Next</button>`;
+
+  container.innerHTML = `<div style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(title || "Generated section")}</div>${createA4Pages(workflowContentHTML(data.result || ""), words, { kind, startPage: start })}<div class="workflow-output-actions">${actions}</div>`;
+
+  if (kind === "toc") {
+    document.querySelector('#chatArea .chat-msg[data-kind="preliminary"] [data-action="next"]')?.setAttribute("disabled", "disabled");
+  } else {
+    document.querySelectorAll('#chatArea .chat-msg .workflow-output-actions [data-action="next"]').forEach(b => b.disabled = true);
+  }
+
+  Object.assign(container.dataset, {
+    title: title || "Generated section",
+    raw: content,
+    kind,
+    projectId: String(data.project_id || activePaperProjectId || ""),
+    tocCode: data.toc_code || activeTocCode || "",
+    pageStart: kind === "preliminary" ? "i" : String(start)
+  });
+  if (!isToc) container.dataset.orderNo = String(data.order_no ?? 0);
+
   bindWorkflowButtons(container);
-  chatArea.appendChild(container);chatArea.scrollTop=chatArea.scrollHeight;
-  const pageCount=paginateContent(workflowContentHTML(data.result||"")).length||1;
-  container.dataset.pageCount=String(pageCount);
-  if(kind==="preliminary")workflowArabicPage=1;
-  else if(kind!=="toc")workflowArabicPage=Math.max(workflowArabicPage,start+pageCount);
-  workflowLastPage=workflowArabicPage;
-  activeSectionOrder=Math.max(activeSectionOrder,Number(data.order_no||0));
-  latestResultText=content;toggleCopyButton(content);
+  chatArea.appendChild(container);
+  chatArea.scrollTop = chatArea.scrollHeight;
+
+  const pageCount = paginateContent(workflowContentHTML(data.result || "")).length || 1;
+  container.dataset.pageCount = String(pageCount);
+  if (kind === "preliminary") workflowArabicPage = 1;
+  else if (kind !== "toc") workflowArabicPage = Math.max(workflowArabicPage, start + pageCount);
+  workflowLastPage = workflowArabicPage;
+  activeSectionOrder = Math.max(activeSectionOrder, Number(data.order_no || 0));
+  latestResultText = content;
+  toggleCopyButton(content);
 }
 
 function showSectionEditor(container){
@@ -3159,52 +3212,75 @@ async function mergeCurrentPaper(){
   }catch(err){button.disabled=false;button.textContent="Merge Complete Paper";alert(err.message||"Merge failed.");}
 }
 
-function renderMergedPaper(value){
-  // Reuse the saved section cards as the source of truth: do not flatten the
-  // paper into one HTML stream and paginate it again.
-  const old=document.getElementById("mergedPaperOutput");if(old)old.remove();
-  const wrap=document.createElement("div");wrap.className="chat-msg";wrap.id="mergedPaperOutput";
-  const title=document.createElement("div");title.className="merged-paper-heading";
-  title.textContent="Complete Merged Term Paper";wrap.appendChild(title);
-  const pages=document.createElement("div");pages.className="merged-pages";
-  const cards=[...document.querySelectorAll('#chatArea .chat-msg[data-kind]')]
-    .filter(card=>card.dataset.kind!=="toc" && card.dataset.kind!=="status" && card.querySelector(".pages-container"));
-  let arabicPage=1,romanPage=1;
-  cards.forEach(card=>{
-    const kind=card.dataset.kind;
-    [...card.querySelectorAll(".pages-container > .a4-page")].forEach((source,index)=>{
-      const page=source.cloneNode(true);page.classList.add("merged-page");
-      page.querySelectorAll(".page-number").forEach(n=>{
-        if(kind==="preliminary"){n.textContent=index===0?"":romanNumber(romanPage);romanPage++;}
-        else{n.textContent=String(arabicPage++);}
+function renderMergedPaper(value) {
+  const old = document.getElementById("mergedPaperOutput");
+  if (old) old.remove();
+  const wrap = document.createElement("div");
+  wrap.className = "chat-msg";
+  wrap.id = "mergedPaperOutput";
+  const title = document.createElement("div");
+  title.className = "merged-paper-heading";
+  title.textContent = "Complete Merged Term Paper";
+  wrap.appendChild(title);
+  const pages = document.createElement("div");
+  pages.className = "merged-pages";
+
+  // Collect and sort cards: preliminary → toc → body chapters (by order_no) → conclusion → recommendations → references → appendices
+  const allCards = [...document.querySelectorAll('#chatArea .chat-msg[data-kind]')]
+    .filter(card => card.dataset.kind !== "status" && card.querySelector(".pages-container"));
+
+  const orderRank = kind => {
+    if (kind === "preliminary") return 0;
+    if (kind === "toc") return 1;
+    if (kind === "conclusion") return 90;
+    if (kind === "recommendations") return 91;
+    if (kind === "references") return 92;
+    if (kind === "appendices") return 93;
+    return 50; // normal chapters
+  };
+
+  allCards.sort((a, b) => {
+    const ra = orderRank(a.dataset.kind);
+    const rb = orderRank(b.dataset.kind);
+    if (ra !== rb) return ra - rb;
+    return Number(a.dataset.orderNo || 0) - Number(b.dataset.orderNo || 0);
+  });
+
+  let arabicPage = 1;
+  let romanPage = 1;
+  allCards.forEach(card => {
+    const kind = card.dataset.kind;
+    [...card.querySelectorAll(".pages-container > .a4-page")].forEach((source, index) => {
+      const page = source.cloneNode(true);
+      page.classList.add("merged-page");
+      page.querySelectorAll(".page-number").forEach(n => {
+        if (kind === "preliminary" || kind === "toc") {
+          n.textContent = (kind === "preliminary" && index === 0) ? "" : romanNumber(romanPage);
+          if (!(kind === "preliminary" && index === 0)) romanPage++;
+        } else {
+          n.textContent = String(arabicPage++);
+        }
       });
       pages.appendChild(page);
     });
   });
-  // Add the saved TOC after preliminary pages and before the first chapter.
-  const tocCard=document.querySelector('#chatArea .chat-msg[data-kind="toc"]');
-  if(tocCard){
-    const tocPages=[...tocCard.querySelectorAll(".pages-container > .a4-page")];
-    const firstBody=pages.querySelector(".body-page");
-    tocPages.forEach((source,index)=>{
-      const page=source.cloneNode(true);page.classList.add("merged-page");
-      page.querySelectorAll(".page-number").forEach(n=>n.textContent=romanNumber(romanPage++));
-      if(firstBody)pages.insertBefore(page,firstBody);else pages.appendChild(page);
-    });
+
+  if (!pages.children.length) {
+    const marker = "[[TEMPAPER_RICH_HTML]]";
+    const raw = String(value || "");
+    const html = raw.startsWith(marker) ? raw.slice(marker.length) : markdownToHTML(cleanPaperText(raw));
+    const fallback = document.createElement("div");
+    fallback.innerHTML = createA4Pages(html, html.replace(/<[^>]*>/g, " ").split(/\s+/).filter(Boolean).length, { kind: "normal", startPage: 1 });
+    fallback.querySelectorAll(".document-stats").forEach(n => n.remove());
+    fallback.querySelectorAll(".pages-container > .a4-page").forEach(n => pages.appendChild(n));
   }
-  if(!pages.children.length){
-    // Legacy fallback for merged records whose sections are not loaded in the view.
-    const marker="[[TEMPAPER_RICH_HTML]]",raw=String(value||"");
-    const html=raw.startsWith(marker)?raw.slice(marker.length):markdownToHTML(cleanPaperText(raw));
-    const fallback=document.createElement("div");
-    fallback.innerHTML=createA4Pages(html,html.replace(/<[^>]*>/g," ").split(/\s+/).filter(Boolean).length,{kind:"normal",startPage:1});
-    fallback.querySelectorAll(".document-stats").forEach(n=>n.remove());
-    fallback.querySelectorAll(".pages-container > .a4-page").forEach(n=>pages.appendChild(n));
-  }
+
   wrap.appendChild(pages);
-  const note=document.createElement("div");note.className="workflow-merged-note";
-  note.textContent="Merged document. Inline Groq refinement is disabled. Individual section edits remain saved through the existing backend.";
-  wrap.appendChild(note);document.getElementById("chatArea").appendChild(wrap);
+  const note = document.createElement("div");
+  note.className = "workflow-merged-note";
+  note.textContent = "Merged document. Inline Groq refinement is disabled. Individual section edits remain saved through the existing backend.";
+  wrap.appendChild(note);
+  document.getElementById("chatArea").appendChild(wrap);
 }
 
 async function handleWorkflowAction(button,container){
