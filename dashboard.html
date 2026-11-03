@@ -1335,33 +1335,22 @@ svg { display: block; }
 @media print { .workflow-output-actions,.workflow-editor,.workflow-status,.workflow-merge-btn,.workflow-merged-note {display:none!important} }
 
 
-/* Pagination engine: physical A4 dimensions (96 CSS px/in), fixed printable area. */
-.a4-page{width:210mm!important;height:297mm!important;min-height:297mm!important;max-height:297mm!important;box-sizing:border-box!important;padding:19mm 20mm 22mm!important;overflow:hidden!important;border-radius:0!important;position:relative!important;break-after:page!important;page-break-after:always!important;flex:0 0 auto!important}
-.a4-page:last-child{break-after:auto!important;page-break-after:auto!important}
-.pages-container{gap:14px!important;align-items:center}
-.a4-content{height:100%;overflow:hidden;box-sizing:border-box;font-size:12pt;line-height:1.65}
-.a4-content h1{font-size:18pt;margin:0 0 18pt;border:0;padding:0;text-align:center;break-after:avoid-page;page-break-after:avoid}
-.a4-content h2{font-size:14pt;margin:16pt 0 8pt;border:0;padding:0 0 0 0;break-after:avoid-page;page-break-after:avoid}
-.a4-content h3{font-size:12pt;margin:12pt 0 6pt;break-after:avoid-page;page-break-after:avoid}
-.a4-content p{margin:0 0 9pt;text-indent:0;text-align:justify;line-height:1.65;orphans:2;widows:2}
-.a4-content table{width:100%;max-width:100%;border-collapse:collapse;table-layout:fixed;font-size:10pt;line-height:1.35;margin:10pt 0;break-inside:avoid;page-break-inside:avoid}
-.a4-content th,.a4-content td{border:1px solid #64748b;padding:5pt 6pt;vertical-align:top;overflow-wrap:anywhere;word-break:normal;white-space:normal}
-.a4-content th{background:#e8edf5;font-weight:700;text-align:center;color:#0f172a}
-.a4-content tr{break-inside:avoid;page-break-inside:avoid}
-.a4-content thead{display:table-header-group}
-.a4-content tfoot{display:table-footer-group}
-.page-number{font-family:'Merriweather',Georgia,serif!important;font-size:10pt!important;bottom:9mm!important;right:20mm!important;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;border-radius:0!important}
-.a4-footer{display:none!important}
-@page{size:A4;margin:0}
-@media print{
- body{width:auto!important;height:auto!important;overflow:visible!important}
- .chat-area{display:block!important;overflow:visible!important;padding:0!important}
- .document-stats,.workflow-merged-note{display:none!important}
- .pages-container{display:block!important;max-width:none!important;width:auto!important;margin:0!important}
- .a4-page{width:210mm!important;height:297mm!important;min-height:297mm!important;margin:0!important;padding:19mm 20mm 22mm!important;box-shadow:none!important;border:0!important;overflow:hidden!important}
- .a4-content{height:100%!important;overflow:hidden!important}
-}
 
+/* Section-preserving merged document */
+.merged-paper-heading{max-width:860px;margin:8px auto 14px;color:var(--text);font-weight:800}
+.merged-pages{display:flex;flex-direction:column;gap:16px;max-width:860px;width:100%;margin:0 auto}
+.merged-pages .a4-page{flex:0 0 auto;break-after:page;page-break-after:always}
+.merged-pages .a4-page:last-child{break-after:auto;page-break-after:auto}
+@media print{
+  #chatArea>.chat-msg:not(#mergedPaperOutput){display:none!important}
+  #mergedPaperOutput{display:block!important;max-width:none!important;width:100%!important;margin:0!important}
+  #mergedPaperOutput .merged-paper-heading{display:none!important}
+  #mergedPaperOutput .merged-pages{display:block!important;width:100%!important;max-width:none!important}
+  #mergedPaperOutput .a4-page{width:210mm!important;height:297mm!important;min-height:297mm!important;max-height:297mm!important;box-sizing:border-box!important;margin:0!important;padding:25.4mm!important;border:0!important;border-radius:0!important;box-shadow:none!important;overflow:hidden!important}
+  #mergedPaperOutput .a4-page .a4-content{overflow-wrap:anywhere}
+  #mergedPaperOutput .a4-page .page-number{position:absolute!important;bottom:12mm!important;right:18mm!important}
+  #mergedPaperOutput .a4-footer{display:none!important}
+}
 </style>
 </head>
 <body>
@@ -1616,148 +1605,171 @@ function markdownToHTML(markdown) {
 }
 
 // FIXED: no double append
-function paginateContent(html, options = {}) {
-  const PAGE_W = 794, PAGE_H = 1123;
-  const MARGIN_X = 76, MARGIN_TOP = 72, MARGIN_BOTTOM = 72;
-  const usableHeight = PAGE_H - MARGIN_TOP - MARGIN_BOTTOM - 24;
-  const host = document.createElement("div");
-  Object.assign(host.style, {
-    position:"fixed", left:"-100000px", top:"0", width:`${PAGE_W}px`,
-    visibility:"hidden", pointerEvents:"none", zIndex:"-1"
-  });
-  const page = document.createElement("div");
-  Object.assign(page.style, {
-    width:`${PAGE_W}px`, height:`${PAGE_H}px`, boxSizing:"border-box",
-    padding:`${MARGIN_TOP}px ${MARGIN_X}px ${MARGIN_BOTTOM}px`,
-    background:"#fff", color:"#1e293b", fontFamily:"'Merriweather', Georgia, serif",
-    fontSize:"14px", lineHeight:"1.75"
-  });
-  const body = document.createElement("div");
-  Object.assign(body.style,{width:"100%",height:`${usableHeight}px`,overflow:"visible",boxSizing:"border-box"});
-  page.appendChild(body); host.appendChild(page); document.body.appendChild(host);
+function paginateContent(html) {
+  const measureWrapper = document.createElement('div');
+  measureWrapper.style.position = 'absolute';
+  measureWrapper.style.left = '-99999px';
+  measureWrapper.style.top = '-99999px';
+  document.body.appendChild(measureWrapper);
 
-  const source = document.createElement("div");
-  source.innerHTML = html || "";
-  const blocks = [...source.childNodes].filter(n => n.nodeType !== 3 || n.textContent.trim());
+  const measurePage = document.createElement('div');
+  measurePage.style.width = '794px';
+  measurePage.style.boxSizing = 'border-box';
+  measurePage.style.fontFamily = "'Merriweather', serif";
+  measurePage.style.fontSize = '15px';
+  measurePage.style.lineHeight = '1.82';
+  measurePage.style.padding = '0';
+
+  const measureBody = document.createElement('div');
+  measureBody.style.height = `${1056 - 140}px`;
+  measureBody.style.overflow = 'hidden';
+  measureBody.style.boxSizing = 'border-box';
+
+  const measureContent = document.createElement('div');
+  measureContent.style.width = '100%';
+  measureContent.style.boxSizing = 'border-box';
+  measureContent.style.fontFamily = "'Merriweather', serif";
+  measureContent.style.fontSize = '15px';
+  measureContent.style.lineHeight = '1.82';
+
+  measureBody.appendChild(measureContent);
+  measurePage.appendChild(measureBody);
+  measureWrapper.appendChild(measurePage);
+
+  const temp = document.createElement('div');
+  temp.innerHTML = html;
+  const blocks = Array.from(temp.children).map(n => n.cloneNode(true));
   const pages = [];
-  const consumed = new Set();
-  let current = document.createElement("div");
-  const sync = () => { body.innerHTML=""; body.appendChild(current); };
-  const height = () => current.getBoundingClientRect().height;
-  const fits = () => height() <= usableHeight + 0.5;
-  const pushPage = () => {
-    if (!current.childNodes.length) return;
-    pages.push(current.innerHTML);
-    current = document.createElement("div"); sync();
+  measureContent.innerHTML = '';
+
+  const fits = () => measureContent.scrollHeight <= measureBody.clientHeight + 0.5;
+
+  const testAppend = node => {
+    measureContent.appendChild(node);
+    const ok = fits();
+    if (!ok) measureContent.removeChild(node);
+    return ok;
   };
-  const appendIfFits = node => {
-    current.appendChild(node);
-    sync();
-    if (fits()) return true;
-    current.removeChild(node); sync(); return false;
-  };
-  const cloneBlock = node => {
+
+  for (let i = 0; i < blocks.length; i++) {
+    let node = blocks[i];
+
     if (node.nodeType === 3) {
-      const p=document.createElement("p"); p.textContent=node.textContent.trim(); return p;
+      if (!node.textContent.trim()) continue;
+      const p = document.createElement('p');
+      p.innerHTML = node.textContent.trim();
+      node = p;
     }
-    return node.cloneNode(true);
-  };
-  const isChapter = node => {
-    if (!node || node.nodeType !== 1) return false;
-    const text=(node.textContent||"").trim();
-    return /^chapter\s+(?:\d+|[ivxlcdm]+|one|two|three|four|five|six|seven|eight|nine|ten)\b/i.test(text)
-      || node.matches("[data-page-break='chapter'],.chapter-heading");
-  };
-  const isMajorPrelim = node => node?.nodeType===1 &&
-    /^(CERTIFICATION|DECLARATION|DEDICATION|ACKNOWLEDGEMENTS?|ACKNOWLEDGMENTS?|ABSTRACT|TABLE OF CONTENTS|LIST OF TABLES|LIST OF FIGURES)$/i.test((node.textContent||"").trim());
 
-  // Split overlong paragraphs by actual DOM-measured line/word fit, preserving inline markup.
-  const appendLongText = node => {
-    const text=(node.textContent||"").trim();
-    if (!text) return;
-    const words=text.split(/\s+/); let chunk=[];
-    const makeP = arr => { const p=document.createElement("p"); p.textContent=arr.join(" "); return p; };
-    for (const word of words) {
-      chunk.push(word);
-      const test=makeP(chunk);
-      current.appendChild(test); sync();
-      const ok=fits();
-      current.removeChild(test); sync();
-      if (!ok && chunk.length>1) {
-        chunk.pop();
-        if (!appendIfFits(makeP(chunk))) { pushPage(); appendIfFits(makeP(chunk)); }
-        chunk=[word];
+    const clone = node.cloneNode(true);
+    const headingLabel = (clone.textContent || "").trim();
+    const isMajorPageHeading = /^\s*(certification|declaration|dedication|acknowledg(?:e)?ments?|abstract|table of contents|chapter\s+(?:one|i)\b)/i.test(headingLabel);
+    if (isMajorPageHeading && measureContent.childNodes.length > 0) {
+      pages.push(Array.from(measureContent.childNodes).map(n => n.cloneNode(true)));
+      measureContent.innerHTML = '';
+    }
+
+    const isSectionHeading = /^H[1-3]$/.test(clone.tagName || "");
+    if (isSectionHeading && i + 1 < blocks.length) {
+      const nextBlock = blocks[i + 1].cloneNode(true);
+      const pair = document.createDocumentFragment();
+      pair.appendChild(clone.cloneNode(true));
+      pair.appendChild(nextBlock);
+      measureContent.appendChild(pair);
+      if (fits()) { i++; continue; }
+      measureContent.removeChild(measureContent.lastChild);
+      measureContent.removeChild(measureContent.lastChild);
+      if (measureContent.childNodes.length > 0) {
+        pages.push(Array.from(measureContent.childNodes).map(n => n.cloneNode(true)));
+        measureContent.innerHTML = '';
       }
+      const retryPair = document.createDocumentFragment();
+      retryPair.appendChild(clone.cloneNode(true));
+      retryPair.appendChild(nextBlock.cloneNode(true));
+      measureContent.appendChild(retryPair);
+      if (fits()) { i++; continue; }
+      measureContent.removeChild(measureContent.lastChild);
+      measureContent.removeChild(measureContent.lastChild);
     }
-    if(chunk.length) {
-      const p=makeP(chunk);
-      if(!appendIfFits(p)){pushPage();appendIfFits(p);}
-    }
-  };
 
-  sync();
-  blocks.forEach((original,index) => {
-    if(consumed.has(index)) return;
-    const node=cloneBlock(original);
-    if (isChapter(node) && current.childNodes.length) pushPage();
-    if (isMajorPrelim(node) && current.childNodes.length) pushPage();
-
-    // Keep a heading with its following block where possible.
-    const heading = node.nodeType===1 && /^H[1-3]$/.test(node.tagName);
-    if (heading && blocks[index+1]) {
-      const next=cloneBlock(blocks[index+1]);
-      const pair=document.createDocumentFragment(); pair.append(node.cloneNode(true)); pair.append(next);
-      current.appendChild(pair); sync();
-      if(fits()) { // next block was consumed along with heading
-        // mark next item as handled
-        consumed.add(index+1);
-        return;
-      }
-      current.removeChild(current.lastChild); current.removeChild(current.lastChild); sync();
-      if(current.childNodes.length) pushPage();
+    if (testAppend(clone.cloneNode(true))) {
+      continue;
     }
-    
-    if(appendIfFits(node)) return;
-    if(current.childNodes.length) pushPage();
-    if(appendIfFits(node)) return;
-    if(node.matches?.("p,li,blockquote")) appendLongText(node);
-    else {
-      // For oversized tables, preserve row integrity and repeat the header on each continuation.
-      if(node.tagName==="TABLE") {
-        const rows=[...(node.tBodies[0]?.rows||node.rows||[])];
-        const header=node.tHead?.rows?.[0] || rows.find(r=>r.querySelector("th"));
-        let table=document.createElement("table"); table.className=node.className;
-        if(node.tHead) table.appendChild(node.tHead.cloneNode(true));
-        else if(header){const thead=document.createElement("thead");thead.appendChild(header.cloneNode(true));table.appendChild(thead);}
-        const tbody=document.createElement("tbody");table.appendChild(tbody);
-        for(const row of rows){
-          if(row===header) continue;
-          tbody.appendChild(row.cloneNode(true)); current.appendChild(table);sync();
-          if(!fits()){
-            tbody.removeChild(tbody.lastChild);sync();
-            if(tbody.rows.length===0 && current.childNodes.length===1) {
-              // Single row is taller than a page; retain it intact rather than dropping content.
-              tbody.appendChild(row.cloneNode(true));sync();pushPage();continue;
-            }
-            pushPage(); table=document.createElement("table");table.className=node.className;
-            if(node.tHead)table.appendChild(node.tHead.cloneNode(true));
-            else if(header){const th=document.createElement("thead");th.appendChild(header.cloneNode(true));table.appendChild(th);}
-            const tb=document.createElement("tbody");table.appendChild(tb);tb.appendChild(row.cloneNode(true));current.appendChild(table);sync();
-          }
+
+    if (measureContent.childNodes.length > 0) {
+      pages.push(Array.from(measureContent.childNodes).map(n => n.cloneNode(true)));
+      measureContent.innerHTML = '';
+    }
+
+    if (testAppend(clone.cloneNode(true))) {
+      continue;
+    }
+
+    const text = (clone.textContent || '').trim();
+    if (!text) continue;
+    const words = text.split(/\\s+/);
+    let buffer = '';
+
+    for (let w = 0; w < words.length; w++) {
+      const tryText = buffer ? (buffer + ' ' + words[w]) : words[w];
+      const testP = document.createElement('p');
+      testP.textContent = tryText;
+
+      if (testAppend(testP.cloneNode(true))) {
+        buffer = tryText;
+      } else {
+        if (buffer) {
+          const toAppend = document.createElement('p');
+          toAppend.textContent = buffer;
+          measureContent.appendChild(toAppend);
+        } else {
+          const forced = document.createElement('p');
+          forced.textContent = words[w];
+          measureContent.appendChild(forced);
+          w++;
         }
-        if(current.childNodes.length) { /* retained on current page */ }
-      } else { current.appendChild(node);sync();pushPage(); }
+
+        if (!fits()) {
+          pages.push(Array.from(measureContent.childNodes).map(n => n.cloneNode(true)));
+          measureContent.innerHTML = '';
+        }
+
+        buffer = (w < words.length) ? words[w] : '';
+      }
+
+      if (w === words.length - 1 && buffer) {
+        const toAppend = document.createElement('p');
+        toAppend.textContent = buffer;
+        if (!testAppend(toAppend.cloneNode(true))) {
+          pages.push(Array.from(measureContent.childNodes).map(n => n.cloneNode(true)));
+          measureContent.innerHTML = '';
+          measureContent.appendChild(toAppend);
+        } else {
+          measureContent.appendChild(toAppend);
+        }
+        buffer = '';
+      }
     }
+  }
+
+  if (measureContent.childNodes.length > 0) {
+    pages.push(Array.from(measureContent.childNodes).map(n => n.cloneNode(true)));
+    measureContent.innerHTML = '';
+  }
+
+  const pagesHTML = pages.map(pn => {
+    const wrapper = document.createElement('div');
+    pn.forEach(n => wrapper.appendChild(n.cloneNode(true)));
+    return wrapper.innerHTML;
   });
-  if(current.childNodes.length) pushPage();
-  host.remove();
-  return pages.length ? pages : [""];
+
+  document.body.removeChild(measureWrapper);
+  return pagesHTML;
 }
 
 function romanNumber(num){
-  const vals=[[1000,"M"],[900,"CM"],[500,"D"],[400,"CD"],[100,"C"],[90,"XC"],[50,"L"],[40,"XL"],[10,"X"],[9,"IX"],[5,"V"],[4,"IV"],[1,"I"]];
-  let out=""; num=Math.max(1,Math.floor(Number(num)||1));
-  for(const [v,s] of vals){while(num>=v){out+=s;num-=v;}} return out;
+  const vals=[[1000,"m"],[900,"cm"],[500,"d"],[400,"cd"],[100,"c"],[90,"xc"],[50,"l"],[40,"xl"],[10,"x"],[9,"ix"],[5,"v"],[4,"iv"],[1,"i"]];
+  let out=""; for(const [v,s] of vals){while(num>=v){out+=s;num-=v;}} return out;
 }
 function formatTOCHTML(bodyHtml){
   const temp=document.createElement("div");temp.innerHTML=bodyHtml;
@@ -3148,24 +3160,53 @@ async function mergeCurrentPaper(){
 }
 
 function renderMergedPaper(value){
-  const marker="[[TEMPAPER_RICH_HTML]]";
-  const raw=String(value||"");
-  const html=raw.startsWith(marker)?raw.slice(marker.length):markdownToHTML(cleanPaperText(raw));
+  // Reuse the saved section cards as the source of truth: do not flatten the
+  // paper into one HTML stream and paginate it again.
   const old=document.getElementById("mergedPaperOutput");if(old)old.remove();
   const wrap=document.createElement("div");wrap.className="chat-msg";wrap.id="mergedPaperOutput";
-  const pages=paginateContent(html);
-  const preliminaryEnd=pages.findIndex(page=>/chapter\s+(?:\d+|[ivxlcdm]+|one|two|three|four|five|six|seven|eight|nine|ten)\b/i.test(page.replace(/<[^>]*>/g," ")));
-  const firstBodyPage=preliminaryEnd<0?pages.length:preliminaryEnd;
-  const pageMarkup=pages.map((body,index)=>{
-    const isPrelim=index<firstBodyPage;
-    const label=isPrelim?romanNumber(index+1):String(index-firstBodyPage+1);
-    const classes=isPrelim?"preliminary-page":"body-page";
-    return `<div class="a4-page ${classes}"><div class="page-number">${label}</div><div class="a4-content">${body}</div></div>`;
-  }).join("");
-  const wordCount=html.replace(/<[^>]*>/g," ").split(/\s+/).filter(Boolean).length;
-  wrap.innerHTML=`<div style="font-weight:800;color:var(--text);margin:8px 0 12px">Complete Merged Term Paper</div><div class="document-stats"><div><strong>${pages.length}</strong> Pages • <strong>${wordCount}</strong> Words</div><div><button class="copy-latest-btn" onclick="copyLatestText()">Copy All</button></div></div><div class="pages-container">${pageMarkup}</div><div class="workflow-merged-note">Merged document. Inline Groq refinement is disabled. Individual section edits, if made, are saved directly through the existing backend.</div>`;
-  document.getElementById("chatArea").appendChild(wrap);
+  const title=document.createElement("div");title.className="merged-paper-heading";
+  title.textContent="Complete Merged Term Paper";wrap.appendChild(title);
+  const pages=document.createElement("div");pages.className="merged-pages";
+  const cards=[...document.querySelectorAll('#chatArea .chat-msg[data-kind]')]
+    .filter(card=>card.dataset.kind!=="toc" && card.dataset.kind!=="status" && card.querySelector(".pages-container"));
+  let arabicPage=1,romanPage=1;
+  cards.forEach(card=>{
+    const kind=card.dataset.kind;
+    [...card.querySelectorAll(".pages-container > .a4-page")].forEach((source,index)=>{
+      const page=source.cloneNode(true);page.classList.add("merged-page");
+      page.querySelectorAll(".page-number").forEach(n=>{
+        if(kind==="preliminary"){n.textContent=index===0?"":romanNumber(romanPage);romanPage++;}
+        else{n.textContent=String(arabicPage++);}
+      });
+      pages.appendChild(page);
+    });
+  });
+  // Add the saved TOC after preliminary pages and before the first chapter.
+  const tocCard=document.querySelector('#chatArea .chat-msg[data-kind="toc"]');
+  if(tocCard){
+    const tocPages=[...tocCard.querySelectorAll(".pages-container > .a4-page")];
+    const firstBody=pages.querySelector(".body-page");
+    tocPages.forEach((source,index)=>{
+      const page=source.cloneNode(true);page.classList.add("merged-page");
+      page.querySelectorAll(".page-number").forEach(n=>n.textContent=romanNumber(romanPage++));
+      if(firstBody)pages.insertBefore(page,firstBody);else pages.appendChild(page);
+    });
+  }
+  if(!pages.children.length){
+    // Legacy fallback for merged records whose sections are not loaded in the view.
+    const marker="[[TEMPAPER_RICH_HTML]]",raw=String(value||"");
+    const html=raw.startsWith(marker)?raw.slice(marker.length):markdownToHTML(cleanPaperText(raw));
+    const fallback=document.createElement("div");
+    fallback.innerHTML=createA4Pages(html,html.replace(/<[^>]*>/g," ").split(/\s+/).filter(Boolean).length,{kind:"normal",startPage:1});
+    fallback.querySelectorAll(".document-stats").forEach(n=>n.remove());
+    fallback.querySelectorAll(".pages-container > .a4-page").forEach(n=>pages.appendChild(n));
+  }
+  wrap.appendChild(pages);
+  const note=document.createElement("div");note.className="workflow-merged-note";
+  note.textContent="Merged document. Inline Groq refinement is disabled. Individual section edits remain saved through the existing backend.";
+  wrap.appendChild(note);document.getElementById("chatArea").appendChild(wrap);
 }
+
 async function handleWorkflowAction(button,container){
   if(workflowBusy)return;
   const action=button.dataset.action;
