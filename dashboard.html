@@ -1790,68 +1790,144 @@ function prelimOrder(label){
   if (/dedication/.test(t)) return 3;
   if (/acknowledg/.test(t)) return 4;
   if (/abstract/.test(t)) return 5;
-  if (/list of (tables|figures|abbreviations|symbols)/.test(t)) return 6;
-  if (/preface|foreword/.test(t)) return 7;
-  if (/table of contents|contents/.test(t)) return 8;
+  if (/list of tables/.test(t)) return 6;
+  if (/list of figures/.test(t)) return 7;
+  if (/list of (abbreviations|symbols)/.test(t)) return 8;
+  if (/preface|foreword/.test(t)) return 9;
   return 20;
 }
 function endMatterOrder(label){
   const t = String(label||"").trim().toLowerCase();
   if (/^summary\b/.test(t)) return 1;
-  if (/^conclusion/.test(t)) return 2;          // overall conclusions of the whole document
-  if (/^recommendations?/.test(t)) return 3;
-  if (/^references?|^bibliography|^works cited/.test(t)) return 4;  // aggregated references
-  if (/^append/.test(t)) return 5;
+  if (/conclusion/.test(t)) return 2;          // overall conclusions of the whole document
+  if (/recommendations?/.test(t)) return 3;
+  if (/references?|bibliography|works cited/.test(t)) return 4;  // aggregated references
+  if (/append/.test(t)) return 5;
   return 10;
 }
-function formatTOCHTML(bodyHtml){
-  const temp=document.createElement("div");temp.innerHTML=bodyHtml;
-  const prelim=[], body=[], end=[];
-  temp.querySelectorAll("p,li,h1,h2,h3,div").forEach(node=>{
-    let line=(node.textContent||"").trim();
-    if(!line) return;
-    if(/^table of contents$/i.test(line)) return;
-    line=line.replace(/^[-*•]+\s*/,"").replace(/\s*\.{2,}\s*/," ").replace(/\s{2,}/g," ");
-    let page="",label=line;
-    const match=line.match(/^(.*?)(?:\s+\.{2,}|\s*\.{2,}|\s{2,}|\s+)([ivxlcdm]+|\d+)\s*$/i);
-    if(match){ label=match[1].replace(/[\s.]+$/,"").trim(); page=match[2].trim(); }
-    else {
-      const tail=line.match(/^(.*?)(?:\s{2,}|\t+)([ivxlcdm]+|\d+)$/i);
-      if(tail){ label=tail[1].replace(/[\s.]+$/,"").trim(); page=tail[2].trim(); }
+const PRELIM_PATTERNS = [
+  {re:/cover\s*page/i, label:"Cover Page"},
+  {re:/certification(?:\s*\/\s*approval)?/i, label:"Certification / Approval"},
+  {re:/declaration/i, label:"Declaration"},
+  {re:/dedication/i, label:"Dedication"},
+  {re:/acknowledg(?:e)?ments?/i, label:"Acknowledgements"},
+  {re:/abstract/i, label:"Abstract"},
+  {re:/list of tables/i, label:"List of Tables"},
+  {re:/list of figures/i, label:"List of Figures"},
+  {re:/list of abbreviations/i, label:"List of Abbreviations"},
+  {re:/list of symbols/i, label:"List of Symbols"}
+];
+const END_PATTERNS = [
+  {re:/conclusion(?:\s+and\s+recommendations?)?/i, label:"Conclusion"},
+  {re:/recommendations?/i, label:"Recommendations"},
+  {re:/references?/i, label:"References"},
+  {re:/bibliography/i, label:"Bibliography"},
+  {re:/works cited/i, label:"Works Cited"},
+  {re:/appendices?/i, label:"Appendices"}
+];
+function splitKnownItems(raw, patterns){
+  const found = [];
+  const used = new Set();
+  for (const p of patterns) {
+    if (p.re.test(raw) && !used.has(p.label.toLowerCase())) {
+      found.push({label:p.label, page:""});
+      used.add(p.label.toLowerCase());
     }
-    label=label.replace(/[\s.]+$/,"").trim();
-    if(!label) return;
-    const entry={label,page,heading:false};
-    if(isPreliminaryLabel(label)) prelim.push(entry);
-    else if(isEndMatterLabel(label)) end.push(entry);
-    else body.push(entry);
+  }
+  return found;
+}
+function parseTocLine(line){
+  let page = "", label = line;
+  const match = line.match(/^(.*?)(?:\s*\.{2,}|\s{2,}|\t+)([ivxlcdm]+|\d+)\s*$/i);
+  if (match) { label = match[1].replace(/[\s.]+$/,"").trim(); page = match[2].trim(); }
+  else {
+    const tail = line.match(/^(.*?)\s+([ivxlcdm]+|\d+)\s*$/i);
+    if (tail && tail[1].length > 3) { label = tail[1].replace(/[\s.]+$/,"").trim(); page = tail[2].trim(); }
+  }
+  return {label: label.replace(/[\s.]+$/,"").trim(), page};
+}
+function formatTOCHTML(bodyHtml, options){
+  const showHeading = !options || options.showHeading !== false;
+  const temp = document.createElement("div");
+  temp.innerHTML = bodyHtml;
+  const prelim = [], body = [], end = [];
+  const seen = new Set();
+  const push = (entry) => {
+    let label = String(entry.label||"").trim();
+    if (!label) return;
+    const bare = label.replace(/^\d+(?:\.\d+)*\.?\s+/, "");
+    // "Conclusion and Recommendations" (with or without a number) → two end-matter rows
+    if (/^conclusion\s+and\s+recommendations?$/i.test(bare)) {
+      push({label:"Conclusion", page:entry.page});
+      push({label:"Recommendations", page:entry.page});
+      return;
+    }
+    // Strip leading chapter-style numbers from pure end-matter labels
+    if (isEndMatterLabel(bare)) label = bare;
+    const key = label.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    const final = {label, page:entry.page||""};
+    if (isPreliminaryLabel(label)) prelim.push(final);
+    else if (isEndMatterLabel(label)) end.push(final);
+    else body.push(final);
+  };
+  temp.querySelectorAll("p,li,h1,h2,h3,div").forEach(node => {
+    let line = (node.textContent || "").trim();
+    if (!line) return;
+    if (/^table of contents$/i.test(line)) return;
+    line = line.replace(/^[-*•]+\s*/, "");
+    // Jammed preliminary block (many titles in one string, no page numbers)
+    const prelimHits = splitKnownItems(line, PRELIM_PATTERNS);
+    if (prelimHits.length >= 3) {
+      prelimHits.forEach(push);
+      return;
+    }
+    const parsed = parseTocLine(line);
+    if (!parsed.label) return;
+    // If a single line still contains multiple known end-matter titles, split them
+    const endHits = splitKnownItems(parsed.label, END_PATTERNS);
+    if (endHits.length >= 2 && parsed.label.length > 40) {
+      endHits.forEach(e => push({label:e.label, page:parsed.page}));
+      return;
+    }
+    push({label:parsed.label, page:parsed.page});
   });
-  // Stable standard order for preliminaries and end-matter
-  prelim.sort((a,b)=>prelimOrder(a.label)-prelimOrder(b.label) || a.label.localeCompare(b.label));
-  end.sort((a,b)=>endMatterOrder(a.label)-endMatterOrder(b.label) || a.label.localeCompare(b.label));
-  // Deduplicate while preserving order
-  const seen=new Set();
-  const ordered=[...prelim, ...body, ...end].filter(r=>{
-    const key=r.label.toLowerCase();
-    if(seen.has(key)) return false;
-    seen.add(key); return true;
-  });
-  const rows=[{heading:true,label:"TABLE OF CONTENTS",page:""}, ...ordered];
-  return `<div class="toc-lines">${rows.map(r=>r.heading?`<h2 style="font-weight:800;text-align:left;margin:0 0 20px">${escapeHTML(r.label)}</h2>`:`<div class="toc-row"><span class="toc-label">${escapeHTML(r.label)}</span><span class="toc-leader"></span><span class="toc-page">${escapeHTML(r.page)}</span></div>`).join("")}</div>`;
+  prelim.sort((a,b) => prelimOrder(a.label) - prelimOrder(b.label) || a.label.localeCompare(b.label));
+  end.sort((a,b) => endMatterOrder(a.label) - endMatterOrder(b.label) || a.label.localeCompare(b.label));
+  const ordered = [...prelim, ...body, ...end];
+  const rows = [];
+  if (showHeading) rows.push({heading:true, label:"TABLE OF CONTENTS", page:""});
+  rows.push(...ordered);
+  return rows.map(r => r.heading
+    ? `<h2 style="font-weight:800;text-align:left;margin:0 0 20px">${escapeHTML(r.label)}</h2>`
+    : `<div class="toc-row"><span class="toc-label">${escapeHTML(r.label)}</span><span class="toc-leader"></span><span class="toc-page">${escapeHTML(r.page)}</span></div>`
+  ).join("");
 }
 function removeTocFromPreliminary(text){
  const marker=/(^|\n)\s*(?:#{1,3}\s*)?(?:table of contents|contents)\s*(?:\n|$)/im;
  const match=marker.exec(text);return match?text.slice(0,match.index).trim():String(text||"").trim();
 }
 function createA4Pages(htmlContent,totalWords,options={}){
-  const pageBodies=paginateContent(htmlContent), totalPages=pageBodies.length||1;
   const kind=options.kind||"normal", startPage=Number(options.startPage||1);
+  // For TOC: build individual aligned rows first, then paginate those rows
+  // so preliminaries are not jammed and the heading appears only on page 1.
+  let sourceHtml = htmlContent;
+  if (kind === "toc") {
+    sourceHtml = formatTOCHTML(htmlContent, {showHeading: false});
+  }
+  const pageBodies=paginateContent(sourceHtml), totalPages=pageBodies.length||1;
   let pagesHTML=`<div class="document-stats"><div><strong>${totalPages}</strong> Page${totalPages>1?'s':''} • <strong>${totalWords}</strong> Words</div><div><button class="copy-latest-btn" onclick="copyLatestText()">Copy All</button></div></div><div class="pages-container">`;
   pageBodies.forEach((bodyHtml,idx)=>{
     let label=String(startPage+idx);
     if(kind==="preliminary")label=idx===0?"":romanNumber(idx);
     const pageKind=kind==="preliminary"?(idx===0?"cover-page":"preliminary-page"):(kind==="toc"?"toc-page":"body-page");
-    pagesHTML+=`<div class="a4-page ${pageKind}"><div class="page-number">${label}</div><div class="a4-content">${kind==="toc"?formatTOCHTML(bodyHtml):bodyHtml}</div><div class="a4-footer"><span>Tempaper Academic Engine</span><span></span></div></div>`;
+    let content = bodyHtml;
+    if (kind === "toc") {
+      const heading = idx === 0 ? `<h2 style="font-weight:800;text-align:left;margin:0 0 20px">TABLE OF CONTENTS</h2>` : "";
+      content = `<div class="toc-lines">${heading}${content}</div>`;
+    }
+    pagesHTML+=`<div class="a4-page ${pageKind}"><div class="page-number">${label}</div><div class="a4-content">${content}</div><div class="a4-footer"><span>Tempaper Academic Engine</span><span></span></div></div>`;
   });
   return pagesHTML+"</div>";
 }
