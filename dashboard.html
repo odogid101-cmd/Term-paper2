@@ -1664,7 +1664,8 @@ function paginateContent(html) {
 
     const clone = node.cloneNode(true);
     const headingLabel = (clone.textContent || "").trim();
-    const isMajorPageHeading = /^\s*(certification|declaration|dedication|acknowledg(?:e)?ments?|abstract|table of contents|chapter\s+(?:one|i)\b)/i.test(headingLabel);
+    const isTocRow = (clone.classList && clone.classList.contains("toc-row")) || /\btoc-row\b/.test(clone.className||"");
+    const isMajorPageHeading = !isTocRow && /^\s*(certification|declaration|dedication|acknowledg(?:e)?ments?|abstract|table of contents|chapter\s+(?:one|i)\b)/i.test(headingLabel);
     if (isMajorPageHeading && measureContent.childNodes.length > 0) {
       pages.push(Array.from(measureContent.childNodes).map(n => n.cloneNode(true)));
       measureContent.innerHTML = '';
