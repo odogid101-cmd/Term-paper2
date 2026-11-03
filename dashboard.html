@@ -1297,10 +1297,10 @@ svg { display: block; }
 /* A4 table-of-contents typography and aligned page-number leaders */
 .a4-page.toc-page .a4-content {text-align:left}
 .a4-page.toc-page .toc-lines h2 {border:0!important;border-left:0!important;padding:0!important;margin:0 0 20px!important;text-align:left!important;font-weight:800!important}
-.a4-page.toc-page .toc-row {display:flex;align-items:baseline;gap:6px;width:100%;margin:0 0 8px;line-height:1.5;text-align:left;break-inside:avoid}
-.a4-page.toc-page .toc-label {flex:0 1 auto;min-width:0;text-align:left;overflow-wrap:anywhere;font-weight:500}
-.a4-page.toc-page .toc-leader {flex:1 1 auto;min-width:16px;border-bottom:1px dotted #64748b;transform:translateY(-3px);margin:0 2px}
-.a4-page.toc-page .toc-page {flex:0 0 36px;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:600}
+.a4-page.toc-page .toc-row {display:flex;align-items:baseline;gap:12px;width:100%;margin:0 0 7px;line-height:1.55;text-align:left;break-inside:avoid}
+.a4-page.toc-page .toc-label {flex:1 1 auto;min-width:0;text-align:left;overflow-wrap:anywhere;font-weight:500}
+.a4-page.toc-page .toc-leader {display:none}
+.a4-page.toc-page .toc-page {flex:0 0 36px;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:600;color:#334155}
 .a4-page.toc-page .toc-lines h2 {margin-bottom:18px !important}
 
 /* Saved-paper workflow controls */
@@ -1896,6 +1896,16 @@ function formatTOCHTML(bodyHtml, options){
   });
   prelim.sort((a,b) => prelimOrder(a.label) - prelimOrder(b.label) || a.label.localeCompare(b.label));
   end.sort((a,b) => endMatterOrder(a.label) - endMatterOrder(b.label) || a.label.localeCompare(b.label));
+  // Fill missing preliminary page numbers from the rendered preliminary pages
+  try {
+    const info = getPreliminaryPageInfo();
+    prelim.forEach(entry => {
+      if (entry.page) return;
+      const key = entry.label.toLowerCase();
+      const alt = key.replace(/\s*\/\s*approval/, "").replace(/s$/, "");
+      entry.page = info.map[key] || info.map[alt] || info.map[key.replace(/\s*\/.*$/, "")] || "";
+    });
+  } catch (e) { /* preliminary pages may not be mounted yet */ }
   const ordered = [...prelim, ...body, ...end];
   const rows = [];
   if (showHeading) rows.push({heading:true, label:"TABLE OF CONTENTS", page:""});
@@ -1904,6 +1914,44 @@ function formatTOCHTML(bodyHtml, options){
     ? `<h2 style="font-weight:800;text-align:left;margin:0 0 20px">${escapeHTML(r.label)}</h2>`
     : `<div class="toc-row"><span class="toc-label">${escapeHTML(r.label)}</span><span class="toc-leader"></span><span class="toc-page">${escapeHTML(r.page)}</span></div>`
   ).join("");
+}
+
+function getPreliminaryPageInfo(){
+  const info = {nextRoman: 1, map: {}};
+  const pre = document.querySelector('#chatArea .chat-msg[data-kind="preliminary"]');
+  if (!pre) return info;
+  const pages = [...pre.querySelectorAll('.pages-container > .a4-page')];
+  info.nextRoman = pages.length; // cover is unnumbered; last numbered is length-1; next is length
+  pages.forEach((page, idx) => {
+    const num = idx === 0 ? "" : romanNumber(idx);
+    const text = (page.textContent || "").toLowerCase();
+    const assign = (label) => { if (label && info.map[label.toLowerCase()] == null) info.map[label.toLowerCase()] = num; };
+    if (idx === 0 || /cover|title\s*page/.test(text)) assign("cover page");
+    if (/certification/.test(text)) assign("certification / approval");
+    if (/declaration/.test(text)) assign("declaration");
+    if (/dedication/.test(text)) assign("dedication");
+    if (/acknowledg/.test(text)) assign("acknowledgements");
+    if (/abstract/.test(text)) assign("abstract");
+    if (/list of tables/.test(text)) assign("list of tables");
+    if (/list of figures/.test(text)) assign("list of figures");
+    if (/list of abbreviations/.test(text)) assign("list of abbreviations");
+    if (/list of symbols/.test(text)) assign("list of symbols");
+  });
+  // Fallback: assign by standard order if a known label has no page yet
+  const order = ["cover page","certification / approval","declaration","dedication","acknowledgements","abstract","list of tables","list of figures","list of abbreviations","list of symbols"];
+  let cursor = 0;
+  order.forEach(label => {
+    if (info.map[label] == null && cursor < pages.length) {
+      info.map[label] = cursor === 0 ? "" : romanNumber(cursor);
+      cursor++;
+    } else if (info.map[label] != null) {
+      // advance cursor past this page
+      const n = info.map[label];
+      const idx = n === "" ? 0 : ["","i","ii","iii","iv","v","vi","vii","viii","ix","x","xi","xii"].indexOf(n);
+      if (idx >= 0) cursor = Math.max(cursor, idx + 1);
+    }
+  });
+  return info;
 }
 function removeTocFromPreliminary(text){
  const marker=/(^|\n)\s*(?:#{1,3}\s*)?(?:table of contents|contents)\s*(?:\n|$)/im;
@@ -1922,6 +1970,10 @@ function createA4Pages(htmlContent,totalWords,options={}){
   pageBodies.forEach((bodyHtml,idx)=>{
     let label=String(startPage+idx);
     if(kind==="preliminary")label=idx===0?"":romanNumber(idx);
+    if(kind==="toc"){
+      const startRoman = Number(options.romanStart || getPreliminaryPageInfo().nextRoman || 1);
+      label = romanNumber(startRoman + idx);
+    }
     const pageKind=kind==="preliminary"?(idx===0?"cover-page":"preliminary-page"):(kind==="toc"?"toc-page":"body-page");
     let content = bodyHtml;
     if (kind === "toc") {
@@ -3262,7 +3314,7 @@ async function updateCurrentTOC(button,container){
       map[title||`Section ${el.dataset.orderNo}`]={order_no:Number(el.dataset.orderNo),page_start:pageStart,page_count:Number(el.dataset.pageCount||pages.length||1),kind:isEnd?"end-matter":(isPre?"preliminary":"chapter")};
       pages.forEach((page,pi)=>page.querySelectorAll('h1,h2,h3').forEach(h=>{
         const heading=(h.textContent||"").trim();if(!heading)return;
-        const hStart = isPre ? romanNumber(Math.max(1,pi)) : String(start+pi);
+        const hStart = isPre ? (pi===0 ? "" : romanNumber(pi)) : String(start+pi);
         map[heading]={order_no:Number(el.dataset.orderNo),page_start:hStart,page_count:1,kind:isEnd?"end-matter":(isPre?"preliminary":"chapter")};
       }));
     });
@@ -3311,8 +3363,12 @@ function renderMergedPaper(value){
     [...card.querySelectorAll(".pages-container > .a4-page")].forEach((source,index)=>{
       const page=source.cloneNode(true);page.classList.add("merged-page");
       page.querySelectorAll(".page-number").forEach(n=>{
-        if(kind==="preliminary"){n.textContent=index===0?"":romanNumber(romanPage);romanPage++;}
-        else{n.textContent=String(arabicPage++);}
+        if(kind==="preliminary"){
+          n.textContent=index===0?"":romanNumber(index);
+          romanPage=index+1; // next roman after this page
+        } else {
+          n.textContent=String(arabicPage++);
+        }
       });
       pages.appendChild(page);
     });
