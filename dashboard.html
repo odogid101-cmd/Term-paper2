@@ -1297,10 +1297,11 @@ svg { display: block; }
 /* A4 table-of-contents typography and aligned page-number leaders */
 .a4-page.toc-page .a4-content {text-align:left}
 .a4-page.toc-page .toc-lines h2 {border:0!important;border-left:0!important;padding:0!important;margin:0 0 20px!important;text-align:left!important;font-weight:800!important}
-.a4-page.toc-page .toc-row {display:flex;align-items:baseline;gap:7px;width:100%;margin:0 0 9px;line-height:1.45;text-align:left;break-inside:avoid}
-.a4-page.toc-page .toc-label {flex:0 1 auto;min-width:0;text-align:left;overflow-wrap:anywhere}
-.a4-page.toc-page .toc-leader {flex:1 1 auto;min-width:12px;border-bottom:1px dotted #64748b;transform:translateY(-3px)}
-.a4-page.toc-page .toc-page {flex:0 0 34px;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.a4-page.toc-page .toc-row {display:flex;align-items:baseline;gap:6px;width:100%;margin:0 0 8px;line-height:1.5;text-align:left;break-inside:avoid}
+.a4-page.toc-page .toc-label {flex:0 1 auto;min-width:0;text-align:left;overflow-wrap:anywhere;font-weight:500}
+.a4-page.toc-page .toc-leader {flex:1 1 auto;min-width:16px;border-bottom:1px dotted #64748b;transform:translateY(-3px);margin:0 2px}
+.a4-page.toc-page .toc-page {flex:0 0 36px;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:600}
+.a4-page.toc-page .toc-lines h2 {margin-bottom:18px !important}
 
 /* Saved-paper workflow controls */
 .workflow-output-actions {
@@ -1771,20 +1772,71 @@ function romanNumber(num){
   const vals=[[1000,"m"],[900,"cm"],[500,"d"],[400,"cd"],[100,"c"],[90,"xc"],[50,"l"],[40,"xl"],[10,"x"],[9,"ix"],[5,"v"],[4,"iv"],[1,"i"]];
   let out=""; for(const [v,s] of vals){while(num>=v){out+=s;num-=v;}} return out;
 }
+function isPreliminaryLabel(label){
+  const t = String(label||"").trim().toLowerCase();
+  return /^(cover|title\s*page|certification|declaration|dedication|acknowledg(e)?ments?|abstract|list of (tables|figures|abbreviations|symbols)|preface|foreword|table of contents|contents)\b/.test(t)
+    || /\b(certification|declaration|dedication|acknowledg(e)?ments?|abstract)\b/.test(t);
+}
+function isEndMatterLabel(label){
+  const t = String(label||"").trim().toLowerCase();
+  return /^(conclusion|conclusions|summary|recommendations?|references?|bibliography|works cited|appendices|appendix)\b/.test(t)
+    || /\b(conclusion|references?|bibliography|works cited|recommendations?)\b/.test(t);
+}
+function prelimOrder(label){
+  const t = String(label||"").trim().toLowerCase();
+  if (/cover|title\s*page/.test(t)) return 0;
+  if (/certification/.test(t)) return 1;
+  if (/declaration/.test(t)) return 2;
+  if (/dedication/.test(t)) return 3;
+  if (/acknowledg/.test(t)) return 4;
+  if (/abstract/.test(t)) return 5;
+  if (/list of (tables|figures|abbreviations|symbols)/.test(t)) return 6;
+  if (/preface|foreword/.test(t)) return 7;
+  if (/table of contents|contents/.test(t)) return 8;
+  return 20;
+}
+function endMatterOrder(label){
+  const t = String(label||"").trim().toLowerCase();
+  if (/^summary\b/.test(t)) return 1;
+  if (/^conclusion/.test(t)) return 2;          // overall conclusions of the whole document
+  if (/^recommendations?/.test(t)) return 3;
+  if (/^references?|^bibliography|^works cited/.test(t)) return 4;  // aggregated references
+  if (/^append/.test(t)) return 5;
+  return 10;
+}
 function formatTOCHTML(bodyHtml){
   const temp=document.createElement("div");temp.innerHTML=bodyHtml;
-  const rows=[];
-  temp.querySelectorAll("p,li,h1,h2,h3").forEach(node=>{
-    let line=(node.textContent||"").trim();if(!line)return;
-    if(/^table of contents$/i.test(line)) { rows.push({heading:true,label:"TABLE OF CONTENTS",page:""}); return; }
-    line=line.replace(/^[-*•]+\s*/,"");
+  const prelim=[], body=[], end=[];
+  temp.querySelectorAll("p,li,h1,h2,h3,div").forEach(node=>{
+    let line=(node.textContent||"").trim();
+    if(!line) return;
+    if(/^table of contents$/i.test(line)) return;
+    line=line.replace(/^[-*•]+\s*/,"").replace(/\s*\.{2,}\s*/," ").replace(/\s{2,}/g," ");
     let page="",label=line;
-    const match=line.match(/^(.*?)(?:\s*\.{2,}|\s+)([ivxlcdm]+|\d+)\s*$/i);
-    if(match){label=match[1].trim();page=match[2].trim();}
-    else { const tail=line.match(/^(.*?)(?:\s{2,}|\t+)([ivxlcdm]+|\d+)$/i); if(tail){label=tail[1].trim();page=tail[2].trim();} }
-    rows.push({label,page,heading:false});
+    const match=line.match(/^(.*?)(?:\s+\.{2,}|\s*\.{2,}|\s{2,}|\s+)([ivxlcdm]+|\d+)\s*$/i);
+    if(match){ label=match[1].replace(/[\s.]+$/,"").trim(); page=match[2].trim(); }
+    else {
+      const tail=line.match(/^(.*?)(?:\s{2,}|\t+)([ivxlcdm]+|\d+)$/i);
+      if(tail){ label=tail[1].replace(/[\s.]+$/,"").trim(); page=tail[2].trim(); }
+    }
+    label=label.replace(/[\s.]+$/,"").trim();
+    if(!label) return;
+    const entry={label,page,heading:false};
+    if(isPreliminaryLabel(label)) prelim.push(entry);
+    else if(isEndMatterLabel(label)) end.push(entry);
+    else body.push(entry);
   });
-  if(!rows.some(r=>r.heading)) rows.unshift({heading:true,label:"TABLE OF CONTENTS",page:""});
+  // Stable standard order for preliminaries and end-matter
+  prelim.sort((a,b)=>prelimOrder(a.label)-prelimOrder(b.label) || a.label.localeCompare(b.label));
+  end.sort((a,b)=>endMatterOrder(a.label)-endMatterOrder(b.label) || a.label.localeCompare(b.label));
+  // Deduplicate while preserving order
+  const seen=new Set();
+  const ordered=[...prelim, ...body, ...end].filter(r=>{
+    const key=r.label.toLowerCase();
+    if(seen.has(key)) return false;
+    seen.add(key); return true;
+  });
+  const rows=[{heading:true,label:"TABLE OF CONTENTS",page:""}, ...ordered];
   return `<div class="toc-lines">${rows.map(r=>r.heading?`<h2 style="font-weight:800;text-align:left;margin:0 0 20px">${escapeHTML(r.label)}</h2>`:`<div class="toc-row"><span class="toc-label">${escapeHTML(r.label)}</span><span class="toc-leader"></span><span class="toc-page">${escapeHTML(r.page)}</span></div>`).join("")}</div>`;
 }
 function removeTocFromPreliminary(text){
@@ -3123,11 +3175,18 @@ async function updateCurrentTOC(button,container){
     const map={};
     document.querySelectorAll('#chatArea .chat-msg[data-order-no]').forEach(el=>{
       if(el.dataset.kind==="toc")return;
-      const isPre=el.dataset.kind==="preliminary",start=Number(el.dataset.pageStart||1);
+      const title=el.dataset.title||"";
+      const isPre=el.dataset.kind==="preliminary" && !isEndMatterLabel(title);
+      const isEnd=isEndMatterLabel(title);
+      const start=Number(el.dataset.pageStart||1);
       const pages=[...el.querySelectorAll('.a4-page')];
-      map[el.dataset.title||`Section ${el.dataset.orderNo}`]={order_no:Number(el.dataset.orderNo),page_start:isPre?"i":String(start),page_count:Number(el.dataset.pageCount||pages.length||1)};
+      // Preliminaries use Roman; chapters and end-matter (Conclusion, References, …) use Arabic
+      const pageStart = isPre ? "i" : String(start);
+      map[title||`Section ${el.dataset.orderNo}`]={order_no:Number(el.dataset.orderNo),page_start:pageStart,page_count:Number(el.dataset.pageCount||pages.length||1),kind:isEnd?"end-matter":(isPre?"preliminary":"chapter")};
       pages.forEach((page,pi)=>page.querySelectorAll('h1,h2,h3').forEach(h=>{
-        const heading=(h.textContent||"").trim();if(heading)map[heading]={order_no:Number(el.dataset.orderNo),page_start:isPre?romanNumber(Math.max(1,pi)):String(start+pi),page_count:1};
+        const heading=(h.textContent||"").trim();if(!heading)return;
+        const hStart = isPre ? romanNumber(Math.max(1,pi)) : String(start+pi);
+        map[heading]={order_no:Number(el.dataset.orderNo),page_start:hStart,page_count:1,kind:isEnd?"end-matter":(isPre?"preliminary":"chapter")};
       }));
     });
     const d=await workflowJSON("/sync-toc-pages",{user_id:userId,toc_code:activeTocCode,page_map:map},"Could not update table of contents.");
