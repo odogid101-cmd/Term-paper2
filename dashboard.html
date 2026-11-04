@@ -1957,15 +1957,54 @@ function removeTocFromPreliminary(text){
  const marker=/(^|\n)\s*(?:#{1,3}\s*)?(?:table of contents|contents)\s*(?:\n|$)/im;
  const match=marker.exec(text);return match?text.slice(0,match.index).trim():String(text||"").trim();
 }
+function packTocPages(rowsHtml){
+  // Dedicated TOC packer: keep every entry together, never force a page
+  // break on preliminary titles, and put the heading only on page 1.
+  const temp = document.createElement("div");
+  temp.innerHTML = rowsHtml;
+  const rows = Array.from(temp.children);
+  if (!rows.length) return ["<div class=\"toc-lines\"></div>"];
+  const measureWrapper = document.createElement("div");
+  measureWrapper.style.cssText = "position:absolute;left:-99999px;top:0;width:794px;";
+  document.body.appendChild(measureWrapper);
+  const page = document.createElement("div");
+  page.style.cssText = "width:794px;box-sizing:border-box;font-family:Inter,sans-serif;font-size:15px;line-height:1.5;";
+  const body = document.createElement("div");
+  body.style.cssText = "height:860px;overflow:hidden;box-sizing:border-box;";
+  const content = document.createElement("div");
+  content.className = "toc-lines";
+  body.appendChild(content);
+  page.appendChild(body);
+  measureWrapper.appendChild(page);
+  const pages = [];
+  const flush = () => {
+    if (!content.childNodes.length) return;
+    pages.push(content.innerHTML);
+    content.innerHTML = "";
+  };
+  rows.forEach((row, i) => {
+    content.appendChild(row.cloneNode(true));
+    if (content.scrollHeight > body.clientHeight + 1) {
+      content.removeChild(content.lastChild);
+      flush();
+      content.appendChild(row.cloneNode(true));
+    }
+  });
+  flush();
+  document.body.removeChild(measureWrapper);
+  return pages.length ? pages : [rowsHtml];
+}
 function createA4Pages(htmlContent,totalWords,options={}){
   const kind=options.kind||"normal", startPage=Number(options.startPage||1);
-  // For TOC: build individual aligned rows first, then paginate those rows
-  // so preliminaries are not jammed and the heading appears only on page 1.
-  let sourceHtml = htmlContent;
+  let pageBodies, totalPages;
   if (kind === "toc") {
-    sourceHtml = formatTOCHTML(htmlContent, {showHeading: false});
+    const rowsHtml = formatTOCHTML(htmlContent, {showHeading: false});
+    pageBodies = packTocPages(rowsHtml);
+    totalPages = pageBodies.length || 1;
+  } else {
+    pageBodies = paginateContent(htmlContent);
+    totalPages = pageBodies.length || 1;
   }
-  const pageBodies=paginateContent(sourceHtml), totalPages=pageBodies.length||1;
   let pagesHTML=`<div class="document-stats"><div><strong>${totalPages}</strong> Page${totalPages>1?'s':''} • <strong>${totalWords}</strong> Words</div><div><button class="copy-latest-btn" onclick="copyLatestText()">Copy All</button></div></div><div class="pages-container">`;
   pageBodies.forEach((bodyHtml,idx)=>{
     let label=String(startPage+idx);
