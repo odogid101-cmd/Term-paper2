@@ -1829,11 +1829,23 @@ const END_PATTERNS = [
 function splitKnownItems(raw, patterns){
   const found = [];
   const used = new Set();
+  const source = String(raw||"");
+  // Find each known title and the roman/arabic number that follows it
+  const hits = [];
   for (const p of patterns) {
-    if (p.re.test(raw) && !used.has(p.label.toLowerCase())) {
-      found.push({label:p.label, page:""});
+    const m = p.re.exec(source);
+    if (m && !used.has(p.label.toLowerCase())) {
+      hits.push({label:p.label, index:m.index, end:m.index+m[0].length});
       used.add(p.label.toLowerCase());
     }
+  }
+  hits.sort((a,b)=>a.index-b.index);
+  for (let i=0;i<hits.length;i++) {
+    const start = hits[i].end;
+    const stop = i+1<hits.length ? hits[i+1].index : source.length;
+    const chunk = source.slice(start, stop);
+    const pageMatch = chunk.match(/([ivxlcdm]+|\d+)/i);
+    found.push({label:hits[i].label, page:pageMatch?pageMatch[1]:""});
   }
   return found;
 }
@@ -1877,21 +1889,25 @@ function formatTOCHTML(bodyHtml, options){
     let line = (node.textContent || "").trim();
     if (!line) return;
     if (/^table of contents$/i.test(line)) return;
-    line = line.replace(/^[-*•]+\s*/, "");
-    // Jammed preliminary block (many titles in one string, no page numbers)
+    line = line.replace(/^[-*•]+\s*/, "").replace(/#+/g," ");
+    // Jammed block containing several known titles (prelim or end-matter)
     const prelimHits = splitKnownItems(line, PRELIM_PATTERNS);
-    if (prelimHits.length >= 3) {
+    const endHits = splitKnownItems(line, END_PATTERNS);
+    if (prelimHits.length >= 2) {
       prelimHits.forEach(push);
+      // also pick up any end-matter titles that rode along in the same string
+      endHits.forEach(push);
+      return;
+    }
+    if (endHits.length >= 2) {
+      endHits.forEach(push);
       return;
     }
     const parsed = parseTocLine(line);
     if (!parsed.label) return;
-    // If a single line still contains multiple known end-matter titles, split them
-    const endHits = splitKnownItems(parsed.label, END_PATTERNS);
-    if (endHits.length >= 2 && parsed.label.length > 40) {
-      endHits.forEach(e => push({label:e.label, page:parsed.page}));
-      return;
-    }
+    // Strip leftover dotted leaders from the label
+    parsed.label = parsed.label.replace(/[\.·…]{2,}/g,"").replace(/\s{2,}/g," ").trim();
+    if (!parsed.label || /^preliminary pages?$/i.test(parsed.label)) return;
     push({label:parsed.label, page:parsed.page});
   });
   prelim.sort((a,b) => prelimOrder(a.label) - prelimOrder(b.label) || a.label.localeCompare(b.label));
