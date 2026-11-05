@@ -1335,6 +1335,199 @@ svg { display: block; }
 }
 @media print { .workflow-output-actions,.workflow-editor,.workflow-status,.workflow-merge-btn,.workflow-merged-note {display:none!important} }
 
+/* ========== FIGURE / IMAGE SUPPORT ========== */
+.tp-figure {
+  position: relative;
+  display: block;
+  max-width: 100%;
+  margin: 22px auto;
+  text-align: center;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+.tp-figure img {
+  max-width: 100%;
+  max-height: 420px;
+  height: auto;
+  width: auto;
+  object-fit: contain;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  background: #f8fafc;
+  display: block;
+  margin: 0 auto;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.tp-figure.selected img {
+  outline: 2px solid #4f46e5;
+  outline-offset: 3px;
+}
+.tp-figure .fig-caption {
+  display: block;
+  margin-top: 8px;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  text-align: center;
+  line-height: 1.4;
+}
+.tp-figure .fig-caption .fig-label {
+  font-weight: 800;
+  color: #0f172a;
+}
+.tp-figure-handles {
+  display: none;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+.tp-figure.selected .tp-figure-handles {
+  display: block;
+}
+.tp-handle {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background: #4f46e5;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  pointer-events: auto;
+  cursor: move;
+  box-shadow: 0 2px 6px rgba(0,0,0,.25);
+  z-index: 6;
+}
+.tp-handle.move {
+  top: -7px;
+  left: 50%;
+  transform: translateX(-50%);
+  cursor: grab;
+}
+.tp-handle.move:active { cursor: grabbing; }
+.tp-handle.resize {
+  top: 50%;
+  left: -7px;
+  transform: translateY(-50%);
+  cursor: ew-resize;
+}
+.tp-handle.delete {
+  top: -10px;
+  right: -10px;
+  width: 22px;
+  height: 22px;
+  background: #ef4444;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  border: 2px solid #fff;
+}
+.tp-handle.delete:hover { background: #dc2626; }
+
+/* Image upload panel */
+.tp-image-panel {
+  max-width: 860px;
+  margin: 12px auto 18px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+  display: none;
+}
+.tp-image-panel.show { display: block; }
+.tp-image-panel h4 {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  color: var(--text);
+}
+.tp-image-panel .hint {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+.tp-image-panel .row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.tp-image-panel input[type="text"],
+.tp-image-panel input[type="file"] {
+  flex: 1;
+  min-width: 180px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+}
+.tp-image-panel .preview-box {
+  width: 100%;
+  max-height: 220px;
+  overflow: hidden;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,.03);
+  margin: 8px 0 12px;
+  min-height: 80px;
+}
+.tp-image-panel .preview-box img {
+  max-width: 100%;
+  max-height: 200px;
+  object-fit: contain;
+}
+.tp-image-panel .actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+.tp-image-panel .actions button {
+  min-height: 36px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,.04);
+  color: var(--text);
+}
+.tp-image-panel .actions button.primary {
+  background: var(--accent-gradient);
+  border-color: transparent;
+  color: #fff;
+}
+.tp-image-panel .status {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 8px;
+  min-height: 16px;
+}
+.tp-image-panel .status.error { color: #fca5a5; }
+.tp-image-panel .status.success { color: #a7f3d0; }
+
+@media print {
+  .tp-figure-handles, .tp-image-panel, .tp-handle { display: none !important; }
+  .tp-figure img { outline: none !important; max-height: none; }
+}
+
+
 
 
 /* Section-preserving merged document */
@@ -3268,13 +3461,14 @@ function addWorkflowSection(data,isInitial=false){
   const isToc=kind==="toc";
   const actions=isToc
     ? `<button data-action="edit">Edit</button><button class="update-toc" data-action="update-toc">↻ Update TOC</button><button class="primary" data-action="next">Pull Next</button>`
-    : `<label class="inline-edit-toggle"><input type="checkbox" data-action="inline-toggle" ${activePaperMerged?"disabled":""}> Inline Edit with Groq</label><button data-action="edit">Edit</button><button data-action="resend" ${activePaperMerged?"disabled":""}>Resend</button><button class="primary" data-action="next">Pull Next</button>`;
+    : `<label class="inline-edit-toggle"><input type="checkbox" data-action="inline-toggle" ${activePaperMerged?"disabled":""}> Inline Edit with Groq</label><button data-action="edit">Edit</button><button data-action="add-image" ${activePaperMerged?"disabled":""}>Add Image</button><button data-action="resend" ${activePaperMerged?"disabled":""}>Resend</button><button class="primary" data-action="next">Pull Next</button>`;
   container.innerHTML=`<div style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(data.title||"Generated section")}</div>${createA4Pages(workflowContentHTML(data.result||""),words,{kind,startPage:start})}<div class="workflow-output-actions">${actions}</div>`;
   if(kind==="toc")document.querySelector('#chatArea .chat-msg[data-kind="preliminary"] [data-action="next"]')?.setAttribute("disabled","disabled");
   else document.querySelectorAll('#chatArea .chat-msg .workflow-output-actions [data-action="next"]').forEach(b=>b.disabled=true);
   Object.assign(container.dataset,{title:data.title||"Generated section",raw:content,kind,projectId:String(data.project_id||activePaperProjectId||""),tocCode:data.toc_code||activeTocCode||"",pageStart:kind==="preliminary"?"i":String(start)});
   if(!isToc)container.dataset.orderNo=String(data.order_no??0);
   bindWorkflowButtons(container);
+  bindFigureInteractions(container);
   chatArea.appendChild(container);chatArea.scrollTop=chatArea.scrollHeight;
   const pageCount=paginateContent(workflowContentHTML(data.result||"")).length||1;
   container.dataset.pageCount=String(pageCount);
@@ -3329,6 +3523,7 @@ async function commitWorkflowEdit(container,value,button){
         addWorkflowStatus("Section saved directly. The merged export has been synchronized by the server.");
       }
       bindWorkflowButtons(container);
+      bindFigureInteractions(container);
     }
     latestResultText=saved;toggleCopyButton(saved);
     addWorkflowStatus(d.message||"Changes saved successfully.");
@@ -3438,11 +3633,285 @@ function renderMergedPaper(value){
   wrap.appendChild(note);document.getElementById("chatArea").appendChild(wrap);
 }
 
+
+/* ========== IMAGE / FIGURE SUPPORT ========== */
+let activeImagePanel = null;
+let figureCounterByChapter = {}; // chapterKey -> next index
+
+function getChapterNumberFromTitle(title) {
+  const t = String(title || "");
+  const m = t.match(/chapter\s+(\d+|i{1,3}|iv|v|vi{0,3}|ix|x|one|two|three|four|five|six|seven|eight|nine|ten)/i);
+  if (!m) return 0;
+  const token = m[1].toLowerCase();
+  const words = {one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10};
+  const roman = {i:1,ii:2,iii:3,iv:4,v:5,vi:6,vii:7,viii:8,ix:9,x:10};
+  if (/^\d+$/.test(token)) return parseInt(token, 10);
+  return words[token] || roman[token] || 0;
+}
+
+function nextFigureLabel(container) {
+  const title = container.dataset.title || "";
+  const chap = getChapterNumberFromTitle(title) || Number(container.dataset.orderNo || 1) || 1;
+  const key = String(chap);
+  if (!figureCounterByChapter[key]) {
+    // count existing figures already in this section
+    const existing = (container.dataset.raw || "").match(/Fig\.?\s*\d+\.\d+/gi) || [];
+    const nums = existing.map(s => {
+      const mm = s.match(/(\d+)\.(\d+)/);
+      return mm ? parseInt(mm[2], 10) : 0;
+    });
+    figureCounterByChapter[key] = (nums.length ? Math.max(...nums) : 0) + 1;
+  }
+  const idx = figureCounterByChapter[key]++;
+  return { label: `Fig. ${chap}.${idx}`, chapter: chap, index: idx };
+}
+
+function buildFigureHTML(url, label, caption, widthPct = 70) {
+  const safeUrl = escapeHTML(url);
+  const safeLabel = escapeHTML(label);
+  const safeCap = escapeHTML(caption || "");
+  return `<div class="tp-figure" data-fig-label="${safeLabel}" data-fig-url="${safeUrl}" style="width:${widthPct}%;max-width:100%;margin-left:auto;margin-right:auto">
+  <img src="${safeUrl}" alt="${safeLabel}" draggable="false" />
+  <span class="fig-caption"><span class="fig-label">${safeLabel}</span>${safeCap ? ": " + safeCap : ""}</span>
+  <div class="tp-figure-handles">
+    <div class="tp-handle move" title="Move"></div>
+    <div class="tp-handle resize" title="Resize (keep aspect ratio)"></div>
+    <div class="tp-handle delete" title="Delete">×</div>
+  </div>
+</div>`;
+}
+
+function showImagePanel(container) {
+  // Remove any existing panel
+  document.querySelectorAll(".tp-image-panel").forEach(p => p.remove());
+  const panel = document.createElement("div");
+  panel.className = "tp-image-panel show";
+  panel.innerHTML = `
+    <h4>Add Image to this section</h4>
+    <div class="hint">Upload an image from your device. It will be resized to fit without stretching. The system assigns the figure number automatically. After saving, click <b>Resend</b> so the chapter text is updated around the image.</div>
+    <div class="row">
+      <input type="file" accept="image/*" id="tpImageFile" />
+    </div>
+    <div class="preview-box" id="tpImagePreview"><span style="color:var(--muted);font-size:13px">No image selected</span></div>
+    <div class="row">
+      <input type="text" id="tpImageCaption" placeholder="Caption / sub-label (e.g. Pawpaw leaf structure)" />
+    </div>
+    <div class="actions">
+      <button type="button" data-cancel>Cancel</button>
+      <button type="button" class="primary" data-upload>Upload & Insert</button>
+    </div>
+    <div class="status" id="tpImageStatus"></div>
+  `;
+  container.appendChild(panel);
+  activeImagePanel = panel;
+
+  const fileInput = panel.querySelector("#tpImageFile");
+  const preview = panel.querySelector("#tpImagePreview");
+  const status = panel.querySelector("#tpImageStatus");
+  let selectedFile = null;
+  let objectUrl = null;
+
+  fileInput.addEventListener("change", () => {
+    const f = fileInput.files && fileInput.files[0];
+    if (!f) return;
+    if (f.size > 8 * 1024 * 1024) {
+      status.textContent = "Image must be under 8 MB.";
+      status.className = "status error";
+      return;
+    }
+    selectedFile = f;
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+    objectUrl = URL.createObjectURL(f);
+    preview.innerHTML = `<img src="${objectUrl}" alt="preview" />`;
+    status.textContent = "";
+    status.className = "status";
+  });
+
+  panel.querySelector("[data-cancel]").onclick = () => {
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+    panel.remove();
+    activeImagePanel = null;
+  };
+
+  panel.querySelector("[data-upload]").onclick = async () => {
+    if (!selectedFile) {
+      status.textContent = "Please choose an image first.";
+      status.className = "status error";
+      return;
+    }
+    const caption = (panel.querySelector("#tpImageCaption").value || "").trim();
+    const btn = panel.querySelector("[data-upload]");
+    btn.disabled = true;
+    btn.textContent = "Uploading…";
+    status.textContent = "Uploading to ImgBB via server…";
+    status.className = "status";
+
+    try {
+      const form = new FormData();
+      form.append("image", selectedFile);
+      form.append("user_id", getWorkflowUserId() || "");
+      form.append("project_id", container.dataset.projectId || "");
+      form.append("order_no", container.dataset.orderNo || "0");
+
+      const res = await fetch(`${API_URL}/upload-image`, {
+        method: "POST",
+        body: form
+      });
+      const data = await res.json();
+      if (!res.ok || !data.url) {
+        throw new Error(data.error || "Upload failed.");
+      }
+
+      const { label } = nextFigureLabel(container);
+      const figHtml = buildFigureHTML(data.url, label, caption, 70);
+
+      // Append figure to the end of the current section content (user can move it later)
+      let raw = container.dataset.raw || "";
+      // Prefer inserting after the last paragraph if possible
+      raw = raw.trim() + "\n\n" + `[[TEMPAPER_RICH_HTML]]${figHtml}`;
+      // If already rich, just append the figure HTML
+      if ((container.dataset.raw || "").startsWith("[[TEMPAPER_RICH_HTML]]")) {
+        raw = (container.dataset.raw || "") + figHtml;
+      } else {
+        // Convert existing markdown to rich + append
+        const existingHtml = markdownToHTML(cleanPaperText(container.dataset.raw || ""));
+        raw = "[[TEMPAPER_RICH_HTML]]" + existingHtml + figHtml;
+      }
+
+      container.dataset.raw = raw;
+      // Re-render the section pages so the figure appears immediately
+      const words = content_plain_text_for_count(raw).split(/\s+/).filter(Boolean).length;
+      const kind = container.dataset.kind || "chapter";
+      const start = Number(container.dataset.pageStart || 1);
+      const heading = `<div data-section-heading style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(container.dataset.title || "Section")}</div>`;
+      const actionsNode = container.querySelector(".workflow-output-actions");
+      const actions = actionsNode ? actionsNode.outerHTML : "";
+      container.innerHTML = heading + createA4Pages(workflowContentHTML(raw), words, {kind, startPage: start}) + actions;
+      container.dataset.raw = raw;
+      container.dataset.pageCount = String(paginateContent(workflowContentHTML(raw)).length || 1);
+      bindWorkflowButtons(container);
+      bindFigureInteractions(container);
+
+      status.textContent = `Inserted as ${label}. Now click Resend so the chapter text is adjusted around the image.`;
+      status.className = "status success";
+      setTimeout(() => { panel.remove(); activeImagePanel = null; }, 1800);
+    } catch (err) {
+      status.textContent = err.message || "Upload failed.";
+      status.className = "status error";
+      btn.disabled = false;
+      btn.textContent = "Upload & Insert";
+    }
+  };
+}
+
+function content_plain_text_for_count(value) {
+  const v = String(value || "");
+  if (v.startsWith("[[TEMPAPER_RICH_HTML]]")) {
+    const tmp = document.createElement("div");
+    tmp.innerHTML = v.slice("[[TEMPAPER_RICH_HTML]]".length);
+    return (tmp.textContent || "").trim();
+  }
+  return v;
+}
+
+function bindFigureInteractions(root) {
+  const scope = root || document;
+  scope.querySelectorAll(".tp-figure").forEach(fig => {
+    if (fig.dataset.bound === "1") return;
+    fig.dataset.bound = "1";
+
+    const img = fig.querySelector("img");
+    const moveH = fig.querySelector(".tp-handle.move");
+    const resizeH = fig.querySelector(".tp-handle.resize");
+    const delH = fig.querySelector(".tp-handle.delete");
+
+    fig.addEventListener("click", (e) => {
+      if (e.target.closest(".tp-handle")) return;
+      document.querySelectorAll(".tp-figure.selected").forEach(f => f.classList.remove("selected"));
+      fig.classList.add("selected");
+    });
+
+    if (delH) {
+      delH.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (!confirm("Delete this figure?")) return;
+        const label = fig.dataset.figLabel || "";
+        fig.remove();
+        // Also remove from raw content of the nearest section
+        const card = fig.closest(".chat-msg");
+        if (card && card.dataset.raw) {
+          const tmp = document.createElement("div");
+          let html = card.dataset.raw.startsWith("[[TEMPAPER_RICH_HTML]]")
+            ? card.dataset.raw.slice("[[TEMPAPER_RICH_HTML]]".length)
+            : markdownToHTML(cleanPaperText(card.dataset.raw));
+          tmp.innerHTML = html;
+          tmp.querySelectorAll(`.tp-figure[data-fig-label="${label}"]`).forEach(n => n.remove());
+          card.dataset.raw = "[[TEMPAPER_RICH_HTML]]" + tmp.innerHTML;
+        }
+      });
+    }
+
+    // Simple drag-to-move (changes left margin / alignment via width + margin)
+    if (moveH) {
+      let startX = 0, startMargin = 0;
+      moveH.addEventListener("mousedown", (e) => {
+        e.preventDefault(); e.stopPropagation();
+        startX = e.clientX;
+        const style = window.getComputedStyle(fig);
+        startMargin = parseFloat(style.marginLeft) || 0;
+        const onMove = (ev) => {
+          const dx = ev.clientX - startX;
+          fig.style.marginLeft = Math.max(0, startMargin + dx) + "px";
+          fig.style.marginRight = "auto";
+        };
+        const onUp = () => {
+          document.removeEventListener("mousemove", onMove);
+          document.removeEventListener("mouseup", onUp);
+        };
+        document.addEventListener("mousemove", onMove);
+        document.addEventListener("mouseup", onUp);
+      });
+    }
+
+    // Resize from left edge while keeping aspect ratio (adjust width %)
+    if (resizeH) {
+      let startX = 0, startW = 0;
+      resizeH.addEventListener("mousedown", (e) => {
+        e.preventDefault(); e.stopPropagation();
+        startX = e.clientX;
+        startW = fig.getBoundingClientRect().width;
+        const parentW = fig.parentElement.getBoundingClientRect().width || startW;
+        const onMove = (ev) => {
+          const dx = startX - ev.clientX; // drag left = larger
+          let newW = Math.max(120, Math.min(parentW, startW + dx));
+          const pct = Math.round((newW / parentW) * 100);
+          fig.style.width = Math.max(20, Math.min(100, pct)) + "%";
+        };
+        const onUp = () => {
+          document.removeEventListener("mousemove", onMove);
+          document.removeEventListener("mouseup", onUp);
+        };
+        document.addEventListener("mousemove", onMove);
+        document.addEventListener("mouseup", onUp);
+      });
+    }
+  });
+}
+
+// Re-bind figures after any section re-render
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".tp-figure")) {
+    document.querySelectorAll(".tp-figure.selected").forEach(f => f.classList.remove("selected"));
+  }
+});
+
+
 async function handleWorkflowAction(button,container){
   if(workflowBusy)return;
   const action=button.dataset.action;
   if(action==="inline-toggle")return;
   if(action==="edit"){showSectionEditor(container);return;}
+  if(action==="add-image"){showImagePanel(container);return;}
   if(action==="update-toc"){
     try{await updateCurrentTOC(button,container);}catch(err){alert(err.message||"TOC update failed.");}return;
   }
@@ -3465,7 +3934,7 @@ async function handleWorkflowAction(button,container){
       const actions=container.querySelector(".workflow-output-actions")?.outerHTML||"";
       container.innerHTML=heading+createA4Pages(workflowContentHTML(d.result),d.result.split(/\s+/).filter(Boolean).length,{kind:container.dataset.kind,startPage:Number(container.dataset.pageStart||1)})+actions;
       container.dataset.pageCount=String(paginateContent(workflowContentHTML(d.result)).length||1);
-      bindWorkflowButtons(container);latestResultText=d.result;toggleCopyButton(d.result);
+      bindWorkflowButtons(container);bindFigureInteractions(container);latestResultText=d.result;toggleCopyButton(d.result);
     } else if(action==="next"){
       const d=await workflowJSON("/pull-next",{user_id:userId,project_id:projectId,action:"next"},"Could not generate next section.");
       if(d.done){showMergeControl();addWorkflowStatus(d.message||"All sections have been generated.");return;}
