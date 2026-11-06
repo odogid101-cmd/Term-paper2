@@ -3634,9 +3634,10 @@ function renderMergedPaper(value){
 }
 
 
+
 /* ========== IMAGE / FIGURE SUPPORT ========== */
 let activeImagePanel = null;
-let figureCounterByChapter = {}; // chapterKey -> next index
+let figureCounterByChapter = {};
 
 function getChapterNumberFromTitle(title) {
   const t = String(title || "");
@@ -3654,7 +3655,6 @@ function nextFigureLabel(container) {
   const chap = getChapterNumberFromTitle(title) || Number(container.dataset.orderNo || 1) || 1;
   const key = String(chap);
   if (!figureCounterByChapter[key]) {
-    // count existing figures already in this section
     const existing = (container.dataset.raw || "").match(/Fig\.?\s*\d+\.\d+/gi) || [];
     const nums = existing.map(s => {
       const mm = s.match(/(\d+)\.(\d+)/);
@@ -3671,7 +3671,7 @@ function buildFigureHTML(url, label, caption, widthPct = 70) {
   const safeLabel = escapeHTML(label);
   const safeCap = escapeHTML(caption || "");
   return `<div class="tp-figure" data-fig-label="${safeLabel}" data-fig-url="${safeUrl}" style="width:${widthPct}%;max-width:100%;margin-left:auto;margin-right:auto">
-  <img src="${safeUrl}" alt="${safeLabel}" draggable="false" />
+  <img src="${safeUrl}" alt="${safeLabel}" loading="lazy" draggable="false" />
   <span class="fig-caption"><span class="fig-label">${safeLabel}</span>${safeCap ? ": " + safeCap : ""}</span>
   <div class="tp-figure-handles">
     <div class="tp-handle move" title="Move"></div>
@@ -3681,20 +3681,41 @@ function buildFigureHTML(url, label, caption, widthPct = 70) {
 </div>`;
 }
 
+/** Rebuild dataset.raw from the live DOM so moved/resized figures are kept. */
+function syncSectionRawFromDOM(container) {
+  const pages = container.querySelectorAll(".a4-content");
+  if (!pages.length) return container.dataset.raw || "";
+  const parts = [];
+  pages.forEach(p => { parts.push(p.innerHTML); });
+  const html = parts.join("\n");
+  container.dataset.raw = "[[TEMPAPER_RICH_HTML]]" + html;
+  return container.dataset.raw;
+}
+
+function extractFiguresFromHTML(html) {
+  const tmp = document.createElement("div");
+  tmp.innerHTML = html.startsWith("[[TEMPAPER_RICH_HTML]]") ? html.slice("[[TEMPAPER_RICH_HTML]]".length) : html;
+  return [...tmp.querySelectorAll(".tp-figure")].map(fig => ({
+    label: fig.dataset.figLabel || "",
+    url: fig.dataset.figUrl || (fig.querySelector("img") && fig.querySelector("img").src) || "",
+    caption: (fig.querySelector(".fig-caption")?.textContent || "").replace(/^Fig\.?\s*\d+\.\d+\s*:?\s*/i, "").trim(),
+    outer: fig.outerHTML
+  }));
+}
+
 function showImagePanel(container) {
-  // Remove any existing panel
   document.querySelectorAll(".tp-image-panel").forEach(p => p.remove());
   const panel = document.createElement("div");
   panel.className = "tp-image-panel show";
   panel.innerHTML = `
     <h4>Add Image to this section</h4>
-    <div class="hint">Upload an image from your device. It will be resized to fit without stretching. The system assigns the figure number automatically. After saving, click <b>Resend</b> so the chapter text is updated around the image.</div>
+    <div class="hint">1. Upload an image.<br>2. Add a short caption.<br>3. Place it where you want (drag/resize after it appears).<br>4. Click <b>Resend</b> so Groq rewrites the chapter and refers to the figure.</div>
     <div class="row">
       <input type="file" accept="image/*" id="tpImageFile" />
     </div>
     <div class="preview-box" id="tpImagePreview"><span style="color:var(--muted);font-size:13px">No image selected</span></div>
     <div class="row">
-      <input type="text" id="tpImageCaption" placeholder="Caption / sub-label (e.g. Pawpaw leaf structure)" />
+      <input type="text" id="tpImageCaption" placeholder="Caption / sub-label (e.g. Background of coding diagram)" />
     </div>
     <div class="actions">
       <button type="button" data-cancel>Cancel</button>
@@ -3743,7 +3764,7 @@ function showImagePanel(container) {
     const btn = panel.querySelector("[data-upload]");
     btn.disabled = true;
     btn.textContent = "Uploading…";
-    status.textContent = "Uploading to ImgBB via server…";
+    status.textContent = "Uploading to ImgBB…";
     status.className = "status";
 
     try {
@@ -3753,33 +3774,25 @@ function showImagePanel(container) {
       form.append("project_id", container.dataset.projectId || "");
       form.append("order_no", container.dataset.orderNo || "0");
 
-      const res = await fetch(`${API_URL}/upload-image`, {
-        method: "POST",
-        body: form
-      });
+      const res = await fetch(`${API_URL}/upload-image`, { method: "POST", body: form });
       const data = await res.json();
-      if (!res.ok || !data.url) {
-        throw new Error(data.error || "Upload failed.");
-      }
+      if (!res.ok || !data.url) throw new Error(data.error || "Upload failed.");
 
       const { label } = nextFigureLabel(container);
       const figHtml = buildFigureHTML(data.url, label, caption, 70);
 
-      // Append figure to the end of the current section content (user can move it later)
-      let raw = container.dataset.raw || "";
-      // Prefer inserting after the last paragraph if possible
-      raw = raw.trim() + "\n\n" + `[[TEMPAPER_RICH_HTML]]${figHtml}`;
-      // If already rich, just append the figure HTML
-      if ((container.dataset.raw || "").startsWith("[[TEMPAPER_RICH_HTML]]")) {
-        raw = (container.dataset.raw || "") + figHtml;
+      // Build rich HTML from current content + new figure
+      let baseHtml;
+      const currentRaw = container.dataset.raw || "";
+      if (currentRaw.startsWith("[[TEMPAPER_RICH_HTML]]")) {
+        baseHtml = currentRaw.slice("[[TEMPAPER_RICH_HTML]]".length);
       } else {
-        // Convert existing markdown to rich + append
-        const existingHtml = markdownToHTML(cleanPaperText(container.dataset.raw || ""));
-        raw = "[[TEMPAPER_RICH_HTML]]" + existingHtml + figHtml;
+        baseHtml = markdownToHTML(cleanPaperText(currentRaw));
       }
-
+      const raw = "[[TEMPAPER_RICH_HTML]]" + baseHtml + figHtml;
       container.dataset.raw = raw;
-      // Re-render the section pages so the figure appears immediately
+
+      // Re-render section
       const words = content_plain_text_for_count(raw).split(/\s+/).filter(Boolean).length;
       const kind = container.dataset.kind || "chapter";
       const start = Number(container.dataset.pageStart || 1);
@@ -3792,9 +3805,31 @@ function showImagePanel(container) {
       bindWorkflowButtons(container);
       bindFigureInteractions(container);
 
-      status.textContent = `Inserted as ${label}. Now click Resend so the chapter text is adjusted around the image.`;
-      status.className = "status success";
-      setTimeout(() => { panel.remove(); activeImagePanel = null; }, 1800);
+      // Persist immediately so the image survives refresh / reopen
+      status.textContent = "Saving image into this section…";
+      try {
+        const userId = getWorkflowUserId();
+        const projectId = container.dataset.projectId;
+        const orderNo = Number(container.dataset.orderNo || 0);
+        if (userId && projectId) {
+          await workflowJSON("/pull-next", {
+            user_id: userId,
+            project_id: projectId,
+            action: "edit",
+            order_no: orderNo,
+            content: raw,
+            inline_enabled: false
+          }, "Could not save the image into this section.");
+        }
+        status.textContent = `Saved as ${label}. Drag to place it, then click Resend so Groq refers to it in the text.`;
+        status.className = "status success";
+        addWorkflowStatus(`${label} saved in this section. Place it, then click Resend to integrate it into the chapter text.`);
+      } catch (saveErr) {
+        status.textContent = `Image inserted locally but save failed: ${saveErr.message}. Click Resend or Edit→Commit to retry.`;
+        status.className = "status error";
+      }
+
+      setTimeout(() => { panel.remove(); activeImagePanel = null; }, 2200);
     } catch (err) {
       status.textContent = err.message || "Upload failed.";
       status.className = "status error";
@@ -3820,7 +3855,14 @@ function bindFigureInteractions(root) {
     if (fig.dataset.bound === "1") return;
     fig.dataset.bound = "1";
 
-    const img = fig.querySelector("img");
+    // Ensure handles exist (sanitizer or older saves may omit them)
+    if (!fig.querySelector(".tp-figure-handles")) {
+      const h = document.createElement("div");
+      h.className = "tp-figure-handles";
+      h.innerHTML = '<div class="tp-handle move" title="Move"></div><div class="tp-handle resize" title="Resize (keep aspect ratio)"></div><div class="tp-handle delete" title="Delete">×</div>';
+      fig.appendChild(h);
+    }
+
     const moveH = fig.querySelector(".tp-handle.move");
     const resizeH = fig.querySelector(".tp-handle.resize");
     const delH = fig.querySelector(".tp-handle.delete");
@@ -3832,75 +3874,89 @@ function bindFigureInteractions(root) {
     });
 
     if (delH) {
-      delH.addEventListener("click", (e) => {
+      delH.addEventListener("click", async (e) => {
         e.stopPropagation();
         if (!confirm("Delete this figure?")) return;
         const label = fig.dataset.figLabel || "";
         fig.remove();
-        // Also remove from raw content of the nearest section
-        const card = fig.closest(".chat-msg");
-        if (card && card.dataset.raw) {
-          const tmp = document.createElement("div");
-          let html = card.dataset.raw.startsWith("[[TEMPAPER_RICH_HTML]]")
-            ? card.dataset.raw.slice("[[TEMPAPER_RICH_HTML]]".length)
-            : markdownToHTML(cleanPaperText(card.dataset.raw));
-          tmp.innerHTML = html;
-          tmp.querySelectorAll(`.tp-figure[data-fig-label="${label}"]`).forEach(n => n.remove());
-          card.dataset.raw = "[[TEMPAPER_RICH_HTML]]" + tmp.innerHTML;
+        const card = e.target.closest(".chat-msg") || root;
+        if (card && card.classList.contains("chat-msg")) {
+          syncSectionRawFromDOM(card);
+          // Persist deletion
+          try {
+            const userId = getWorkflowUserId();
+            const projectId = card.dataset.projectId;
+            const orderNo = Number(card.dataset.orderNo || 0);
+            if (userId && projectId) {
+              await workflowJSON("/pull-next", {
+                user_id: userId, project_id: projectId, action: "edit",
+                order_no: orderNo, content: card.dataset.raw, inline_enabled: false
+              }, "Could not save figure deletion.");
+            }
+          } catch (_) {}
         }
       });
     }
 
-    // Simple drag-to-move (changes left margin / alignment via width + margin)
+    // Pointer events (mouse + touch) for move
+    const startDrag = (clientX, startMargin, onDelta, onEnd) => {
+      const onMove = (ev) => {
+        const x = ev.touches ? ev.touches[0].clientX : ev.clientX;
+        onDelta(x - clientX, startMargin);
+        ev.preventDefault();
+      };
+      const onUp = () => {
+        document.removeEventListener("mousemove", onMove);
+        document.removeEventListener("mouseup", onUp);
+        document.removeEventListener("touchmove", onMove);
+        document.removeEventListener("touchend", onUp);
+        // Persist new position
+        const card = fig.closest(".chat-msg");
+        if (card) syncSectionRawFromDOM(card);
+        onEnd && onEnd();
+      };
+      document.addEventListener("mousemove", onMove, { passive: false });
+      document.addEventListener("mouseup", onUp);
+      document.addEventListener("touchmove", onMove, { passive: false });
+      document.addEventListener("touchend", onUp);
+    };
+
     if (moveH) {
-      let startX = 0, startMargin = 0;
-      moveH.addEventListener("mousedown", (e) => {
+      const begin = (e) => {
         e.preventDefault(); e.stopPropagation();
-        startX = e.clientX;
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const style = window.getComputedStyle(fig);
-        startMargin = parseFloat(style.marginLeft) || 0;
-        const onMove = (ev) => {
-          const dx = ev.clientX - startX;
-          fig.style.marginLeft = Math.max(0, startMargin + dx) + "px";
+        const startMargin = parseFloat(style.marginLeft) || 0;
+        startDrag(clientX, startMargin, (dx, sm) => {
+          fig.style.marginLeft = Math.max(0, sm + dx) + "px";
           fig.style.marginRight = "auto";
-        };
-        const onUp = () => {
-          document.removeEventListener("mousemove", onMove);
-          document.removeEventListener("mouseup", onUp);
-        };
-        document.addEventListener("mousemove", onMove);
-        document.addEventListener("mouseup", onUp);
-      });
+        });
+      };
+      moveH.addEventListener("mousedown", begin);
+      moveH.addEventListener("touchstart", begin, { passive: false });
     }
 
-    // Resize from left edge while keeping aspect ratio (adjust width %)
     if (resizeH) {
-      let startX = 0, startW = 0;
-      resizeH.addEventListener("mousedown", (e) => {
+      const begin = (e) => {
         e.preventDefault(); e.stopPropagation();
-        startX = e.clientX;
-        startW = fig.getBoundingClientRect().width;
-        const parentW = fig.parentElement.getBoundingClientRect().width || startW;
-        const onMove = (ev) => {
-          const dx = startX - ev.clientX; // drag left = larger
-          let newW = Math.max(120, Math.min(parentW, startW + dx));
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const startW = fig.getBoundingClientRect().width;
+        const parentW = (fig.parentElement && fig.parentElement.getBoundingClientRect().width) || startW;
+        startDrag(clientX, startW, (dx, sw) => {
+          // drag left (negative dx from left handle logic: startX - current) → larger
+          const newW = Math.max(120, Math.min(parentW, sw - dx));
           const pct = Math.round((newW / parentW) * 100);
           fig.style.width = Math.max(20, Math.min(100, pct)) + "%";
-        };
-        const onUp = () => {
-          document.removeEventListener("mousemove", onMove);
-          document.removeEventListener("mouseup", onUp);
-        };
-        document.addEventListener("mousemove", onMove);
-        document.addEventListener("mouseup", onUp);
-      });
+        });
+      };
+      resizeH.addEventListener("mousedown", begin);
+      resizeH.addEventListener("touchstart", begin, { passive: false });
     }
   });
 }
 
-// Re-bind figures after any section re-render
 document.addEventListener("click", (e) => {
-  if (!e.target.closest(".tp-figure")) {
+  if (!e.target.closest(".tp-figure") && !e.target.closest(".tp-handle")) {
     document.querySelectorAll(".tp-figure.selected").forEach(f => f.classList.remove("selected"));
   }
 });
@@ -3926,16 +3982,27 @@ async function handleWorkflowAction(button,container){
     }
     if(action==="resend"){
       if(activePaperMerged)throw new Error("Regeneration is unavailable after the paper has been merged.");
-      const d=await workflowJSON("/pull-next",{user_id:userId,project_id:projectId,action:"resend",order_no:orderNo},"Could not regenerate section.");
+      // Keep any figures the user placed before asking Groq to rewrite
+      const currentContent = syncSectionRawFromDOM(container) || container.dataset.raw || "";
+      const d=await workflowJSON("/pull-next",{
+        user_id:userId,
+        project_id:projectId,
+        action:"resend",
+        order_no:orderNo,
+        content: currentContent
+      },"Could not regenerate section.");
       if(!d.result)throw new Error("The server returned an empty regenerated section.");
       container.dataset.raw=d.result;
       const title=container.dataset.title=d.title||container.dataset.title;
       const heading=`<div data-section-heading style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(title)}</div>`;
       const actions=container.querySelector(".workflow-output-actions")?.outerHTML||"";
-      container.innerHTML=heading+createA4Pages(workflowContentHTML(d.result),d.result.split(/\s+/).filter(Boolean).length,{kind:container.dataset.kind,startPage:Number(container.dataset.pageStart||1)})+actions;
+      const words=(content_plain_text_for_count(d.result).split(/\s+/).filter(Boolean).length)||d.result.split(/\s+/).filter(Boolean).length;
+      container.innerHTML=heading+createA4Pages(workflowContentHTML(d.result),words,{kind:container.dataset.kind,startPage:Number(container.dataset.pageStart||1)})+actions;
+      container.dataset.raw=d.result;
       container.dataset.pageCount=String(paginateContent(workflowContentHTML(d.result)).length||1);
       bindWorkflowButtons(container);bindFigureInteractions(container);latestResultText=d.result;toggleCopyButton(d.result);
-    } else if(action==="next"){
+      addWorkflowStatus(d.message||"Section regenerated. Figures were kept and referenced where possible.");
+    }    } else if(action==="next"){
       const d=await workflowJSON("/pull-next",{user_id:userId,project_id:projectId,action:"next"},"Could not generate next section.");
       if(d.done){showMergeControl();addWorkflowStatus(d.message||"All sections have been generated.");return;}
       if(!d.result||!d.title||!Number.isInteger(Number(d.order_no)))throw new Error("The server returned an incomplete section.");
