@@ -2328,6 +2328,7 @@ function createA4Pages(htmlContent,totalWords,options={}){
 document.addEventListener("contextmenu", (e) => { e.preventDefault(); });
 
 document.addEventListener("DOMContentLoaded", async () => {
+  ensureWorkflowDelegation();
   loadAppSettings();
 
   const userId = localStorage.getItem("user_id") || "";
@@ -3536,20 +3537,110 @@ function updateDisplayedTableOfContents(tocText){
   const existing=document.querySelector('#chatArea .chat-msg[data-kind="toc"]');
   if(existing){
     existing.dataset.raw=tocText;
-    existing.innerHTML=`<div class="section-label">Table of Contents</div>${createA4Pages(markdownToHTML(tocText),tocText.split(/\s+/).filter(Boolean).length,{kind:"toc",startPage:1})}<div class="workflow-output-actions"><button data-action="edit">Edit</button><button class="update-toc" data-action="update-toc">↻ Update TOC</button><button class="primary" data-action="next">Pull Next</button></div>`;
-    bindWorkflowButtons(existing);
-    if(document.querySelector('#chatArea .chat-msg[data-kind="chapter"]'))existing.querySelector('[data-action="next"]')?.setAttribute("disabled","disabled");
+    existing.dataset.raw = tocText;
+    existing.dataset.kind = "toc";
+    existing.dataset.title = existing.dataset.title || "Table of Contents";
+    rerenderWorkflowSection(existing, tocText.startsWith("[[TEMPAPER_RICH_HTML]]") ? tocText : tocText, {title: "Table of Contents", kind: "toc", startPage: 1});
+
     return;
   }
   addWorkflowSection({title:"Table of Contents",result:tocText,project_id:activePaperProjectId,toc_code:activeTocCode,kind:"toc"});
 }
 
-function bindWorkflowButtons(container){
-  container.querySelectorAll("[data-action]").forEach(b=>{
-    if(b.dataset.bound==="1")return;b.dataset.bound="1";
-    if(b.dataset.action==="inline-toggle")b.addEventListener("change",()=>{container.dataset.inlineEnabled=b.checked?"true":"false";});
-    else b.addEventListener("click",()=>handleWorkflowAction(b,container));
+function workflowActionsHTML(kind){
+  const merged = !!activePaperMerged;
+  if(kind === "toc"){
+    return `<button type="button" data-action="edit">Edit</button><button type="button" class="update-toc" data-action="update-toc">↻ Update TOC</button><button type="button" class="primary" data-action="next">Pull Next</button>`;
+  }
+  return `<label class="inline-edit-toggle"><input type="checkbox" data-action="inline-toggle" ${merged ? "disabled" : ""}> Inline Edit with Groq</label>` +
+    `<button type="button" data-action="edit">Edit</button>` +
+    `<button type="button" data-action="add-image" ${merged ? "disabled" : ""}>Add Image</button>` +
+    `<button type="button" data-action="resend" ${merged ? "disabled" : ""}>Resend</button>` +
+    `<button type="button" class="primary" data-action="next">Pull Next</button>`;
+}
+
+/** Enable Pull Next only on the latest section; keep Edit/Resend/Add Image usable. */
+function refreshWorkflowActionAvailability(){
+  const cards = [...document.querySelectorAll('#chatArea .chat-msg[data-kind]')].filter(c => {
+    const k = c.dataset.kind;
+    return k && k !== "status";
   });
+  cards.forEach((card, idx) => {
+    const isLast = idx === cards.length - 1;
+    card.querySelectorAll('.workflow-output-actions [data-action]').forEach(btn => {
+      const action = btn.dataset.action;
+      if(action === "inline-toggle"){
+        btn.disabled = !!activePaperMerged;
+        btn.checked = card.dataset.inlineEnabled === "true" && !activePaperMerged;
+        return;
+      }
+      if(action === "next"){
+        btn.disabled = !isLast || !!activePaperMerged;
+        return;
+      }
+      if(action === "resend" || action === "add-image"){
+        btn.disabled = !!activePaperMerged;
+        return;
+      }
+      btn.disabled = false;
+    });
+  });
+}
+
+let workflowDelegationReady = false;
+function ensureWorkflowDelegation(){
+  if(workflowDelegationReady) return;
+  const chatArea = document.getElementById("chatArea");
+  if(!chatArea) return;
+  workflowDelegationReady = true;
+  chatArea.addEventListener("click", (e) => {
+    const btn = e.target.closest(".workflow-output-actions [data-action]");
+    if(!btn || btn.dataset.action === "inline-toggle") return;
+    if(btn.disabled) return;
+    const container = btn.closest(".chat-msg");
+    if(!container || !chatArea.contains(container)) return;
+    e.preventDefault();
+    handleWorkflowAction(btn, container);
+  });
+  chatArea.addEventListener("change", (e) => {
+    const t = e.target;
+    if(!t || t.dataset.action !== "inline-toggle") return;
+    const container = t.closest(".chat-msg");
+    if(!container) return;
+    container.dataset.inlineEnabled = t.checked ? "true" : "false";
+  });
+}
+
+function bindWorkflowButtons(container){
+  ensureWorkflowDelegation();
+  if(container){
+    container.querySelectorAll('[data-action="inline-toggle"]').forEach(b => {
+      b.checked = container.dataset.inlineEnabled === "true" && !activePaperMerged;
+      b.disabled = !!activePaperMerged;
+    });
+  }
+  refreshWorkflowActionAvailability();
+}
+
+/** Rebuild a section card from raw HTML with a FRESH action bar (never clone outerHTML). */
+function rerenderWorkflowSection(container, raw, opts={}){
+  const content = String(raw != null ? raw : (container.dataset.raw || ""));
+  container.dataset.raw = content;
+  const kind = opts.kind || container.dataset.kind || "chapter";
+  const title = opts.title || container.dataset.title || "Section";
+  container.dataset.title = title;
+  const startPage = Number(opts.startPage != null ? opts.startPage : (container.dataset.pageStart || 1));
+  const words = content_plain_text_for_count(content).split(/\s+/).filter(Boolean).length;
+  const heading = `<div data-section-heading style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(title)}</div>`;
+  const actions = `<div class="workflow-output-actions">${workflowActionsHTML(kind)}</div>`;
+  container.innerHTML = heading + createA4Pages(workflowContentHTML(content), words, {kind, startPage}) + actions;
+  container.dataset.pageCount = String(paginateContent(workflowContentHTML(content)).length || 1);
+  // Figures must be re-bound after every innerHTML replace
+  container.querySelectorAll(".tp-figure").forEach(fig => { delete fig.dataset.bound; });
+  bindWorkflowButtons(container);
+  bindFigureInteractions(container);
+  latestResultText = content;
+  if(typeof toggleCopyButton === "function") toggleCopyButton(content);
 }
 
 function addWorkflowStatus(message){
@@ -3566,7 +3657,6 @@ function workflowContentHTML(value){
 function addWorkflowSection(data,isInitial=false){
   const chatArea=document.getElementById("chatArea"),container=document.createElement("div");
   container.className="chat-msg";
-  // Preserve rich HTML (figures) exactly as returned from the server / local insert
   const incoming = String(data.result || "");
   const content = incoming.startsWith("[[TEMPAPER_RICH_HTML]]")
     ? incoming
@@ -3575,14 +3665,11 @@ function addWorkflowSection(data,isInitial=false){
   const kind=data.kind||(isInitial?"preliminary":"chapter");
   const start=kind==="preliminary"?1:workflowArabicPage;
   const isToc=kind==="toc";
-  const actions=isToc
-    ? `<button data-action="edit">Edit</button><button class="update-toc" data-action="update-toc">↻ Update TOC</button><button class="primary" data-action="next">Pull Next</button>`
-    : `<label class="inline-edit-toggle"><input type="checkbox" data-action="inline-toggle" ${activePaperMerged?"disabled":""}> Inline Edit with Groq</label><button data-action="edit">Edit</button><button data-action="add-image" ${activePaperMerged?"disabled":""}>Add Image</button><button data-action="resend" ${activePaperMerged?"disabled":""}>Resend</button><button class="primary" data-action="next">Pull Next</button>`;
-  container.innerHTML=`<div style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(data.title||"Generated section")}</div>${createA4Pages(workflowContentHTML(content),words,{kind,startPage:start})}<div class="workflow-output-actions">${actions}</div>`;
-  if(kind==="toc")document.querySelector('#chatArea .chat-msg[data-kind="preliminary"] [data-action="next"]')?.setAttribute("disabled","disabled");
-  else document.querySelectorAll('#chatArea .chat-msg .workflow-output-actions [data-action="next"]').forEach(b=>b.disabled=true);
+  const actions=workflowActionsHTML(kind);
+  container.innerHTML=`<div data-section-heading style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(data.title||"Generated section")}</div>${createA4Pages(workflowContentHTML(content),words,{kind,startPage:start})}<div class="workflow-output-actions">${actions}</div>`;
   Object.assign(container.dataset,{title:data.title||"Generated section",raw:content,kind,projectId:String(data.project_id||activePaperProjectId||""),tocCode:data.toc_code||activeTocCode||"",pageStart:kind==="preliminary"?"i":String(start)});
   if(!isToc)container.dataset.orderNo=String(data.order_no??0);
+  ensureWorkflowDelegation();
   bindWorkflowButtons(container);
   bindFigureInteractions(container);
   chatArea.appendChild(container);chatArea.scrollTop=chatArea.scrollHeight;
@@ -3593,6 +3680,7 @@ function addWorkflowSection(data,isInitial=false){
   workflowLastPage=workflowArabicPage;
   activeSectionOrder=Math.max(activeSectionOrder,Number(data.order_no||0));
   latestResultText=content;toggleCopyButton(content);
+  refreshWorkflowActionAvailability();
 }
 
 function showSectionEditor(container){
@@ -3620,26 +3708,13 @@ async function commitWorkflowEdit(container,value,button){
       container.dataset.raw=saved;container.querySelector(".workflow-editor")?.remove();
       updateDisplayedTableOfContents(saved);
     }else{
-      container.dataset.raw=saved;container.querySelector(".workflow-editor")?.remove();
-      const pages=createA4Pages(workflowContentHTML(saved),saved.split(/\s+/).filter(Boolean).length,{kind,startPage:Number(container.dataset.pageStart||1)});
-      const title=container.querySelector(".section-title");
-      const label=container.querySelector("[data-section-heading]");
-      const heading=label?label.outerHTML:`<div data-section-heading style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(d.title||container.dataset.title)}</div>`;
-      const actionsNode=container.querySelector(".workflow-output-actions");
-      const inlineToggle=actionsNode?.querySelector('[data-action="inline-toggle"]');
-      if(inlineToggle?.checked)inlineToggle.setAttribute("checked","checked");
-      else inlineToggle?.removeAttribute("checked");
-      const actions=actionsNode?.outerHTML||"";
-      container.innerHTML=heading+pages+actions;
-      container.dataset.raw=saved;
-      container.dataset.pageCount=String(paginateContent(workflowContentHTML(saved)).length||1);
+      container.querySelector(".workflow-editor")?.remove();
+      rerenderWorkflowSection(container, saved, {title: d.title || container.dataset.title, kind});
       if(activePaperMerged){
         const refreshed=await workflowJSON("/paper-start",{user_id:userId,prompt_code:activePromptCode,toc_code:activeTocCode},"The section was saved, but the merged view could not be refreshed.");
         if(refreshed.merged_content)renderMergedPaper(refreshed.merged_content);
         addWorkflowStatus("Section saved directly. The merged export has been synchronized by the server.");
       }
-      bindWorkflowButtons(container);
-      bindFigureInteractions(container);
     }
     latestResultText=saved;toggleCopyButton(saved);
     addWorkflowStatus(d.message||"Changes saved successfully.");
@@ -3786,11 +3861,12 @@ function buildFigureHTML(url, label, caption, widthPct = 70) {
   const safeUrl = escapeHTML(url);
   const safeLabel = escapeHTML(label);
   const safeCap = escapeHTML(caption || "");
-  return `<div class="tp-figure" data-fig-label="${safeLabel}" data-fig-url="${safeUrl}" style="width:${widthPct}%;max-width:100%;margin-left:auto;margin-right:auto">
+  const w = Math.max(20, Math.min(100, Number(widthPct) || 70));
+  return `<div class="tp-figure" data-fig-label="${safeLabel}" data-fig-url="${safeUrl}" data-fig-width="${w}" style="width:${w}%;max-width:100%;margin-left:auto;margin-right:auto">
   <img src="${safeUrl}" alt="${safeLabel}" loading="lazy" draggable="false" />
   <span class="fig-caption"><span class="fig-label">${safeLabel}</span>${safeCap ? ": " + safeCap : ""}</span>
   <div class="tp-figure-handles">
-    <div class="tp-handle move" title="Move"></div>
+    <div class="tp-handle move" title="Drag to move (including to another page)"></div>
     <div class="tp-handle resize" title="Resize (keep aspect ratio)"></div>
     <div class="tp-handle delete" title="Delete">×</div>
   </div>
@@ -3801,10 +3877,25 @@ function buildFigureHTML(url, label, caption, widthPct = 70) {
 function syncSectionRawFromDOM(container) {
   const pages = container.querySelectorAll(".a4-content");
   if (!pages.length) return container.dataset.raw || "";
+  pages.forEach(p => {
+    p.querySelectorAll(".tp-figure").forEach(fig => {
+      const styleW = (fig.style && fig.style.width) || "";
+      const m = styleW.match(/([\d.]+)%/);
+      if (m) fig.setAttribute("data-fig-width", String(Math.round(parseFloat(m[1]))));
+      fig.classList.remove("selected");
+      // Strip UI handles from saved HTML; they are re-injected on bind
+      const handles = fig.querySelector(".tp-figure-handles");
+      if (handles) handles.remove();
+      delete fig.dataset.bound;
+    });
+  });
   const parts = [];
   pages.forEach(p => { parts.push(p.innerHTML); });
   const html = parts.join("\n");
   container.dataset.raw = "[[TEMPAPER_RICH_HTML]]" + html;
+  // Re-inject handles for live UI after serializing
+  container.querySelectorAll(".tp-figure").forEach(fig => { delete fig.dataset.bound; });
+  bindFigureInteractions(container);
   return container.dataset.raw;
 }
 
@@ -3961,11 +4052,7 @@ function showImagePanel(container) {
     activeImagePanel = null;
   };
 
-  const unlockActions = () => {
-    if (!activePaperMerged) {
-      container.querySelectorAll('[data-action="edit"],[data-action="resend"],[data-action="add-image"]').forEach(b => { b.disabled = false; });
-    }
-  };
+  const unlockActions = () => { refreshWorkflowActionAvailability(); };
 
   const persistSection = async (raw, label) => {
     const userId = getWorkflowUserId();
@@ -4030,7 +4117,7 @@ function showImagePanel(container) {
       try { data = await res.json(); } catch (_) {}
       if (!res.ok || !data.url) throw new Error(data.error || `Upload failed (${res.status}).`);
 
-      const { label } = nextFigureLabel(container);
+            const { label } = nextFigureLabel(container);
       const figHtml = buildFigureHTML(data.url, label, caption, 70);
 
       let baseHtml;
@@ -4043,35 +4130,17 @@ function showImagePanel(container) {
       let raw = "[[TEMPAPER_RICH_HTML]]" + baseHtml + figHtml;
       container.dataset.raw = raw;
 
-      // Re-render section with figure
-      const words = content_plain_text_for_count(raw).split(/\s+/).filter(Boolean).length;
-      const kind = container.dataset.kind || "chapter";
-      const startPage = Number(container.dataset.pageStart || 1);
-      const heading = `<div data-section-heading style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(container.dataset.title || "Section")}</div>`;
-      const actionsNode = container.querySelector(".workflow-output-actions");
-      const actions = actionsNode ? actionsNode.outerHTML : "";
-      container.innerHTML = heading + createA4Pages(workflowContentHTML(raw), words, {kind, startPage: startPage}) + actions;
-      container.dataset.raw = raw;
-      container.dataset.pageCount = String(paginateContent(workflowContentHTML(raw)).length || 1);
-      bindWorkflowButtons(container);
-      bindFigureInteractions(container);
+      // Fresh action bar + figure bind (never clone outerHTML with dead buttons)
+      rerenderWorkflowSection(container, raw);
       unlockActions();
 
-      // Persist immediately — this is what makes images survive refresh
       status.textContent = "Saving image into this section…";
       try {
         raw = await persistSection(raw, label);
-        // Re-render once more from saved server content so DOM matches DB
-        const words2 = content_plain_text_for_count(raw).split(/\s+/).filter(Boolean).length;
-        const actions2 = container.querySelector(".workflow-output-actions")?.outerHTML || actions;
-        container.innerHTML = heading + createA4Pages(workflowContentHTML(raw), words2, {kind, startPage: startPage}) + actions2;
-        container.dataset.raw = raw;
-        container.dataset.pageCount = String(paginateContent(workflowContentHTML(raw)).length || 1);
-        bindWorkflowButtons(container);
-        bindFigureInteractions(container);
+        rerenderWorkflowSection(container, raw);
         unlockActions();
         updateLocalHistory(raw);
-        status.textContent = `Saved as ${label}. Drag up/down to place it, then click Resend so Groq refers to it.`;
+        status.textContent = `Saved as ${label}. Drag to place it (including onto another page), then click Resend so Groq refers to it.`;
         status.className = "status success";
         addWorkflowStatus(`${label} saved in this section. Place it, then click Resend to integrate it into the chapter text.`);
         try { await refreshListOfFigures(); } catch(_){}
@@ -4110,16 +4179,24 @@ function content_plain_text_for_count(value) {
 function bindFigureInteractions(root) {
   const scope = root || document;
   scope.querySelectorAll(".tp-figure").forEach(fig => {
-    if (fig.dataset.bound === "1") return;
-    fig.dataset.bound = "1";
-
-    // Ensure handles exist (sanitizer or older saves may omit them)
+    // Restore width from data-fig-width
+    const widthAttr = fig.getAttribute("data-fig-width") || fig.dataset.figWidth;
+    if (widthAttr) {
+      const w = Math.max(20, Math.min(100, parseFloat(widthAttr) || 70));
+      fig.style.width = w + "%";
+      fig.style.maxWidth = "100%";
+      if (!fig.style.marginLeft) fig.style.marginLeft = "auto";
+      if (!fig.style.marginRight) fig.style.marginRight = "auto";
+    }
+    // Always ensure handles exist
     if (!fig.querySelector(".tp-figure-handles")) {
       const h = document.createElement("div");
       h.className = "tp-figure-handles";
-      h.innerHTML = '<div class="tp-handle move" title="Drag to move (up/down/side)"></div><div class="tp-handle resize" title="Resize (keep aspect ratio)"></div><div class="tp-handle delete" title="Delete">×</div>';
+      h.innerHTML = '<div class="tp-handle move" title="Drag to move (including to another page)"></div><div class="tp-handle resize" title="Resize (keep aspect ratio)"></div><div class="tp-handle delete" title="Delete">×</div>';
       fig.appendChild(h);
     }
+    if (fig.dataset.bound === "1") return;
+    fig.dataset.bound = "1";
 
     const moveH = fig.querySelector(".tp-handle.move");
     const resizeH = fig.querySelector(".tp-handle.resize");
@@ -4155,7 +4232,7 @@ function bindFigureInteractions(root) {
       });
     }
 
-    // Combined drag: vertical reorders in document flow; horizontal adjusts margin
+    // Move: reorder within page OR move to another page of the same section
     if (moveH) {
       const begin = (e) => {
         e.preventDefault(); e.stopPropagation();
@@ -4164,17 +4241,32 @@ function bindFigureInteractions(root) {
         const clientY0 = e.touches ? e.touches[0].clientY : e.clientY;
         const style = window.getComputedStyle(fig);
         const startMargin = parseFloat(style.marginLeft) || 0;
-        const contentRoot = fig.closest(".a4-content") || fig.parentElement;
+        const card = fig.closest(".chat-msg");
         let lastSwapY = clientY0;
 
         const onMove = (ev) => {
           const pt = ev.touches ? ev.touches[0] : ev;
           const dx = pt.clientX - clientX0;
           const dy = pt.clientY - clientY0;
-          // horizontal nudge
           fig.style.marginLeft = Math.max(0, startMargin + dx) + "px";
           fig.style.marginRight = "auto";
-          // vertical: reorder among block siblings when dragged far enough
+
+          // Cross-page: if pointer is over a different .a4-content in the same card, move the figure there
+          if (card) {
+            const contents = [...card.querySelectorAll(".a4-content")];
+            const under = document.elementFromPoint(pt.clientX, pt.clientY);
+            const targetContent = under && under.closest ? under.closest(".a4-content") : null;
+            if (targetContent && contents.includes(targetContent) && targetContent !== fig.closest(".a4-content")) {
+              // Insert at end of target page content (user can then fine-tune)
+              targetContent.appendChild(fig);
+              lastSwapY = pt.clientY;
+              if (ev.cancelable) ev.preventDefault();
+              return;
+            }
+          }
+
+          // Same-page reorder among block siblings
+          const contentRoot = fig.closest(".a4-content") || fig.parentElement;
           if (Math.abs(pt.clientY - lastSwapY) > 28 && contentRoot) {
             const blocks = [...contentRoot.children].filter(n => n.nodeType === 1);
             const idx = blocks.indexOf(fig);
@@ -4197,17 +4289,16 @@ function bindFigureInteractions(root) {
           document.removeEventListener("mouseup", onUp);
           document.removeEventListener("touchmove", onMove);
           document.removeEventListener("touchend", onUp);
-          const card = fig.closest(".chat-msg");
-          if (card) {
-            syncSectionRawFromDOM(card);
-            // auto-save position without locking UI
+          const card2 = fig.closest(".chat-msg");
+          if (card2) {
+            syncSectionRawFromDOM(card2);
             const userId = getWorkflowUserId();
-            const projectId = card.dataset.projectId;
-            const orderNo = Number(card.dataset.orderNo || 0);
-            if (userId && projectId && card.dataset.raw) {
+            const projectId = card2.dataset.projectId;
+            const orderNo = Number(card2.dataset.orderNo || 0);
+            if (userId && projectId && card2.dataset.raw) {
               workflowJSON("/pull-next", {
                 user_id: userId, project_id: projectId, action: "edit",
-                order_no: orderNo, content: card.dataset.raw, inline_enabled: false
+                order_no: orderNo, content: card2.dataset.raw, inline_enabled: false
               }, "Could not save figure position.").catch(()=>{});
             }
           }
@@ -4232,7 +4323,9 @@ function bindFigureInteractions(root) {
           const dx = clientX - x;
           const newW = Math.max(120, Math.min(parentW, startW + dx));
           const pct = Math.round((newW / parentW) * 100);
-          fig.style.width = Math.max(20, Math.min(100, pct)) + "%";
+          const clamped = Math.max(20, Math.min(100, pct));
+          fig.style.width = clamped + "%";
+          fig.setAttribute("data-fig-width", String(clamped));
           if (ev.cancelable) ev.preventDefault();
         };
         const onUp = () => {
@@ -4241,7 +4334,18 @@ function bindFigureInteractions(root) {
           document.removeEventListener("touchmove", onMove);
           document.removeEventListener("touchend", onUp);
           const card = fig.closest(".chat-msg");
-          if (card) syncSectionRawFromDOM(card);
+          if (card) {
+            syncSectionRawFromDOM(card);
+            const userId = getWorkflowUserId();
+            const projectId = card.dataset.projectId;
+            const orderNo = Number(card.dataset.orderNo || 0);
+            if (userId && projectId && card.dataset.raw) {
+              workflowJSON("/pull-next", {
+                user_id: userId, project_id: projectId, action: "edit",
+                order_no: orderNo, content: card.dataset.raw, inline_enabled: false
+              }, "Could not save figure size.").catch(()=>{});
+            }
+          }
         };
         document.addEventListener("mousemove", onMove, { passive: false });
         document.addEventListener("mouseup", onUp);
@@ -4321,12 +4425,7 @@ async function refreshListOfFigures() {
   }
   const newRaw = "[[TEMPAPER_RICH_HTML]]" + tmp.innerHTML;
   tocCard.dataset.raw = newRaw;
-  const words = content_plain_text_for_count(newRaw).split(/\s+/).filter(Boolean).length;
-  const actions = tocCard.querySelector(".workflow-output-actions")?.outerHTML || "";
-  const heading = `<div data-section-heading style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(tocCard.dataset.title || "Table of Contents")}</div>`;
-  tocCard.innerHTML = heading + createA4Pages(workflowContentHTML(newRaw), words, {kind:"toc", startPage:1}) + actions;
-  tocCard.dataset.raw = newRaw;
-  bindWorkflowButtons(tocCard);
+  rerenderWorkflowSection(tocCard, newRaw, {title: tocCard.dataset.title || "Table of Contents", kind: "toc", startPage: 1});
 }
 
 
@@ -4360,15 +4459,9 @@ async function handleWorkflowAction(button,container){
         content: currentContent
       },"Could not regenerate section.");
       if(!d.result)throw new Error("The server returned an empty regenerated section.");
-      container.dataset.raw=d.result;
-      const title=container.dataset.title=d.title||container.dataset.title;
-      const heading=`<div data-section-heading style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(title)}</div>`;
-      const actions=container.querySelector(".workflow-output-actions")?.outerHTML||"";
-      const words=(content_plain_text_for_count(d.result).split(/\s+/).filter(Boolean).length)||d.result.split(/\s+/).filter(Boolean).length;
-      container.innerHTML=heading+createA4Pages(workflowContentHTML(d.result),words,{kind:container.dataset.kind,startPage:Number(container.dataset.pageStart||1)})+actions;
-      container.dataset.raw=d.result;
-      container.dataset.pageCount=String(paginateContent(workflowContentHTML(d.result)).length||1);
-      bindWorkflowButtons(container);bindFigureInteractions(container);latestResultText=d.result;toggleCopyButton(d.result);
+      const title=d.title||container.dataset.title;
+      container.dataset.title=title;
+      rerenderWorkflowSection(container, d.result, {title, kind: container.dataset.kind});
       addWorkflowStatus(d.message||"Section regenerated. Figures were kept and referenced where possible.");
       try { await refreshListOfFigures(); } catch(_){}
     } else if(action==="next"){
@@ -4383,7 +4476,10 @@ async function handleWorkflowAction(button,container){
       }
     }
   }catch(err){alert(err.message||"Workflow action failed.");}
-  finally{workflowBusy=false;buttons.forEach(b=>b.disabled=false);}
+  finally{
+    workflowBusy=false;
+    refreshWorkflowActionAvailability();
+  }
 }
 
 async function sendFloatingMessage() {
