@@ -3499,7 +3499,10 @@ async function startPaperWithCodes(codes,userPrompt){
 
   const savedSections=Array.isArray(data.sections)?data.sections:[];
   const prelimRow=savedSections.find(x=>Number(x.order_no)===0);
-  const preliminary=removeTocFromPreliminary(cleanPaperText(data.result||prelimRow?.content||""));
+  const prelimSource = String(data.result || prelimRow?.content || "");
+  const preliminary = prelimSource.startsWith("[[TEMPAPER_RICH_HTML]]")
+    ? prelimSource
+    : removeTocFromPreliminary(cleanPaperText(prelimSource));
   if(preliminary){
     addWorkflowSection({title:"Preliminary Pages",result:preliminary,order_no:0,project_id:data.project_id,toc_code:activeTocCode,kind:"preliminary"},true);
     activeChatHistory.push({prompt:userPrompt||"Opened saved paper",result:preliminary,isPaper:true,workflow:true,project_id:data.project_id,order_no:0,kind:"preliminary"});
@@ -3563,14 +3566,19 @@ function workflowContentHTML(value){
 function addWorkflowSection(data,isInitial=false){
   const chatArea=document.getElementById("chatArea"),container=document.createElement("div");
   container.className="chat-msg";
-  const content=cleanPaperText(data.result||""),words=data.word_count||content.split(/\s+/).filter(Boolean).length;
+  // Preserve rich HTML (figures) exactly as returned from the server / local insert
+  const incoming = String(data.result || "");
+  const content = incoming.startsWith("[[TEMPAPER_RICH_HTML]]")
+    ? incoming
+    : cleanPaperText(incoming);
+  const words = data.word_count || content_plain_text_for_count(content).split(/\s+/).filter(Boolean).length;
   const kind=data.kind||(isInitial?"preliminary":"chapter");
   const start=kind==="preliminary"?1:workflowArabicPage;
   const isToc=kind==="toc";
   const actions=isToc
     ? `<button data-action="edit">Edit</button><button class="update-toc" data-action="update-toc">↻ Update TOC</button><button class="primary" data-action="next">Pull Next</button>`
     : `<label class="inline-edit-toggle"><input type="checkbox" data-action="inline-toggle" ${activePaperMerged?"disabled":""}> Inline Edit with Groq</label><button data-action="edit">Edit</button><button data-action="add-image" ${activePaperMerged?"disabled":""}>Add Image</button><button data-action="resend" ${activePaperMerged?"disabled":""}>Resend</button><button class="primary" data-action="next">Pull Next</button>`;
-  container.innerHTML=`<div style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(data.title||"Generated section")}</div>${createA4Pages(workflowContentHTML(data.result||""),words,{kind,startPage:start})}<div class="workflow-output-actions">${actions}</div>`;
+  container.innerHTML=`<div style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(data.title||"Generated section")}</div>${createA4Pages(workflowContentHTML(content),words,{kind,startPage:start})}<div class="workflow-output-actions">${actions}</div>`;
   if(kind==="toc")document.querySelector('#chatArea .chat-msg[data-kind="preliminary"] [data-action="next"]')?.setAttribute("disabled","disabled");
   else document.querySelectorAll('#chatArea .chat-msg .workflow-output-actions [data-action="next"]').forEach(b=>b.disabled=true);
   Object.assign(container.dataset,{title:data.title||"Generated section",raw:content,kind,projectId:String(data.project_id||activePaperProjectId||""),tocCode:data.toc_code||activeTocCode||"",pageStart:kind==="preliminary"?"i":String(start)});
@@ -3578,7 +3586,7 @@ function addWorkflowSection(data,isInitial=false){
   bindWorkflowButtons(container);
   bindFigureInteractions(container);
   chatArea.appendChild(container);chatArea.scrollTop=chatArea.scrollHeight;
-  const pageCount=paginateContent(workflowContentHTML(data.result||"")).length||1;
+  const pageCount=paginateContent(workflowContentHTML(content)).length||1;
   container.dataset.pageCount=String(pageCount);
   if(kind==="preliminary")workflowArabicPage=1;
   else if(kind!=="toc")workflowArabicPage=Math.max(workflowArabicPage,start+pageCount);
@@ -3815,11 +3823,15 @@ function showImagePanel(container) {
   document.querySelectorAll(".tp-image-panel").forEach(p => p.remove());
   const panel = document.createElement("div");
   panel.className = "tp-image-panel show";
+
   panel.innerHTML = `
     <h4>Add Image to this section</h4>
-    <div class="hint">1. Upload an image.<br>2. Add a short caption.<br>3. Place it where you want (drag/resize after it appears).<br>4. Click <b>Resend</b> so Groq rewrites the chapter and refers to the figure.</div>
-    <div class="row">
-      <input type="file" accept="image/*" id="tpImageFile" />
+    <div class="hint">1. Upload an image (click or drag & drop).<br>2. Add a short caption.<br>3. Place it where you want (drag up/down after it appears).<br>4. Click <b>Resend</b> so Groq rewrites the chapter and refers to the figure.</div>
+    <div class="dropzone" id="tpDropZone" tabindex="0" role="button" aria-label="Drop image here or click to choose">
+      <div class="dz-icon">⬆</div>
+      <div class="dz-title">Drag & drop image here</div>
+      <div class="dz-sub">or click to browse · JPG, PNG, GIF, WebP · max 8 MB</div>
+      <input type="file" accept="image/*" id="tpImageFile" hidden />
     </div>
     <div class="preview-box" id="tpImagePreview"><span style="color:var(--muted);font-size:13px">No image selected</span></div>
     <div class="row">
@@ -3834,15 +3846,53 @@ function showImagePanel(container) {
   container.appendChild(panel);
   activeImagePanel = panel;
 
+  // Inject dropzone styles once
+  if (!document.getElementById("tp-dropzone-css")) {
+    const st = document.createElement("style");
+    st.id = "tp-dropzone-css";
+    st.textContent = `
+      .tp-image-panel .dropzone{
+        border:1.5px dashed rgba(129,140,248,0.45);
+        border-radius:12px;
+        padding:18px 14px;
+        text-align:center;
+        cursor:pointer;
+        background:rgba(99,102,241,0.06);
+        transition:border-color .15s, background .15s, transform .15s;
+        margin:10px 0 12px;
+        user-select:none;
+      }
+      .tp-image-panel .dropzone:hover, .tp-image-panel .dropzone:focus{
+        border-color:rgba(129,140,248,0.85);
+        background:rgba(99,102,241,0.12);
+      }
+      .tp-image-panel .dropzone.dragover{
+        border-color:#818cf8;
+        background:rgba(99,102,241,0.18);
+        transform:scale(1.01);
+      }
+      .tp-image-panel .dz-icon{font-size:22px;margin-bottom:6px;opacity:.85}
+      .tp-image-panel .dz-title{font-size:13.5px;font-weight:650;color:var(--text)}
+      .tp-image-panel .dz-sub{font-size:11.5px;color:var(--muted);margin-top:4px}
+      .tp-image-panel .preview-box img{max-height:160px;max-width:100%;object-fit:contain;border-radius:8px}
+    `;
+    document.head.appendChild(st);
+  }
+
   const fileInput = panel.querySelector("#tpImageFile");
+  const dropZone = panel.querySelector("#tpDropZone");
   const preview = panel.querySelector("#tpImagePreview");
   const status = panel.querySelector("#tpImageStatus");
   let selectedFile = null;
   let objectUrl = null;
 
-  fileInput.addEventListener("change", () => {
-    const f = fileInput.files && fileInput.files[0];
+  const acceptFile = (f) => {
     if (!f) return;
+    if (!/^image\//i.test(f.type) && !/\.(jpe?g|png|gif|webp|bmp)$/i.test(f.name || "")) {
+      status.textContent = "Please choose an image file (JPG, PNG, GIF, WebP).";
+      status.className = "status error";
+      return;
+    }
     if (f.size > 8 * 1024 * 1024) {
       status.textContent = "Image must be under 8 MB.";
       status.className = "status error";
@@ -3852,9 +3902,58 @@ function showImagePanel(container) {
     if (objectUrl) URL.revokeObjectURL(objectUrl);
     objectUrl = URL.createObjectURL(f);
     preview.innerHTML = `<img src="${objectUrl}" alt="preview" />`;
-    status.textContent = "";
-    status.className = "status";
+    status.textContent = f.name || "Image selected";
+    status.className = "status success";
+    const title = dropZone.querySelector(".dz-title");
+    if (title) title.textContent = "Image ready — add a caption and upload";
+  };
+
+  dropZone.addEventListener("click", () => fileInput.click());
+  dropZone.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInput.click(); }
   });
+  fileInput.addEventListener("change", () => {
+    const f = fileInput.files && fileInput.files[0];
+    acceptFile(f);
+  });
+
+  ["dragenter","dragover"].forEach(ev => {
+    dropZone.addEventListener(ev, (e) => {
+      e.preventDefault(); e.stopPropagation();
+      dropZone.classList.add("dragover");
+    });
+  });
+  ["dragleave","dragend"].forEach(ev => {
+    dropZone.addEventListener(ev, (e) => {
+      e.preventDefault(); e.stopPropagation();
+      dropZone.classList.remove("dragover");
+    });
+  });
+  dropZone.addEventListener("drop", (e) => {
+    e.preventDefault(); e.stopPropagation();
+    dropZone.classList.remove("dragover");
+    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    acceptFile(f);
+  });
+
+
+  // Paste image from clipboard into dropzone
+  panel.addEventListener("paste", (e) => {
+    const items = e.clipboardData && e.clipboardData.items;
+    if (!items) return;
+    for (const it of items) {
+      if (it.type && it.type.startsWith("image/")) {
+        e.preventDefault();
+        const f = it.getAsFile();
+        acceptFile(f);
+        break;
+      }
+    }
+  });
+
+  // Prevent browser opening the file when dropped outside
+  panel.addEventListener("dragover", (e) => e.preventDefault());
+  panel.addEventListener("drop", (e) => e.preventDefault());
 
   panel.querySelector("[data-cancel]").onclick = () => {
     if (objectUrl) URL.revokeObjectURL(objectUrl);
@@ -3862,9 +3961,53 @@ function showImagePanel(container) {
     activeImagePanel = null;
   };
 
+  const unlockActions = () => {
+    if (!activePaperMerged) {
+      container.querySelectorAll('[data-action="edit"],[data-action="resend"],[data-action="add-image"]').forEach(b => { b.disabled = false; });
+    }
+  };
+
+  const persistSection = async (raw, label) => {
+    const userId = getWorkflowUserId();
+    const projectId = container.dataset.projectId;
+    const orderNo = Number(container.dataset.orderNo || 0);
+    if (!userId || !projectId) throw new Error("Sign in and open a saved paper before adding images.");
+    const d = await workflowJSON("/pull-next", {
+      user_id: userId,
+      project_id: projectId,
+      action: "edit",
+      order_no: orderNo,
+      content: raw,
+      inline_enabled: false
+    }, "Could not save the image into this section.");
+    // Prefer server-echoed result so we keep exactly what was sanitized/stored
+    if (d && d.result) {
+      container.dataset.raw = d.result;
+      return d.result;
+    }
+    return raw;
+  };
+
+  const updateLocalHistory = (raw) => {
+    try {
+      const orderNo = Number(container.dataset.orderNo || 0);
+      const projectId = container.dataset.projectId;
+      if (Array.isArray(activeChatHistory)) {
+        for (let i = activeChatHistory.length - 1; i >= 0; i--) {
+          const h = activeChatHistory[i];
+          if (h && h.workflow && String(h.project_id) === String(projectId) && Number(h.order_no) === orderNo) {
+            h.result = raw;
+            break;
+          }
+        }
+        if (typeof saveChatSession === "function") saveChatSession();
+      }
+    } catch (_) {}
+  };
+
   panel.querySelector("[data-upload]").onclick = async () => {
     if (!selectedFile) {
-      status.textContent = "Please choose an image first.";
+      status.textContent = "Please choose an image first (click or drop one).";
       status.className = "status error";
       return;
     }
@@ -3883,13 +4026,13 @@ function showImagePanel(container) {
       form.append("order_no", container.dataset.orderNo || "0");
 
       const res = await fetch(`${API_URL}/upload-image`, { method: "POST", body: form });
-      const data = await res.json();
-      if (!res.ok || !data.url) throw new Error(data.error || "Upload failed.");
+      let data = {};
+      try { data = await res.json(); } catch (_) {}
+      if (!res.ok || !data.url) throw new Error(data.error || `Upload failed (${res.status}).`);
 
       const { label } = nextFigureLabel(container);
       const figHtml = buildFigureHTML(data.url, label, caption, 70);
 
-      // Build rich HTML from current content + new figure
       let baseHtml;
       const currentRaw = container.dataset.raw || "";
       if (currentRaw.startsWith("[[TEMPAPER_RICH_HTML]]")) {
@@ -3897,55 +4040,62 @@ function showImagePanel(container) {
       } else {
         baseHtml = markdownToHTML(cleanPaperText(currentRaw));
       }
-      const raw = "[[TEMPAPER_RICH_HTML]]" + baseHtml + figHtml;
+      let raw = "[[TEMPAPER_RICH_HTML]]" + baseHtml + figHtml;
       container.dataset.raw = raw;
 
-      // Re-render section
+      // Re-render section with figure
       const words = content_plain_text_for_count(raw).split(/\s+/).filter(Boolean).length;
       const kind = container.dataset.kind || "chapter";
-      const start = Number(container.dataset.pageStart || 1);
+      const startPage = Number(container.dataset.pageStart || 1);
       const heading = `<div data-section-heading style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(container.dataset.title || "Section")}</div>`;
       const actionsNode = container.querySelector(".workflow-output-actions");
       const actions = actionsNode ? actionsNode.outerHTML : "";
-      container.innerHTML = heading + createA4Pages(workflowContentHTML(raw), words, {kind, startPage: start}) + actions;
+      container.innerHTML = heading + createA4Pages(workflowContentHTML(raw), words, {kind, startPage: startPage}) + actions;
       container.dataset.raw = raw;
       container.dataset.pageCount = String(paginateContent(workflowContentHTML(raw)).length || 1);
       bindWorkflowButtons(container);
       bindFigureInteractions(container);
+      unlockActions();
 
-      // Persist immediately so the image survives refresh / reopen
+      // Persist immediately — this is what makes images survive refresh
       status.textContent = "Saving image into this section…";
       try {
-        const userId = getWorkflowUserId();
-        const projectId = container.dataset.projectId;
-        const orderNo = Number(container.dataset.orderNo || 0);
-        if (userId && projectId) {
-          await workflowJSON("/pull-next", {
-            user_id: userId,
-            project_id: projectId,
-            action: "edit",
-            order_no: orderNo,
-            content: raw,
-            inline_enabled: false
-          }, "Could not save the image into this section.");
-        }
-        status.textContent = `Saved as ${label}. Drag to place it, then click Resend so Groq refers to it in the text.`;
+        raw = await persistSection(raw, label);
+        // Re-render once more from saved server content so DOM matches DB
+        const words2 = content_plain_text_for_count(raw).split(/\s+/).filter(Boolean).length;
+        const actions2 = container.querySelector(".workflow-output-actions")?.outerHTML || actions;
+        container.innerHTML = heading + createA4Pages(workflowContentHTML(raw), words2, {kind, startPage: startPage}) + actions2;
+        container.dataset.raw = raw;
+        container.dataset.pageCount = String(paginateContent(workflowContentHTML(raw)).length || 1);
+        bindWorkflowButtons(container);
+        bindFigureInteractions(container);
+        unlockActions();
+        updateLocalHistory(raw);
+        status.textContent = `Saved as ${label}. Drag up/down to place it, then click Resend so Groq refers to it.`;
         status.className = "status success";
         addWorkflowStatus(`${label} saved in this section. Place it, then click Resend to integrate it into the chapter text.`);
+        try { await refreshListOfFigures(); } catch(_){}
       } catch (saveErr) {
-        status.textContent = `Image inserted locally but save failed: ${saveErr.message}. Click Resend or Edit→Commit to retry.`;
+        status.textContent = `Image shown locally but server save failed: ${saveErr.message}. Click Edit → Commit or Resend to retry.`;
         status.className = "status error";
+        unlockActions();
       }
 
-      setTimeout(() => { panel.remove(); activeImagePanel = null; }, 2200);
+      setTimeout(() => { if (panel.parentNode) { panel.remove(); activeImagePanel = null; } }, 2400);
     } catch (err) {
-      status.textContent = err.message || "Upload failed.";
+      let msg = err.message || "Upload failed.";
+      if (/failed to fetch|networkerror|load failed/i.test(msg)) {
+        msg = "Could not reach the upload server. Confirm the API is online and IMGBB_API_KEY is set on Render.";
+      }
+      status.textContent = msg;
       status.className = "status error";
       btn.disabled = false;
       btn.textContent = "Upload & Insert";
+      unlockActions();
     }
   };
 }
+
 
 function content_plain_text_for_count(value) {
   const v = String(value || "");
@@ -3967,7 +4117,7 @@ function bindFigureInteractions(root) {
     if (!fig.querySelector(".tp-figure-handles")) {
       const h = document.createElement("div");
       h.className = "tp-figure-handles";
-      h.innerHTML = '<div class="tp-handle move" title="Move"></div><div class="tp-handle resize" title="Resize (keep aspect ratio)"></div><div class="tp-handle delete" title="Delete">×</div>';
+      h.innerHTML = '<div class="tp-handle move" title="Drag to move (up/down/side)"></div><div class="tp-handle resize" title="Resize (keep aspect ratio)"></div><div class="tp-handle delete" title="Delete">×</div>';
       fig.appendChild(h);
     }
 
@@ -3985,12 +4135,10 @@ function bindFigureInteractions(root) {
       delH.addEventListener("click", async (e) => {
         e.stopPropagation();
         if (!confirm("Delete this figure?")) return;
-        const label = fig.dataset.figLabel || "";
+        const card = e.target.closest(".chat-msg") || (root && root.closest ? root.closest(".chat-msg") : null) || root;
         fig.remove();
-        const card = e.target.closest(".chat-msg") || root;
-        if (card && card.classList.contains("chat-msg")) {
+        if (card && card.classList && card.classList.contains("chat-msg")) {
           syncSectionRawFromDOM(card);
-          // Persist deletion
           try {
             const userId = getWorkflowUserId();
             const projectId = card.dataset.projectId;
@@ -4001,44 +4149,73 @@ function bindFigureInteractions(root) {
                 order_no: orderNo, content: card.dataset.raw, inline_enabled: false
               }, "Could not save figure deletion.");
             }
+            try { await refreshListOfFigures(); } catch(_){}
           } catch (_) {}
         }
       });
     }
 
-    // Pointer events (mouse + touch) for move
-    const startDrag = (clientX, startMargin, onDelta, onEnd) => {
-      const onMove = (ev) => {
-        const x = ev.touches ? ev.touches[0].clientX : ev.clientX;
-        onDelta(x - clientX, startMargin);
-        ev.preventDefault();
-      };
-      const onUp = () => {
-        document.removeEventListener("mousemove", onMove);
-        document.removeEventListener("mouseup", onUp);
-        document.removeEventListener("touchmove", onMove);
-        document.removeEventListener("touchend", onUp);
-        // Persist new position
-        const card = fig.closest(".chat-msg");
-        if (card) syncSectionRawFromDOM(card);
-        onEnd && onEnd();
-      };
-      document.addEventListener("mousemove", onMove, { passive: false });
-      document.addEventListener("mouseup", onUp);
-      document.addEventListener("touchmove", onMove, { passive: false });
-      document.addEventListener("touchend", onUp);
-    };
-
+    // Combined drag: vertical reorders in document flow; horizontal adjusts margin
     if (moveH) {
       const begin = (e) => {
         e.preventDefault(); e.stopPropagation();
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        fig.classList.add("selected");
+        const clientX0 = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY0 = e.touches ? e.touches[0].clientY : e.clientY;
         const style = window.getComputedStyle(fig);
         const startMargin = parseFloat(style.marginLeft) || 0;
-        startDrag(clientX, startMargin, (dx, sm) => {
-          fig.style.marginLeft = Math.max(0, sm + dx) + "px";
+        const contentRoot = fig.closest(".a4-content") || fig.parentElement;
+        let lastSwapY = clientY0;
+
+        const onMove = (ev) => {
+          const pt = ev.touches ? ev.touches[0] : ev;
+          const dx = pt.clientX - clientX0;
+          const dy = pt.clientY - clientY0;
+          // horizontal nudge
+          fig.style.marginLeft = Math.max(0, startMargin + dx) + "px";
           fig.style.marginRight = "auto";
-        });
+          // vertical: reorder among block siblings when dragged far enough
+          if (Math.abs(pt.clientY - lastSwapY) > 28 && contentRoot) {
+            const blocks = [...contentRoot.children].filter(n => n.nodeType === 1);
+            const idx = blocks.indexOf(fig);
+            if (idx >= 0) {
+              if (pt.clientY < lastSwapY && idx > 0) {
+                contentRoot.insertBefore(fig, blocks[idx - 1]);
+                lastSwapY = pt.clientY;
+              } else if (pt.clientY > lastSwapY && idx < blocks.length - 1) {
+                const next = blocks[idx + 1];
+                if (next.nextSibling) contentRoot.insertBefore(fig, next.nextSibling);
+                else contentRoot.appendChild(fig);
+                lastSwapY = pt.clientY;
+              }
+            }
+          }
+          if (ev.cancelable) ev.preventDefault();
+        };
+        const onUp = () => {
+          document.removeEventListener("mousemove", onMove);
+          document.removeEventListener("mouseup", onUp);
+          document.removeEventListener("touchmove", onMove);
+          document.removeEventListener("touchend", onUp);
+          const card = fig.closest(".chat-msg");
+          if (card) {
+            syncSectionRawFromDOM(card);
+            // auto-save position without locking UI
+            const userId = getWorkflowUserId();
+            const projectId = card.dataset.projectId;
+            const orderNo = Number(card.dataset.orderNo || 0);
+            if (userId && projectId && card.dataset.raw) {
+              workflowJSON("/pull-next", {
+                user_id: userId, project_id: projectId, action: "edit",
+                order_no: orderNo, content: card.dataset.raw, inline_enabled: false
+              }, "Could not save figure position.").catch(()=>{});
+            }
+          }
+        };
+        document.addEventListener("mousemove", onMove, { passive: false });
+        document.addEventListener("mouseup", onUp);
+        document.addEventListener("touchmove", onMove, { passive: false });
+        document.addEventListener("touchend", onUp);
       };
       moveH.addEventListener("mousedown", begin);
       moveH.addEventListener("touchstart", begin, { passive: false });
@@ -4050,12 +4227,26 @@ function bindFigureInteractions(root) {
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const startW = fig.getBoundingClientRect().width;
         const parentW = (fig.parentElement && fig.parentElement.getBoundingClientRect().width) || startW;
-        startDrag(clientX, startW, (dx, sw) => {
-          // drag left (negative dx from left handle logic: startX - current) → larger
-          const newW = Math.max(120, Math.min(parentW, sw - dx));
+        const onMove = (ev) => {
+          const x = ev.touches ? ev.touches[0].clientX : ev.clientX;
+          const dx = clientX - x;
+          const newW = Math.max(120, Math.min(parentW, startW + dx));
           const pct = Math.round((newW / parentW) * 100);
           fig.style.width = Math.max(20, Math.min(100, pct)) + "%";
-        });
+          if (ev.cancelable) ev.preventDefault();
+        };
+        const onUp = () => {
+          document.removeEventListener("mousemove", onMove);
+          document.removeEventListener("mouseup", onUp);
+          document.removeEventListener("touchmove", onMove);
+          document.removeEventListener("touchend", onUp);
+          const card = fig.closest(".chat-msg");
+          if (card) syncSectionRawFromDOM(card);
+        };
+        document.addEventListener("mousemove", onMove, { passive: false });
+        document.addEventListener("mouseup", onUp);
+        document.addEventListener("touchmove", onMove, { passive: false });
+        document.addEventListener("touchend", onUp);
       };
       resizeH.addEventListener("mousedown", begin);
       resizeH.addEventListener("touchstart", begin, { passive: false });
@@ -4068,6 +4259,75 @@ document.addEventListener("click", (e) => {
     document.querySelectorAll(".tp-figure.selected").forEach(f => f.classList.remove("selected"));
   }
 });
+
+
+
+/** Collect all figures currently rendered in the paper workspace. */
+function collectAllFigures() {
+  const figs = [];
+  document.querySelectorAll("#chatArea .chat-msg .tp-figure").forEach(fig => {
+    const card = fig.closest(".chat-msg");
+    const pageEl = fig.closest(".a4-page");
+    const pageNum = pageEl ? (pageEl.querySelector(".page-number")?.textContent || "").trim() : "";
+    const label = fig.dataset.figLabel || (fig.querySelector(".fig-label")?.textContent || "Figure").trim();
+    let caption = (fig.querySelector(".fig-caption")?.textContent || "").trim();
+    caption = caption.replace(/^Fig\.?\s*[\d.]+\s*:?\s*/i, "").trim();
+    figs.push({ label, caption, page: pageNum, orderNo: Number(card?.dataset.orderNo || 0) });
+  });
+  // stable order by chapter/order then label
+  figs.sort((a, b) => (a.orderNo - b.orderNo) || a.label.localeCompare(b.label));
+  return figs;
+}
+
+function buildListOfFiguresHTML(figs) {
+  if (!figs.length) return "";
+  const rows = figs.map(f => {
+    const left = escapeHTML(f.label + (f.caption ? ": " + f.caption : ""));
+    const page = escapeHTML(f.page || "");
+    return `<div class="toc-row"><span class="toc-label">${left}</span><span class="toc-leader"></span><span class="toc-page">${page}</span></div>`;
+  }).join("");
+  return `<h2>List of Figures</h2><div class="toc-lines">${rows}</div>`;
+}
+
+async function refreshListOfFigures() {
+  const figs = collectAllFigures();
+  const tocCard = document.querySelector('#chatArea .chat-msg[data-kind="toc"]');
+  if (!tocCard) return;
+  let raw = tocCard.dataset.raw || "";
+  // Strip any previous LOF block from stored raw
+  let html = raw.startsWith("[[TEMPAPER_RICH_HTML]]")
+    ? raw.slice("[[TEMPAPER_RICH_HTML]]".length)
+    : markdownToHTML(cleanPaperText(raw));
+  const tmp = document.createElement("div");
+  tmp.innerHTML = html;
+  // Remove existing LOF heading + following toc-lines until next h2
+  const headings = [...tmp.querySelectorAll("h2")];
+  headings.forEach(h => {
+    if (/list of figures/i.test(h.textContent || "")) {
+      let n = h.nextSibling;
+      h.remove();
+      while (n) {
+        const next = n.nextSibling;
+        if (n.nodeType === 1 && (n.tagName === "H2" || n.tagName === "H1")) break;
+        n.remove();
+        n = next;
+      }
+    }
+  });
+  if (figs.length) {
+    const lofWrap = document.createElement("div");
+    lofWrap.innerHTML = buildListOfFiguresHTML(figs);
+    tmp.appendChild(lofWrap);
+  }
+  const newRaw = "[[TEMPAPER_RICH_HTML]]" + tmp.innerHTML;
+  tocCard.dataset.raw = newRaw;
+  const words = content_plain_text_for_count(newRaw).split(/\s+/).filter(Boolean).length;
+  const actions = tocCard.querySelector(".workflow-output-actions")?.outerHTML || "";
+  const heading = `<div data-section-heading style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(tocCard.dataset.title || "Table of Contents")}</div>`;
+  tocCard.innerHTML = heading + createA4Pages(workflowContentHTML(newRaw), words, {kind:"toc", startPage:1}) + actions;
+  tocCard.dataset.raw = newRaw;
+  bindWorkflowButtons(tocCard);
+}
 
 
 async function handleWorkflowAction(button,container){
@@ -4110,6 +4370,7 @@ async function handleWorkflowAction(button,container){
       container.dataset.pageCount=String(paginateContent(workflowContentHTML(d.result)).length||1);
       bindWorkflowButtons(container);bindFigureInteractions(container);latestResultText=d.result;toggleCopyButton(d.result);
       addWorkflowStatus(d.message||"Section regenerated. Figures were kept and referenced where possible.");
+      try { await refreshListOfFigures(); } catch(_){}
     } else if(action==="next"){
       const d=await workflowJSON("/pull-next",{user_id:userId,project_id:projectId,action:"next"},"Could not generate next section.");
       if(d.done){showMergeControl();addWorkflowStatus(d.message||"All sections have been generated.");return;}
