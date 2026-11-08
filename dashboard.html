@@ -1426,6 +1426,30 @@ svg { display: block; }
   box-shadow: 0 12px 22px rgba(99,102,241,0.36), inset 0 1px 0 rgba(255,255,255,0.22);
 }
 .workflow-output-actions button:disabled, .workflow-merge-btn:disabled {opacity:.5;cursor:wait;transform:none}
+.resend-menu { position: relative; display: inline-flex; }
+.resend-menu > summary {
+  list-style: none; min-height: 36px; padding: 8px 14px; border: 1px solid var(--border);
+  border-radius: 10px; color: var(--text); background: rgba(255,255,255,.05);
+  font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+}
+.resend-menu > summary::-webkit-details-marker { display: none; }
+.resend-menu > summary::after { content: "▾"; font-size: 10px; opacity: .8; }
+.resend-menu[open] > summary { background: rgba(255,255,255,.08); }
+.resend-menu .resend-panel {
+  position: absolute; left: 0; bottom: calc(100% + 6px); z-index: 40;
+  min-width: 220px; padding: 6px; border-radius: 12px;
+  border: 1px solid var(--border); background: var(--sidebar);
+  box-shadow: var(--shadow-soft);
+}
+.resend-menu .resend-panel button {
+  display: block; width: 100%; text-align: left; min-height: 40px;
+  padding: 8px 12px; border: 0; border-radius: 8px; background: transparent;
+  color: var(--text); font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.resend-menu .resend-panel button:hover { background: rgba(255,255,255,.06); }
+.resend-menu .resend-panel button small {
+  display: block; font-weight: 500; color: var(--muted); font-size: 11px; margin-top: 2px;
+}
 .inline-edit-toggle {display:inline-flex;align-items:center;gap:7px;color:var(--muted);font-size:12px;font-weight:600;padding:0 5px}
 .inline-edit-toggle input {accent-color:var(--accent);width:15px;height:15px}
 .workflow-editor {max-width:860px;margin:10px auto 18px;padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--panel)}
@@ -3640,10 +3664,19 @@ function workflowActionsHTML(kind){
   if(kind === "toc"){
     return `<button type="button" data-action="edit">Edit</button><button type="button" class="update-toc" data-action="update-toc">↻ Update TOC</button><button type="button" class="primary" data-action="next">Pull Next</button>`;
   }
+  const resendDisabled = merged ? "disabled" : "";
   return `<label class="inline-edit-toggle"><input type="checkbox" data-action="inline-toggle" ${merged ? "disabled" : ""}> Inline Edit with Groq</label>` +
     `<button type="button" data-action="edit">Edit</button>` +
     `<button type="button" data-action="add-image" ${merged ? "disabled" : ""}>Add Image</button>` +
-    `<button type="button" data-action="resend" ${merged ? "disabled" : ""}>Resend</button>` +
+    `<details class="resend-menu">` +
+      `<summary ${resendDisabled}>Resend</summary>` +
+      `<div class="resend-panel">` +
+        `<button type="button" data-action="resend-local" ${resendDisabled}>Update near image` +
+          `<small>Only edit text that matches the figure caption</small></button>` +
+        `<button type="button" data-action="resend-full" ${resendDisabled}>Rewrite whole chapter` +
+          `<small>Regenerate the full section and keep figures</small></button>` +
+      `</div>` +
+    `</details>` +
     `<button type="button" class="primary" data-action="next">Pull Next</button>`;
 }
 
@@ -3666,14 +3699,19 @@ function refreshWorkflowActionAvailability(){
         btn.disabled = !isLast || !!activePaperMerged;
         return;
       }
-      if(action === "resend" || action === "add-image"){
+      if(action === "resend" || action === "resend-local" || action === "resend-full" || action === "add-image"){
         btn.disabled = !!activePaperMerged;
         return;
       }
       btn.disabled = false;
     });
+    card.querySelectorAll('.resend-menu summary').forEach(s => {
+      if (activePaperMerged) s.setAttribute('disabled', 'disabled');
+      else s.removeAttribute('disabled');
+    });
   });
 }
+
 
 let workflowDelegationReady = false;
 function ensureWorkflowDelegation(){
@@ -4489,6 +4527,10 @@ function bindFigureInteractions(root) {
 }
 
 document.addEventListener("click", (e) => {
+  // close-resend-menus
+  if (!e.target.closest("details.resend-menu")) {
+    document.querySelectorAll("details.resend-menu[open]").forEach(d => { d.open = false; });
+  }
   if (!e.target.closest(".tp-figure") && !e.target.closest(".tp-handle")) {
     document.querySelectorAll(".tp-figure.selected").forEach(f => f.classList.remove("selected"));
   }
@@ -4589,22 +4631,31 @@ async function handleWorkflowAction(button,container){
       if(!td.toc||!td.toc_code||td.toc_code!==activeTocCode)throw new Error("The returned TOC does not match this paper project.");
       updateDisplayedTableOfContents(td.toc);return;
     }
-    if(action==="resend"){
+    if(action==="resend" || action==="resend-full" || action==="resend-local"){
       if(activePaperMerged)throw new Error("Regeneration is unavailable after the paper has been merged.");
-      // Keep any figures the user placed before asking Groq to rewrite
+      const mode = (action === "resend-local") ? "local" : "full";
+      // Close any open resend menus
+      container.querySelectorAll("details.resend-menu[open]").forEach(d => { d.open = false; });
       const currentContent = syncSectionRawFromDOM(container) || container.dataset.raw || "";
+      if(mode === "local"){
+        const hasFig = /class=["']tp-figure["']/.test(currentContent) || /data-fig-label=/.test(currentContent);
+        if(!hasFig) throw new Error("Add an image to this section first, then use Update near image.");
+      }
       const d=await workflowJSON("/pull-next",{
         user_id:userId,
         project_id:projectId,
         action:"resend",
+        mode: mode,
         order_no:orderNo,
         content: currentContent
-      },"Could not regenerate section.");
-      if(!d.result)throw new Error("The server returned an empty regenerated section.");
+      }, mode === "local" ? "Could not update text near the image." : "Could not regenerate section.");
+      if(!d.result)throw new Error("The server returned an empty section.");
       const title=d.title||container.dataset.title;
       container.dataset.title=title;
       rerenderWorkflowSection(container, d.result, {title, kind: container.dataset.kind});
-      addWorkflowStatus(d.message||"Section regenerated. Figures were kept and referenced where possible.");
+      addWorkflowStatus(d.message || (mode === "local"
+        ? "Updated only the parts that match your figure captions."
+        : "Whole chapter rewritten. Figures were kept."));
       try { await refreshListOfFigures(); } catch(_){}
     } else if(action==="next"){
       const d=await workflowJSON("/pull-next",{user_id:userId,project_id:projectId,action:"next"},"Could not generate next section.");
