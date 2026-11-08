@@ -3699,8 +3699,19 @@ function refreshWorkflowActionAvailability(){
         btn.disabled = !isLast || !!activePaperMerged;
         return;
       }
-      if(action === "resend" || action === "resend-local" || action === "resend-full" || action === "add-image"){
+      if(action === "add-image" || action === "resend" || action === "resend-full"){
         btn.disabled = !!activePaperMerged;
+        return;
+      }
+      if(action === "resend-local"){
+        if (activePaperMerged) {
+          btn.disabled = true;
+          return;
+        }
+        const raw = card.dataset.raw || "";
+        const hasFig = card.querySelector(".tp-figure") || /data-fig-label=/.test(raw) || /class=["']?tp-figure["']?/.test(raw);
+        btn.disabled = !hasFig;
+        btn.title = hasFig ? "Only edit text that matches the figure caption" : "Add an image to this section first";
         return;
       }
       btn.disabled = false;
@@ -3723,9 +3734,11 @@ function ensureWorkflowDelegation(){
     const btn = e.target.closest(".workflow-output-actions [data-action]");
     if(!btn || btn.dataset.action === "inline-toggle") return;
     if(btn.disabled) return;
+    if(workflowBusy) return; // hard stop double-submit
     const container = btn.closest(".chat-msg");
     if(!container || !chatArea.contains(container)) return;
     e.preventDefault();
+    e.stopPropagation();
     handleWorkflowAction(btn, container);
   });
   chatArea.addEventListener("change", (e) => {
@@ -3770,8 +3783,15 @@ function rerenderWorkflowSection(container, raw, opts={}){
 }
 
 function addWorkflowStatus(message){
-  const el=document.createElement("div");el.className="workflow-status";el.textContent=message;
-  document.getElementById("chatArea").appendChild(el);
+  const chatArea = document.getElementById("chatArea");
+  if (!chatArea || !message) return;
+  // Avoid duplicate chips from double-submit
+  const last = chatArea.querySelector(".workflow-status:last-of-type");
+  if (last && last.textContent === message) return;
+  const el = document.createElement("div");
+  el.className = "workflow-status";
+  el.textContent = message;
+  chatArea.appendChild(el);
 }
 
 function workflowContentHTML(value){
@@ -4311,6 +4331,7 @@ function showImagePanel(container) {
         status.textContent = `Saved as ${label}. Drag to place it (including onto another page), then click Resend so Groq refers to it.`;
         status.className = "status success";
         addWorkflowStatus(`${label} saved in this section. Place it, then click Resend to integrate it into the chapter text.`);
+        refreshWorkflowActionAvailability();
         try { await refreshListOfFigures(); } catch(_){}
       } catch (saveErr) {
         status.textContent = `Image shown locally but server save failed: ${saveErr.message}. Click Edit → Commit or Resend to retry.`;
@@ -4637,9 +4658,20 @@ async function handleWorkflowAction(button,container){
       // Close any open resend menus
       container.querySelectorAll("details.resend-menu[open]").forEach(d => { d.open = false; });
       const currentContent = syncSectionRawFromDOM(container) || container.dataset.raw || "";
+      const hasFig = /class=["']?tp-figure["']?/.test(currentContent) || /data-fig-label=/.test(currentContent);
       if(mode === "local"){
-        const hasFig = /class=["']tp-figure["']/.test(currentContent) || /data-fig-label=/.test(currentContent);
         if(!hasFig) throw new Error("Add an image to this section first, then use Update near image.");
+      }
+      // Confirm before full rewrite of preliminary pages (large + easy to trigger by mistake)
+      if(mode === "full" && container.dataset.kind === "preliminary"){
+        const ok = confirm("Rewrite the entire Preliminary Pages section? This can take a while and will replace the current text. Figures (if any) will be kept.");
+        if(!ok) return;
+      }
+      if(mode === "full" && container.dataset.kind === "chapter"){
+        const ok = confirm(hasFig
+          ? "Rewrite this whole chapter? Figures will be kept and the text regenerated."
+          : "Rewrite this whole chapter? There are no figures in this section.");
+        if(!ok) return;
       }
       const d=await workflowJSON("/pull-next",{
         user_id:userId,
@@ -4655,7 +4687,7 @@ async function handleWorkflowAction(button,container){
       rerenderWorkflowSection(container, d.result, {title, kind: container.dataset.kind});
       addWorkflowStatus(d.message || (mode === "local"
         ? "Updated only the parts that match your figure captions."
-        : "Whole chapter rewritten. Figures were kept."));
+        : (hasFig ? "Full chapter rewritten. Figures were kept." : "Full chapter rewritten (no figures in this section).")));
       try { await refreshListOfFigures(); } catch(_){}
     } else if(action==="next"){
       const d=await workflowJSON("/pull-next",{user_id:userId,project_id:projectId,action:"next"},"Could not generate next section.");
