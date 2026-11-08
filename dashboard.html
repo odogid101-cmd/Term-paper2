@@ -1867,18 +1867,53 @@ function formatTextBlock(text) {
 
 function cleanPaperText(text){
   if(!text) return "";
-  return text
+  let t = String(text)
     .replace(/\u200b/g,'')
     .replace(/\ufeff/g,'')
     .replace(/^\s*\.{2,}\s*$/gm,'')
     .replace(/^\s*\-{3,}\s*$/gm,'')
     .replace(/^\s*\*{3,}\s*$/gm,'')
     .replace(/(\w+)-\s*\n\s*(\w+)/g,'$1$2')
-    .replace(/(\w+)-\s+(\w+)/g,'$1$2')
+    .replace(/\\\[|\\\]|\\\(|\\\)/g, '')
+    .replace(/\\(?:frac|tfrac|dfrac)\{([^}]*)\}\{([^}]*)\}/g, '($1)/($2)')
+    .replace(/\\(?:text|mathrm|mathbf|textit|textbf)\{([^}]*)\}/g, '$1')
+    .replace(/\\omega/g,'ω').replace(/\\alpha/g,'α').replace(/\\beta/g,'β')
+    .replace(/\\gamma/g,'γ').replace(/\\theta/g,'θ').replace(/\\phi/g,'φ')
+    .replace(/\\pi/g,'π').replace(/\\mu/g,'μ').replace(/\\sigma/g,'σ')
+    .replace(/\\Delta/g,'Δ').replace(/\\delta/g,'δ')
+    .replace(/\\cdot/g,'·').replace(/\\times/g,'×').replace(/\\pm/g,'±')
+    .replace(/\^{([^{}]+)}/g,'^$1')
+    .replace(/_{([^{}]+)}/g,'_$1')
+    .replace(/\\[a-zA-Z]+/g, '')
     .replace(/^\s*\*\*\s*([0-9A-Za-z\.\-\,\s\(\)\"\'\’\“]+?)\s*\*\*\s*$/gm, '### $1')
     .replace(/^\s*\*\*\s*(.+?)\s*\*\*\s*$/gm, '### $1')
+    .replace(/\b((?:Fig\.?|Figure)\s*\d+(?:\.\d+)*)\s+\1\b/gi, '$1')
     .replace(/\n{3,}/g,'\n\n')
     .trim();
+  const lines = t.split(/\n/);
+  const fixed = [];
+  let i = 0;
+  while (i < lines.length) {
+    const m1 = lines[i].match(/^(\s*)1[.)]\s+(.+)$/);
+    if (m1) {
+      const indent = m1[1];
+      const block = [m1[2]];
+      let j = i + 1;
+      while (j < lines.length) {
+        const m2 = lines[j].match(/^(\s*)1[.)]\s+(.+)$/);
+        if (m2 && m2[1] === indent) { block.push(m2[2]); j++; }
+        else break;
+      }
+      if (block.length >= 2) {
+        block.forEach((body, n) => fixed.push(`${indent}${n + 1}. ${body}`));
+        i = j;
+        continue;
+      }
+    }
+    fixed.push(lines[i]);
+    i++;
+  }
+  return fixed.join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
 // Improved markdown -> HTML
@@ -1890,7 +1925,7 @@ function markdownToHTML(markdown) {
   const esc = value => String(value).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   const inline = value => esc(value)
     .replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>")
-    .replace(/\*(.+?)\*/g,"<em>$1</em>")
+    .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g,"<em>$1</em>")
     .replace(/`(.+?)`/g,"<code>$1</code>");
   const flushParagraph = () => {
     if (paragraph.length) { out.push(`<p>${inline(paragraph.join(" ").trim())}</p>`); paragraph=[]; }
@@ -1914,6 +1949,11 @@ function markdownToHTML(markdown) {
     }
     if (/^chapter\s+(?:\d+|[ivxlcdm]+|one|two|three|four|five|six|seven|eight|nine|ten)\b/i.test(line)) {
       flushParagraph(); flushList(); out.push(`<h1>${inline(line.replace(/^\*\*|\*\*$/g, ""))}</h1>`); continue;
+    }
+    if (/^[A-Za-zΑ-ω][A-Za-z0-9Α-ω₀-₉]*\s*=\s*.{2,120}$/.test(line) && !/[.?!]$/.test(line) && line.length < 140) {
+      flushParagraph(); flushList();
+      out.push(`<p style="text-align:center;font-family:Merriweather,Georgia,serif">${inline(line)}</p>`);
+      continue;
     }
     m = line.match(/^\s*(\d+)[.)]\s+(.+)$/);
     if (m || /^[-*+]\s+/.test(line)) {
