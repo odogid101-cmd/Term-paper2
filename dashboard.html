@@ -1795,6 +1795,7 @@ let latestResultText = "";
 let activePaperProjectId = null;
 let activeTocCode = null;
 let activePromptCode = null;
+let activePaperTitle = "";
 let tocGenerated = false;
 let activeSectionOrder = 0;
 let workflowArabicPage = 1;
@@ -2625,7 +2626,7 @@ function startNewChat() {
   latestResultText = "";
   toggleCopyButton("");
   activeChatHistory = [];
-  activePaperProjectId = null; activeTocCode = null; activePromptCode = null; tocGenerated = false; activeSectionOrder = 0; workflowArabicPage = 1;
+  activePaperProjectId = null; activeTocCode = null; activePromptCode = null; activePaperTitle = ""; tocGenerated = false; activeSectionOrder = 0; workflowArabicPage = 1;
   autoResizeTextarea();
 }
 
@@ -3272,16 +3273,32 @@ function saveChatSession() {
 
   let chats = JSON.parse(localStorage.getItem(getChatKey()) || "[]");
 
+  // Prefer the paper topic for workflow sessions (what the user sees in Recent)
+  const topicTitle = (activePaperTitle || "").trim();
+  const isWorkflow = !!(activePaperProjectId || activePromptCode);
+  const displayTitle = (isWorkflow && topicTitle)
+    ? topicTitle.substring(0, 80)
+    : String(first.prompt || "Paper").substring(0, 50);
+
+  // Stable id for term-code projects so resume updates the same Recent row
+  const sessionId = (isWorkflow && activePromptCode && activeTocCode)
+    ? `wf_${activePromptCode}_${activeTocCode}`
+    : (first.id || Date.now());
+
   const sessionData = {
-    id: first.id || Date.now(),
-    title: first.prompt.substring(0, 50),
+    id: sessionId,
+    title: displayTitle,
+    prompt_code: activePromptCode || null,
+    toc_code: activeTocCode || null,
+    project_id: activePaperProjectId || null,
+    workflow: isWorkflow,
     messages: activeChatHistory,
     time: Date.now()
   };
 
   first.id = sessionData.id;
 
-  const existingIdx = chats.findIndex(c => c.id === sessionData.id);
+  const existingIdx = chats.findIndex(c => String(c.id) === String(sessionData.id));
   if (existingIdx !== -1) {
     chats[existingIdx] = sessionData;
   } else {
@@ -3293,30 +3310,95 @@ function saveChatSession() {
 }
 
 function loadChats() {
-  let chats = JSON.parse(localStorage.getItem(getChatKey()) || "[]");
   const submenu = document.getElementById("historySubmenu");
+  if (!submenu) return;
 
-  if (chats.length) {
-    submenu.innerHTML = chats.map((c, i) =>
-      `<div class="submenu-item" onclick="openChatSession(${i})">${(c.title || "Paper").substring(0, 30)}...</div>`
-    ).join("");
-  } else {
-    submenu.innerHTML = `<div class="submenu-item" style="color:var(--muted)">No history yet</div>`;
+  // Local chat history (topic title for workflow rows)
+  let chats = JSON.parse(localStorage.getItem(getChatKey()) || "[]");
+
+  // Also pull server workflow projects so Recent shows the topic even on another device
+  const uid = localStorage.getItem("user_id") || "";
+  const render = (extraProjects) => {
+    const byKey = new Map();
+    (extraProjects || []).forEach(p => {
+      const key = `wf_${p.prompt_code}_${p.toc_code}`;
+      byKey.set(key, {
+        id: key,
+        title: p.title || "Untitled paper",
+        prompt_code: p.prompt_code,
+        toc_code: p.toc_code,
+        project_id: p.project_id,
+        workflow: true,
+        merged: !!p.merged,
+        time: p.updated_at ? Date.parse(p.updated_at) : 0
+      });
+    });
+    chats.forEach(c => {
+      const key = String(c.id);
+      if (!byKey.has(key)) byKey.set(key, c);
+      else {
+        // Prefer local title if present, keep codes from either
+        const existing = byKey.get(key);
+        byKey.set(key, { ...existing, ...c, title: c.title || existing.title });
+      }
+    });
+    const rows = [...byKey.values()].sort((a, b) => (b.time || 0) - (a.time || 0)).slice(0, 20);
+    if (!rows.length) {
+      submenu.innerHTML = `<div class="submenu-item" style="color:var(--muted)">No history yet</div>`;
+      return;
+    }
+    submenu.innerHTML = rows.map((c, i) => {
+      const label = escapeHTML((c.title || "Paper").substring(0, 40));
+      if (c.workflow && c.prompt_code && c.toc_code) {
+        return `<div class="submenu-item" title="${label}" onclick="openWorkflowFromRecent('${c.prompt_code}','${c.toc_code}')">${label}</div>`;
+      }
+      return `<div class="submenu-item" title="${label}" onclick="openChatSession(${i})">${label}</div>`;
+    }).join("");
+    // stash ordered list for non-workflow open by index
+    window.__recentChatRows = rows;
+  };
+
+  render([]);
+  if (uid && String(uid).match(/^\d+$/)) {
+    fetch(`${API_URL}/workflow-projects?user_id=${encodeURIComponent(uid)}`)
+      .then(r => r.json())
+      .then(data => render(data.projects || []))
+      .catch(() => render([]));
   }
 }
 
+async function openWorkflowFromRecent(promptCode, tocCode) {
+  try {
+    const codes = { prompt_code: String(promptCode).toUpperCase(), toc_code: String(tocCode).toUpperCase() };
+    await startPaperWithCodes(codes, `PROMPT: ${codes.prompt_code} TOC: ${codes.toc_code}`);
+    try { await refreshListOfFigures(); } catch (_) {}
+  } catch (err) {
+    alert(err.message || "Could not open this paper.");
+  }
+  const submenu = document.getElementById("historySubmenu");
+  if (submenu && submenu.classList.contains("show")) toggleHistory();
+}
+
 function openChatSession(index) {
-  let chats = JSON.parse(localStorage.getItem(getChatKey()) || "[]");
-  const session = chats[index];
+  const rows = window.__recentChatRows || JSON.parse(localStorage.getItem(getChatKey()) || "[]");
+  const session = rows[index];
+  if (!session) return;
+
+  // Workflow sessions always resume from the server so figures/size/position stay correct
+  if (session.workflow && session.prompt_code && session.toc_code) {
+    openWorkflowFromRecent(session.prompt_code, session.toc_code);
+    return;
+  }
+
   document.getElementById("chatArea").innerHTML = "";
 
-  if (session && session.messages && session.messages.length) {
+  if (session.messages && session.messages.length) {
     activeChatHistory = session.messages;
     session.messages.forEach(m => {
       if (m.prompt) addMessage("user", m.prompt);
       if (m.isPaper && m.result) {
         const htmlContent = markdownToHTML(m.result);
-        const wordCount = m.result.split(/\\s+/).length;
+        const wordCount = m.result.split(/\s+/).length;
         const pageCount = Math.max(1, Math.ceil(wordCount / 250));
         const paginatedHTML = createA4Pages(htmlContent, wordCount, pageCount);
         addMessage("paper", paginatedHTML);
@@ -3494,7 +3576,13 @@ async function startPaperWithCodes(codes,userPrompt){
   activePaperProjectId=data.project_id;
   activeTocCode=data.toc_code||codes.toc_code;
   activePromptCode=codes.prompt_code;
+  activePaperTitle=String(data.title||"").trim();
   resetWorkflowView();
+  // restore codes/title after reset
+  activePaperProjectId=data.project_id;
+  activeTocCode=data.toc_code||codes.toc_code;
+  activePromptCode=codes.prompt_code;
+  activePaperTitle=String(data.title||"").trim();
   activePaperMerged=Boolean(data.merged);
   if(userPrompt)addMessage("user",userPrompt);
 
@@ -3743,9 +3831,51 @@ async function updateCurrentTOC(button,container){
         map[heading]={order_no:Number(el.dataset.orderNo),page_start:hStart,page_count:1,kind:isEnd?"end-matter":(isPre?"preliminary":"chapter")};
       }));
     });
+    // Include current figures so LOF page numbers stay aligned
+    const figs = collectAllFigures();
+    figs.forEach(f => {
+      const key = f.label || "";
+      if (!key) return;
+      if (!map[key]) map[key] = { page_start: f.page || "", page_count: 1, kind: "figure" };
+      const full = f.caption ? `${f.label}: ${f.caption}` : f.label;
+      if (full && !map[full]) map[full] = { page_start: f.page || "", page_count: 1, kind: "figure" };
+    });
     const d=await workflowJSON("/sync-toc-pages",{user_id:userId,toc_code:activeTocCode,page_map:map},"Could not update table of contents.");
     if(!d.toc)throw new Error("The server did not return an updated table of contents.");
-    updateDisplayedTableOfContents(d.toc);
+    let tocText = d.toc;
+    const lofPlain = buildListOfFiguresPlain(figs);
+    if (lofPlain) {
+      const lines = tocText.split(/\n/);
+      const cleaned = [];
+      let skip = false;
+      for (const line of lines) {
+        const t = line.trim();
+        if (/^list of figures\b/i.test(t)) { skip = true; continue; }
+        if (skip) {
+          if (/^(list of tables|list of abbreviations|chapter\b|conclusion|references|appendix|certification|declaration|dedication|acknowledg|abstract)\b/i.test(t)) {
+            skip = false;
+          } else if (/^Fig\.?\s*\d/i.test(t) || /^Figure\s*\d/i.test(t) || /\.{2,}/.test(t)) {
+            continue;
+          } else if (t === "") {
+            continue;
+          } else {
+            skip = false;
+          }
+        }
+        if (!skip) cleaned.push(line);
+      }
+      let insertAt = cleaned.findIndex(l => /^chapter\s+/i.test(l.trim()));
+      if (insertAt < 0) insertAt = cleaned.length;
+      const ab = cleaned.findIndex(l => /^list of (tables|abbreviations)\b/i.test(l.trim()));
+      if (ab >= 0) {
+        insertAt = ab + 1;
+        while (insertAt < cleaned.length && cleaned[insertAt].trim() && !/^(list of|chapter\s+)/i.test(cleaned[insertAt].trim())) insertAt++;
+      }
+      cleaned.splice(insertAt, 0, "", ...lofPlain.split("\n"), "");
+      tocText = cleaned.join("\n");
+    }
+    updateDisplayedTableOfContents(tocText);
+    try { await refreshListOfFigures(); } catch (_) {}
   }finally{button.disabled=false;button.textContent="↻ Update TOC";}
 }
 
@@ -4385,12 +4515,24 @@ function collectAllFigures() {
 
 function buildListOfFiguresHTML(figs) {
   if (!figs.length) return "";
+  // One figure per row — never concatenate labels on a single line
   const rows = figs.map(f => {
-    const left = escapeHTML(f.label + (f.caption ? ": " + f.caption : ""));
-    const page = escapeHTML(f.page || "");
+    const left = escapeHTML(`${f.label}${f.caption ? ": " + f.caption : ""}`);
+    const page = escapeHTML(String(f.page || "").trim());
     return `<div class="toc-row"><span class="toc-label">${left}</span><span class="toc-leader"></span><span class="toc-page">${page}</span></div>`;
   }).join("");
   return `<h2>List of Figures</h2><div class="toc-lines">${rows}</div>`;
+}
+
+/** Plain-text LOF lines for embedding into the saved TOC text. */
+function buildListOfFiguresPlain(figs) {
+  if (!figs.length) return "";
+  const lines = figs.map(f => {
+    const left = `${f.label}${f.caption ? ": " + f.caption : ""}`;
+    const page = String(f.page || "").trim();
+    return page ? `${left}  ........  ${page}` : left;
+  });
+  return ["List of Figures", ...lines].join("\n");
 }
 
 async function refreshListOfFigures() {
