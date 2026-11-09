@@ -1677,27 +1677,6 @@ svg { display: block; }
   #mergedPaperOutput .a4-page .page-number{position:absolute!important;bottom:12mm!important;right:18mm!important}
   #mergedPaperOutput .a4-footer{display:none!important}
 }
-
-.figure-suggestions {
-  margin: 12px 0 16px;
-  padding: 12px 14px;
-  background: rgba(99, 102, 241, 0.08);
-  border: 1px solid rgba(99, 102, 241, 0.25);
-  border-radius: 10px;
-  font-size: 13px;
-  color: var(--text);
-}
-.figure-suggestions h4 {
-  margin: 0 0 8px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.figure-suggestions ul { margin: 0; padding-left: 18px; }
-.figure-suggestions li { margin-bottom: 6px; line-height: 1.5; }
-
 </style>
 </head>
 <body>
@@ -1835,24 +1814,7 @@ let appSettings = {theme: 'system', fontSize: 16, notifications: true};
 let isGenerating = false;
 let recognition = null;
 let isRecording = false;
-
-function extractFigureSuggestions(raw) {
-  const text = String(raw || "");
-  const marker = "FIGURE SUGGESTIONS:";
-  const idx = text.toUpperCase().indexOf(marker.toUpperCase());
-  if (idx === -1) return { content: text, suggestions: [] };
-  const content = text.slice(0, idx).trim();
-  const rest = text.slice(idx + marker.length).trim();
-  const lines = rest.split(/\n/).map(l => l.trim()).filter(l => l && !/^figure suggestions/i.test(l));
-  return { content, suggestions: lines.slice(0, 5) };
-}
-
-function renderFigureSuggestionsHTML(suggestions) {
-  if (!suggestions || !suggestions.length) return "";
-  const items = suggestions.map(s => `<li>${escapeHTML(s)}</li>`).join("");
-  return `<div class="figure-suggestions"><h4>Suggested Figures</h4><ul>${items}</ul></div>`;
-}
-\nlet activeChatHistory = [];
+let activeChatHistory = [];
 let latestResultText = "";
 let activePaperProjectId = null;
 let activeTocCode = null;
@@ -3662,17 +3624,7 @@ function extractWorkflowCodes(text){
 }
 
 async function workflowJSON(url, payload, fallback){
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 min timeout
-  let response;
-  try {
-    response=await fetch(`${API_URL}${url}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload), signal: controller.signal});
-  } catch (err) {
-    clearTimeout(timeoutId);
-    if (err.name === "AbortError") throw new Error("The request took too long. The server may still be generating — please wait a moment and try again, or check Render logs.");
-    throw new Error("Failed to fetch. Check your connection or try again. (If this happens often, the generation may be timing out on the server.)");
-  }
-  clearTimeout(timeoutId);
+  const response=await fetch(`${API_URL}${url}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
   let data={};
   try{data=await response.json();}catch(_){throw new Error("The server returned an unreadable response.");}
   if(!response.ok)throw new Error(data.error||fallback||"The request failed.");
@@ -3860,18 +3812,15 @@ function bindWorkflowButtons(container){
 /** Rebuild a section card from raw HTML with a FRESH action bar (never clone outerHTML). */
 function rerenderWorkflowSection(container, raw, opts={}){
   const content = String(raw != null ? raw : (container.dataset.raw || ""));
-  const extracted = extractFigureSuggestions(content);
-  const cleanContent = extracted.content;
-  container.dataset.raw = cleanContent; // store without suggestions so they don't reappear on re-render
+  container.dataset.raw = content;
   const kind = opts.kind || container.dataset.kind || "chapter";
   const title = opts.title || container.dataset.title || "Section";
   container.dataset.title = title;
   const startPage = Number(opts.startPage != null ? opts.startPage : (container.dataset.pageStart || 1));
-  const words = content_plain_text_for_count(cleanContent).split(/\s+/).filter(Boolean).length;
+  const words = content_plain_text_for_count(content).split(/\s+/).filter(Boolean).length;
   const heading = `<div data-section-heading style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(title)}</div>`;
-  const suggestionsHTML = renderFigureSuggestionsHTML(extracted.suggestions);
   const actions = `<div class="workflow-output-actions">${workflowActionsHTML(kind)}</div>`;
-  container.innerHTML = heading + suggestionsHTML + createA4Pages(workflowContentHTML(cleanContent), words, {kind, startPage}) + actions;
+  container.innerHTML = heading + createA4Pages(workflowContentHTML(content), words, {kind, startPage}) + actions;
   container.dataset.pageCount = String(paginateContent(workflowContentHTML(content)).length || 1);
   // Figures must be re-bound after every innerHTML replace
   container.querySelectorAll(".tp-figure").forEach(fig => { delete fig.dataset.bound; });
@@ -4797,6 +4746,9 @@ async function handleWorkflowAction(button,container){
       if(!d.result||!d.title||!Number.isInteger(Number(d.order_no)))throw new Error("The server returned an incomplete section.");
       addWorkflowSection({...d,project_id:projectId,toc_code:activeTocCode,kind:"chapter"});
       activeChatHistory.push({prompt:"Pull Next: "+d.title,result:d.result,isPaper:true,workflow:true,project_id:projectId,order_no:d.order_no,kind:"chapter"});saveChatSession();
+      if (d.quality_notes && d.quality_notes.length) {
+        addWorkflowStatus("Quality notes for this section (review recommended): " + d.quality_notes.join("; "));
+      }
       // Sync the same saved TOC code with actual rendered page positions.
       if(activeTocCode){
         try{const tocContainer=document.querySelector('#chatArea .chat-msg[data-kind="toc"]');if(tocContainer)await updateCurrentTOC(tocContainer.querySelector('[data-action="update-toc"]'),tocContainer);}catch(syncError){addWorkflowStatus("Section saved, but TOC page numbers could not be refreshed: "+syncError.message);}
