@@ -608,8 +608,8 @@ svg { display: block; }
   font-weight: 700;
   margin: 28px 0 14px 0;
   color: #0f172a;
-  border-left: 4px solid var(--accent);
-  padding-left: 14px;
+  border-left: 0;
+  padding-left: 0;
   letter-spacing: -0.01em;
 }
 
@@ -1394,10 +1394,10 @@ svg { display: block; }
 /* A4 table-of-contents typography and aligned page-number leaders */
 .a4-page.toc-page .a4-content {text-align:left}
 .a4-page.toc-page .toc-lines h2 {border:0!important;border-left:0!important;padding:0!important;margin:0 0 20px!important;text-align:left!important;font-weight:800!important}
-.a4-page.toc-page .toc-row {display:flex;align-items:baseline;gap:12px;width:100%;margin:0 0 7px;line-height:1.55;text-align:left;break-inside:avoid}
+.a4-page.toc-page .toc-row {display:flex;align-items:baseline;gap:12px;width:100%;margin:0 0 7px;line-height:1.55;text-align:left;break-inside:avoid;min-width:0}
 .a4-page.toc-page .toc-label {flex:1 1 auto;min-width:0;text-align:left;overflow-wrap:anywhere;font-weight:500}
 .a4-page.toc-page .toc-leader {display:none}
-.a4-page.toc-page .toc-page {flex:0 0 36px;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:600;color:#334155}
+.a4-page.toc-page .toc-page {flex:0 0 42px;margin-left:auto;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:600;color:#334155}
 .a4-page.toc-page .toc-lines h2 {margin-bottom:18px !important}
 
 /* Saved-paper workflow controls */
@@ -2031,7 +2031,7 @@ function paginateContent(html) {
     const clone = node.cloneNode(true);
     const headingLabel = (clone.textContent || "").trim();
     const isTocRow = (clone.classList && clone.classList.contains("toc-row")) || /\btoc-row\b/.test(clone.className||"");
-    const isMajorPageHeading = !isTocRow && /^\s*(certification|declaration|dedication|acknowledg(?:e)?ments?|abstract|table of contents|chapter\s+(?:one|i)\b)/i.test(headingLabel);
+    const isMajorPageHeading = !isTocRow && /^\s*(cover\s*page|title\s*page|certification|declaration|dedication|acknowledg(?:e)?ments?|abstract|table of contents|list of (?:tables|figures|abbreviations|symbols)|preface|foreword|chapter\s+(?:one|i|1)\b)/i.test(headingLabel);
     if (isMajorPageHeading && measureContent.childNodes.length > 0) {
       pages.push(Array.from(measureContent.childNodes).map(n => n.cloneNode(true)));
       measureContent.innerHTML = '';
@@ -2157,10 +2157,11 @@ function prelimOrder(label){
   if (/dedication/.test(t)) return 3;
   if (/acknowledg/.test(t)) return 4;
   if (/abstract/.test(t)) return 5;
-  if (/list of tables/.test(t)) return 6;
-  if (/list of figures/.test(t)) return 7;
-  if (/list of (abbreviations|symbols)/.test(t)) return 8;
-  if (/preface|foreword/.test(t)) return 9;
+  if (/table of contents|^contents$/.test(t)) return 6;
+  if (/list of tables/.test(t)) return 7;
+  if (/list of figures/.test(t)) return 8;
+  if (/list of (abbreviations|symbols)/.test(t)) return 9;
+  if (/preface|foreword/.test(t)) return 10;
   return 20;
 }
 function endMatterOrder(label){
@@ -2205,6 +2206,12 @@ function splitKnownItems(raw, patterns){
 }
 function parseTocLine(line){
   let page = "", label = line;
+  // Preliminary-page TOCs commonly prefix entries with Roman numerals (i. Abstract).
+  // Move that numeral into the page-number column instead of displaying it as part of the title.
+  const leadingRoman = line.match(/^\s*([ivxlcdm]+)[.)]\s+(.+)$/i);
+  if (leadingRoman && isPreliminaryLabel(leadingRoman[2])) {
+    return { label: leadingRoman[2].trim(), page: leadingRoman[1].toLowerCase() };
+  }
   const match = line.match(/^(.*?)(?:\s*\.{2,}|\s{2,}|\t+)([ivxlcdm]+|\d+)\s*$/i);
   if (match) { label = match[1].replace(/[\s.]+$/,"").trim(); page = match[2].trim(); }
   else {
@@ -2239,7 +2246,11 @@ function formatTOCHTML(bodyHtml, options){
     else if (isEndMatterLabel(label)) end.push(final);
     else body.push(final);
   };
-  temp.querySelectorAll("p,li,h1,h2,h3,div").forEach(node => {
+  // Read only actual line nodes. Selecting every ancestor div duplicated all
+  // descendant TOC text and caused headings/page numbers to be mis-parsed.
+  [...temp.querySelectorAll("p,li,h1,h2,h3,div")].filter(node => {
+    return ![...node.children].some(child => /^(P|LI|H1|H2|H3|DIV)$/.test(child.tagName));
+  }).forEach(node => {
     let line = (node.textContent || "").trim();
     if (!line) return;
     if (/^table of contents$/i.test(line)) return;
@@ -2266,10 +2277,13 @@ function formatTOCHTML(bodyHtml, options){
   try {
     const info = getPreliminaryPageInfo();
     prelim.forEach(entry => {
-      if (entry.page) return;
       const key = entry.label.toLowerCase();
       const alt = key.replace(/\s*\/\s*approval/, "").replace(/s$/, "");
-      entry.page = info.map[key] || info.map[alt] || info.map[key.replace(/\s*\/.*$/, "")] || "";
+      const actualPage = info.map[key] ?? info.map[alt] ?? info.map[key.replace(/\s*\/.*$/, "")];
+      // Rendered pagination is authoritative; only retain an AI-supplied numeral
+      // when the corresponding preliminary page is not present in the workspace.
+      if (actualPage != null) entry.page = actualPage;
+      else if (!entry.page) entry.page = "";
     });
   } catch (e) { /* preliminary pages may not be mounted yet */ }
   const ordered = [...prelim, ...body, ...end];
@@ -2288,6 +2302,9 @@ function getPreliminaryPageInfo(){
   if (!pre) return info;
   const pages = [...pre.querySelectorAll('.pages-container > .a4-page')];
   info.nextRoman = pages.length; // cover is unnumbered; last numbered is length-1; next is length
+  // The TOC is rendered as its own page group immediately after preliminary pages.
+  info.map["table of contents"] = romanNumber(Math.max(1, info.nextRoman));
+  info.map["contents"] = info.map["table of contents"];
   pages.forEach((page, idx) => {
     const num = idx === 0 ? "" : romanNumber(idx);
     const text = (page.textContent || "").toLowerCase();
@@ -2303,20 +2320,8 @@ function getPreliminaryPageInfo(){
     if (/list of abbreviations/.test(text)) assign("list of abbreviations");
     if (/list of symbols/.test(text)) assign("list of symbols");
   });
-  // Fallback: assign by standard order if a known label has no page yet
-  const order = ["cover page","certification / approval","declaration","dedication","acknowledgements","abstract","list of tables","list of figures","list of abbreviations","list of symbols"];
-  let cursor = 0;
-  order.forEach(label => {
-    if (info.map[label] == null && cursor < pages.length) {
-      info.map[label] = cursor === 0 ? "" : romanNumber(cursor);
-      cursor++;
-    } else if (info.map[label] != null) {
-      // advance cursor past this page
-      const n = info.map[label];
-      const idx = n === "" ? 0 : ["","i","ii","iii","iv","v","vi","vii","viii","ix","x","xi","xii"].indexOf(n);
-      if (idx >= 0) cursor = Math.max(cursor, idx + 1);
-    }
-  });
+  // Do not guess page numbers for optional pages that were not actually generated.
+  // A missing page remains blank in the TOC rather than being assigned a false Roman numeral.
   return info;
 }
 function removeTocFromPreliminary(text){
@@ -2803,7 +2808,7 @@ function renderPromptBuilderView() {
           </div>
 
           <div class="form-field">
-            <label for="pbChapters">Number of chapters</label>
+            <label for="pbChapters">Number of chapters (flexible: 1–12)</label>
             <input id="pbChapters" name="pbChapters" type="number" min="1" max="12" value="${escapeHTML(draft.chapters || 5)}">
           </div>
 
@@ -2815,6 +2820,7 @@ function renderPromptBuilderView() {
           <div class="form-field">
             <label for="pbStructure">Academic structure</label>
             <select id="pbStructure" name="pbStructure">
+              <option value="Flexible academic structure (1–12 chapters)" ${draft.structure === "Flexible academic structure (1–12 chapters)" ? "selected" : ""}>Flexible academic structure (1–12 chapters)</option>
               <option value="Standard academic structure" ${draft.structure === "Standard academic structure" ? "selected" : ""}>Standard academic structure</option>
               <option value="Five-chapter research project" ${draft.structure === "Five-chapter research project" ? "selected" : ""}>Five-chapter research project</option>
               <option value="Essay with introduction, body and conclusion" ${draft.structure === "Essay with introduction, body and conclusion" ? "selected" : ""}>Essay: introduction, body and conclusion</option>
@@ -2927,6 +2933,7 @@ function defaultPromptBuilderDraft() {
     topic: "",
     pages: 20,
     chapters: 5,
+    conclusion_mode: "separate",
     body_font_size: 12,
     heading1_size: 14,
     heading2_size: 14,
@@ -2934,7 +2941,7 @@ function defaultPromptBuilderDraft() {
     heading1_bold: true,
     heading2_bold: true,
     heading3_bold: true,
-    structure: "Standard academic structure",
+    structure: "Flexible academic structure (1–12 chapters)",
     instructions: "",
     institution: "",
     faculty: "",
@@ -2961,7 +2968,7 @@ function getFormDraftFromInputs() {
     heading1_bold: document.getElementById("pbH1Bold") ? document.getElementById("pbH1Bold").checked : true,
     heading2_bold: document.getElementById("pbH2Bold") ? document.getElementById("pbH2Bold").checked : true,
     heading3_bold: document.getElementById("pbH3Bold") ? document.getElementById("pbH3Bold").checked : true,
-    structure: document.getElementById("pbStructure") ? document.getElementById("pbStructure").value : "Standard academic structure",
+    structure: document.getElementById("pbStructure") ? document.getElementById("pbStructure").value : "Flexible academic structure (1–12 chapters)",
     instructions: document.getElementById("pbInstructions") ? document.getElementById("pbInstructions").value.trim() : "",
     institution: document.getElementById("pbInstitution") ? document.getElementById("pbInstitution").value.trim() : "",
     faculty: document.getElementById("pbFaculty") ? document.getElementById("pbFaculty").value.trim() : "",
@@ -3011,6 +3018,7 @@ async function handlePromptBuilderSubmit(event) {
       topic: draft.topic,
       pages: draft.pages,
       chapters: draft.chapters,
+      conclusion_mode: "separate",
       body_font_size: draft.body_font_size,
       heading1_size: draft.heading1_size,
       heading2_size: draft.heading2_size,
@@ -4089,8 +4097,10 @@ function buildFigureHTML(url, label, caption, widthPct = 70) {
   const safeUrl = escapeHTML(url);
   const safeLabel = escapeHTML(label);
   const safeCap = escapeHTML(caption || "");
+  const safeCaptionMeta = escapeHTML(caption || "");
+  const figureId = "figure-" + String(label || "figure").toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-" + Date.now().toString(36);
   const w = Math.max(20, Math.min(100, Number(widthPct) || 70));
-  return `<div class="tp-figure" data-fig-label="${safeLabel}" data-fig-url="${safeUrl}" data-fig-width="${w}" style="width:${w}%;max-width:100%;margin-left:auto;margin-right:auto">
+  return `<div class="tp-figure" data-fig-id="${figureId}" data-fig-label="${safeLabel}" data-fig-caption="${safeCaptionMeta}" data-fig-url="${safeUrl}" data-fig-width="${w}" style="width:${w}%;max-width:100%;margin-left:auto;margin-right:auto">
   <img src="${safeUrl}" alt="${safeLabel}" loading="lazy" draggable="false" />
   <span class="fig-caption"><span class="fig-label">${safeLabel}</span>${safeCap ? ": " + safeCap : ""}</span>
   <div class="tp-figure-handles">
@@ -4131,6 +4141,7 @@ function extractFiguresFromHTML(html) {
   const tmp = document.createElement("div");
   tmp.innerHTML = html.startsWith("[[TEMPAPER_RICH_HTML]]") ? html.slice("[[TEMPAPER_RICH_HTML]]".length) : html;
   return [...tmp.querySelectorAll(".tp-figure")].map(fig => ({
+    id: fig.dataset.figId || "",
     label: fig.dataset.figLabel || "",
     url: fig.dataset.figUrl || (fig.querySelector("img") && fig.querySelector("img").src) || "",
     caption: (fig.querySelector(".fig-caption")?.textContent || "").replace(/^Fig\.?\s*\d+\.\d+\s*:?\s*/i, "").trim(),
