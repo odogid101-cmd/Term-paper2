@@ -1,175 +1,399 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>Signup/Signin</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#075b3d">
+  <meta name="description" content="Monkey Scout is an academic writing workspace for structured prompt building, table of contents creation, section authoring, figure integration and professional document export.">
+  <meta name="keywords" content="Monkey Scout, academic writing, term paper, research paper, prompt builder, table of contents, document generation">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Monkey Scout | Your Academic Workspace">
+  <meta property="og:description" content="Plan, structure, develop and assemble academic documents in one organized workspace.">
+  <title>Monkey Scout | Your Academic Workspace</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
+ <link rel="icon" type="image/png" sizes="32x32"
+      href="/favicon-32x32.png">
+
+<link rel="icon" type="image/png" sizes="192x192"
+      href="/icon-192.png">
+
+<link rel="apple-touch-icon"
+      href="/apple-touch-icon.png">
+
+<link rel="manifest" href="/manifest.json">
+
+<meta name="theme-color" content="#075C3B">
   <style>
-    body { background:#0f172a; color:white; font-family:Arial, sans-serif; display:flex; justify-content:center; align-items:center; height:100vh; margin:0; }
-    .box { background:#1e293b; padding:25px; border-radius:10px; width:320px; box-sizing:border-box; }
-    input, button { width:100%; padding:10px; margin:8px 0; border:none; border-radius:5px; box-sizing:border-box; }
-    input { background:#0b1220; color:#fff; }
-    button { background:#3b82f6; color:white; cursor:pointer; transition: opacity 0.2s ease; }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-    .toggle { text-align:center; cursor:pointer; color:#38bdf8; user-select:none; margin-top: 5px; }
-    #msg { min-height:1.2em; color:#ffdddd; margin-top: 10px; }
+    :root{
+      --green-950:#073b2b;--green-900:#084832;--green-800:#075b3d;
+      --green-700:#08734b;--green-600:#0c8b5a;--green-100:#e7f4ed;
+      --green-50:#f3faf6;--ink:#14251d;--muted:#64756c;--white:#fff;
+      --line:#e3ebe6;--shadow:0 20px 60px rgba(5,55,37,.12);
+      --radius:22px;
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{margin:0;background:#fff;color:var(--ink);font-family:"DM Sans",Arial,sans-serif;-webkit-font-smoothing:antialiased}
+    button,input{font:inherit}
+    button,a{-webkit-tap-highlight-color:transparent}
+    a{color:inherit;text-decoration:none}
+    button{cursor:pointer}
+    .site-header{height:78px;display:flex;align-items:center;justify-content:space-between;padding:0 clamp(20px,6vw,88px);border-bottom:1px solid rgba(7,91,61,.09);background:rgba(255,255,255,.94);position:sticky;top:0;z-index:30;backdrop-filter:blur(14px)}
+    .brand{display:flex;align-items:center;gap:11px;font-weight:800;letter-spacing:-.7px;font-size:21px;color:var(--green-950)}
+    .brand-mark{height:38px;width:38px;border-radius:12px;background:linear-gradient(145deg,#0d8a59,#06452f);display:grid;place-items:center;color:white;box-shadow:0 7px 18px #075b3d30}
+    .brand-mark svg{width:25px;height:25px}
+    .nav-links{display:flex;align-items:center;gap:30px;font-size:13px;font-weight:600;color:#506158}
+    .nav-links a:hover{color:var(--green-700)}
+    .nav-actions{display:flex;align-items:center;gap:10px}
+    .btn{border:0;border-radius:11px;padding:12px 19px;font-weight:700;font-size:13px;transition:.2s ease;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+    .btn:hover{transform:translateY(-2px)}
+    .btn-outline{background:white;border:1px solid #cbdcd1;color:var(--green-900)}
+    .btn-green{background:var(--green-800);color:white;box-shadow:0 9px 20px #075b3d24}
+    .btn-green:hover{background:var(--green-900);box-shadow:0 12px 24px #075b3d32}
+    .btn-light{background:#fff;color:var(--green-900)}
+    .menu-toggle{display:none;border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px;color:var(--green-900)}
+    .hero{position:relative;overflow:hidden;background:linear-gradient(112deg,#f4faf6 0%,#fff 56%,#eaf5ee 100%);padding:76px clamp(20px,7vw,104px) 84px}
+    .hero:before{content:"";position:absolute;width:520px;height:520px;border:1px solid #0a704a12;border-radius:50%;right:-160px;top:-220px;box-shadow:0 0 0 45px #0a704a08,0 0 0 95px #0a704a05}
+    .hero-grid{position:relative;max-width:1240px;margin:auto;display:grid;grid-template-columns:1.02fr .98fr;gap:55px;align-items:center}
+    .eyebrow{display:inline-flex;align-items:center;gap:9px;background:#e4f2e9;color:var(--green-800);padding:8px 12px;border-radius:99px;font-size:11px;font-weight:800;letter-spacing:1.15px;text-transform:uppercase}
+    .eyebrow-dot{width:7px;height:7px;border-radius:50%;background:#0b9660;box-shadow:0 0 0 4px #0b96601c}
+    h1{font-family:"Playfair Display",Georgia,serif;font-size:clamp(44px,5.7vw,75px);line-height:1.04;letter-spacing:-2.3px;color:var(--green-950);margin:23px 0 19px;max-width:650px}
+    h1 span{color:var(--green-600)}
+    .hero-copy{font-size:16px;line-height:1.85;color:#5d6e64;max-width:560px;margin:0 0 28px}
+    .hero-actions{display:flex;gap:12px;flex-wrap:wrap}
+    .hero-actions .btn{padding:15px 22px}
+    .trust-line{display:flex;align-items:center;gap:10px;margin-top:25px;color:#708077;font-size:12px}
+    .trust-check{height:21px;width:21px;border-radius:50%;background:#dff2e7;color:#08734b;display:grid;place-items:center;font-weight:900}
+    .hero-art{min-height:440px;position:relative;display:grid;place-items:center}
+    .art-halo{position:absolute;width:min(420px,90%);aspect-ratio:1;border-radius:50%;background:linear-gradient(145deg,#0c6845,#073b2b);box-shadow:0 28px 65px #063c2b35;overflow:hidden}
+    .art-halo:before,.art-halo:after{content:"";position:absolute;border:1px solid #ffffff20;border-radius:50%;inset:28px}
+    .art-halo:after{inset:55px}
+    .art-center{position:relative;z-index:2;width:76%;max-width:320px;aspect-ratio:1;border-radius:50%;background:#f8fbf8;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:25px;box-shadow:0 20px 45px #001c123d;border:8px solid #ffffff24}
+    .art-icon{width:90px;height:90px;border-radius:26px;background:linear-gradient(145deg,#e4f2e9,#fff);display:grid;place-items:center;color:var(--green-800);margin-bottom:15px}
+    .art-icon svg{width:55px;height:55px}
+    .art-center strong{font-family:"Playfair Display",Georgia,serif;color:var(--green-950);font-size:25px;letter-spacing:-.7px}
+    .art-center small{color:#708077;font-size:11px;line-height:1.5;margin-top:7px;max-width:190px}
+    .floating-note{position:absolute;z-index:4;background:#fff;border:1px solid #e3ebe6;border-radius:14px;padding:13px 16px;box-shadow:var(--shadow);font-size:11px;color:#5b6d63}
+    .floating-note b{display:block;color:var(--green-950);font-size:12px;margin-bottom:4px}
+    .note-top{top:37px;right:0}.note-bottom{bottom:34px;left:0}
+    .section{padding:82px clamp(20px,7vw,104px)}
+    .section-inner{max-width:1160px;margin:auto}
+    .section-heading{text-align:center;max-width:700px;margin:0 auto 42px}
+    .section-kicker{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:var(--green-700)}
+    h2{font-family:"Playfair Display",Georgia,serif;font-size:clamp(30px,4vw,43px);line-height:1.15;color:var(--green-950);letter-spacing:-1px;margin:12px 0}
+    .section-heading p{color:var(--muted);line-height:1.8;font-size:14px;margin:0}
+    .feature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:17px}
+    .feature-card{border:1px solid var(--line);border-radius:18px;padding:25px;background:#fff;transition:.22s ease}
+    .feature-card:hover{transform:translateY(-5px);box-shadow:var(--shadow);border-color:#c8dfd1}
+    .feature-icon{width:45px;height:45px;border-radius:13px;background:var(--green-100);color:var(--green-800);display:grid;place-items:center;margin-bottom:18px}
+    .feature-icon svg{width:22px;height:22px}
+    .feature-card h3{font-size:16px;color:var(--green-950);margin:0 0 9px}
+    .feature-card p{font-size:13px;line-height:1.75;color:var(--muted);margin:0}
+    .workflow{background:var(--green-950);color:#fff;position:relative;overflow:hidden}
+    .workflow:after{content:"";position:absolute;width:550px;height:550px;border:1px solid #ffffff12;border-radius:50%;right:-230px;bottom:-330px;box-shadow:0 0 0 50px #ffffff08,0 0 0 100px #ffffff05}
+    .workflow h2{color:#fff}.workflow .section-heading p{color:#c1d4c9}
+    .steps{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;position:relative;z-index:1}
+    .step{border:1px solid #ffffff24;background:#ffffff0b;border-radius:15px;padding:19px 15px;min-height:160px}
+    .step-number{font-size:11px;color:#a8dfbf;font-weight:800;letter-spacing:1px}
+    .step h3{font-size:14px;margin:15px 0 8px;color:#fff}
+    .step p{font-size:11px;line-height:1.7;color:#c1d4c9;margin:0}
+    .cta-band{background:var(--green-50);padding:65px 20px;text-align:center}
+    .cta-band h2{margin-top:0}
+    .cta-band p{color:var(--muted);font-size:14px;margin:0 auto 23px;line-height:1.7}
+    footer{background:#052e22;color:#c4d7cc;padding:27px clamp(20px,7vw,104px);display:flex;align-items:center;justify-content:space-between;gap:15px;font-size:11px}
+    footer .brand{color:white;font-size:16px}footer .brand-mark{width:30px;height:30px;border-radius:9px}
+    .footer-note{color:#a8c1b3}
+    /* Authentication view */
+    .auth-view{display:none;min-height:calc(100vh - 78px);padding:45px 20px;background:linear-gradient(135deg,#f2f8f4,#e7f3eb);align-items:center;justify-content:center}
+    .auth-view.active{display:flex}
+    .auth-card{width:min(100%,440px);background:#fff;border:1px solid #e0ebe4;border-radius:24px;padding:clamp(25px,5vw,39px);box-shadow:0 24px 70px #073b2b18;animation:rise .28s ease}
+    @keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+    .auth-back{border:0;background:transparent;color:var(--green-700);font-weight:700;font-size:12px;padding:0;margin-bottom:25px}
+    .auth-logo{display:flex;align-items:center;gap:10px;color:var(--green-950);font-weight:800;font-size:17px;margin-bottom:25px}
+    .auth-logo .brand-mark{width:34px;height:34px}
+    .auth-card h2{font-size:31px;margin:0 0 8px}
+    .auth-subtitle{font-size:13px;line-height:1.7;color:var(--muted);margin:0 0 24px}
+    .auth-form{display:grid;gap:13px}
+    .field{display:grid;gap:7px}
+    .field label{font-size:12px;font-weight:700;color:#40564a}
+    .field input{width:100%;height:47px;border:1px solid #dce7e0;border-radius:10px;padding:0 13px;background:#fbfdfb;color:#17291f;outline:none;font-size:13px}
+    .field input:focus{border-color:#0c8b5a;box-shadow:0 0 0 3px #0c8b5a18}
+    .auth-submit{width:100%;height:48px;margin-top:5px}
+    .auth-switch{text-align:center;font-size:12px;color:var(--muted);margin:19px 0 0}
+    .text-action{border:0;background:transparent;color:var(--green-700);font-weight:800;padding:4px}
+    .forgot-row{text-align:right;margin-top:-3px}
+    .forgot-row a{font-size:11px;color:var(--green-700);font-weight:700}
+    #msg{min-height:18px;margin:0;font-size:12px;line-height:1.5;color:#b42318}
+    .auth-divider{height:1px;background:var(--line);margin:22px 0}
+    .auth-footnote{text-align:center;color:#89968f;font-size:10px;line-height:1.6}
+    .hidden{display:none!important}
+    @media(max-width:900px){
+      .hero{padding-top:58px}.hero-grid{gap:25px}.hero-art{min-height:370px}
+      .steps{grid-template-columns:repeat(3,1fr)}
+    }
+    @media(max-width:700px){
+      .site-header{height:68px;padding:0 18px}.nav-links{display:none;position:absolute;left:0;right:0;top:68px;background:#fff;padding:18px 22px 22px;border-bottom:1px solid var(--line);flex-direction:column;align-items:flex-start;gap:18px}
+      .nav-links.open{display:flex}.nav-actions .btn-outline{display:none}.menu-toggle{display:inline-flex}
+      .brand{font-size:19px}.hero{padding:48px 21px 55px}.hero-grid{grid-template-columns:1fr;gap:12px}
+      h1{font-size:clamp(43px,12vw,62px);letter-spacing:-1.7px;margin-top:19px}
+      .hero-copy{font-size:14px}.hero-art{min-height:330px;margin-top:8px}
+      .art-halo{width:min(320px,83vw)}.art-center{width:72%}.art-icon{width:68px;height:68px}.art-icon svg{width:43px;height:43px}
+      .art-center strong{font-size:21px}.note-top{top:12px;right:0}.note-bottom{bottom:8px;left:0}
+      .section{padding:62px 20px}.feature-grid{grid-template-columns:1fr;gap:12px}.feature-card{padding:21px}
+      .steps{grid-template-columns:1fr 1fr}.step{min-height:145px}
+      footer{flex-direction:column;align-items:flex-start;padding:25px 22px}
+      .auth-view{min-height:calc(100vh - 68px);padding:25px 15px}
+    }
+    @media(max-width:390px){.nav-actions .btn-green{padding:10px 12px;font-size:12px}.steps{grid-template-columns:1fr}.hero-actions .btn{width:100%}.floating-note{padding:10px 12px}}
+    @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}}
   </style>
 </head>
 <body>
+<header class="site-header">
+  <a class="brand" href="#" aria-label="Monkey Scout home" id="brandHome">
+    <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 4.5h10a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-11a2 2 0 0 1 2-2Z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></span>
+    <span>MONKEY SCOUT</span>
+  </a>
+  <nav class="nav-links" id="navLinks" aria-label="Main navigation">
+    <a href="#features">Features</a><a href="#workflow">How it works</a><a href="#about">About</a>
+  </nav>
+  <div class="nav-actions">
+    <button class="btn btn-outline" type="button" data-auth="login">Sign In</button>
+    <button class="btn btn-green" type="button" data-auth="register">Get Started <span aria-hidden="true">→</span></button>
+    <button class="menu-toggle" id="menuToggle" aria-label="Open navigation" aria-expanded="false">☰</button>
+  </div>
+</header>
 
-<div class="box">
-  <h2 id="title">Login</h2>
+<main id="landingView">
+  <section class="hero">
+    <div class="hero-grid">
+      <div>
+        <div class="eyebrow"><span class="eyebrow-dot"></span> YOUR ACADEMIC WORKSPACE</div>
+        <h1>Build better papers. <span>One clear process.</span></h1>
+        <p class="hero-copy">Bring your academic writing workflow into one organized workspace. Plan your project, build structured prompts, create a table of contents, develop sections and assemble your document for export.</p>
+        <div class="hero-actions">
+          <button class="btn btn-green" type="button" data-auth="register">Create Your Account <span aria-hidden="true">→</span></button>
+          <a class="btn btn-outline" href="#workflow">Explore How It Works</a>
+        </div>
+        <div class="trust-line"><span class="trust-check">✓</span> A structured workspace from project idea to finished document.</div>
+      </div>
+      <div class="hero-art" aria-label="Monkey Scout academic workspace illustration">
+        <div class="art-halo"></div>
+        <div class="art-center">
+          <div class="art-icon"><svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M16 9h23l10 10v36H16z"/><path d="M39 9v11h10M23 29h19M23 37h19M23 45h13"/><circle cx="45" cy="46" r="8" fill="#e4f2e9"/><path d="m51 52 6 6"/></svg></div>
+          <strong>MONKEY SCOUT</strong>
+          <small>Structured generation. Intelligent refinement. Professional output.</small>
+        </div>
+        <div class="floating-note note-top"><b>01 · PLAN</b>Structure your project</div>
+        <div class="floating-note note-bottom"><b>02 · CREATE</b>Build your document step by step</div>
+      </div>
+    </div>
+  </section>
 
-  <input id="username" placeholder="Username" style="display:none;" autocomplete="username">
-  <input id="email" placeholder="Email" style="display:none;" type="email" autocomplete="email">
+  <section class="section" id="features">
+    <div class="section-inner">
+      <div class="section-heading"><div class="section-kicker">WHAT YOU CAN DO</div><h2>Everything in one academic workflow</h2><p>Move through the stages of document development with dedicated tools designed to keep your work structured and manageable.</p></div>
+      <div class="feature-grid">
+        <article class="feature-card"><div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16M4 10h10M4 15h16M4 20h8"/></svg></div><h3>Prompt Builder</h3><p>Create structured project prompts and receive a unique project code to use in the next stages of your workflow.</p></article>
+        <article class="feature-card"><div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 4h14M7 9h14M7 14h9M7 19h9"/><path d="M3 4h.01M3 9h.01M3 14h.01M3 19h.01"/></svg></div><h3>Table of Contents</h3><p>Use your project code to create a table of contents that gives your paper a clear and logical structure.</p></article>
+        <article class="feature-card"><div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 3h14v18H5zM8 7h8M8 11h8M8 15h6"/></svg></div><h3>Section Authoring</h3><p>Develop preliminary pages and chapters in an organized, section-by-section writing process.</p></article>
+        <article class="feature-card"><div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="m21 15-5-5L5 20"/></svg></div><h3>Figure Integration</h3><p>Add relevant images to your document and refine chapter content as your project develops.</p></article>
+        <article class="feature-card"><div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 3h14v18H5zM8 7h8M8 11h8M8 15h5"/><path d="m15 17 2 2 4-5"/></svg></div><h3>Document Assembly</h3><p>Bring your generated sections together into one complete paper for review and final adjustments.</p></article>
+        <article class="feature-card"><div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12m-5-5 5 5 5-5"/><path d="M4 17v4h16v-4"/></svg></div><h3>Word &amp; PDF Export</h3><p>Export your assembled document in convenient Word or PDF formats for further review and use.</p></article>
+      </div>
+    </div>
+  </section>
 
-  <input id="identifier" placeholder="Email or Username" autocomplete="username">
-  <input id="password" type="password" placeholder="Password" autocomplete="current-password">
+  <section class="section workflow" id="workflow">
+    <div class="section-inner">
+      <div class="section-heading"><div class="section-kicker" style="color:#a8dfbf">A CLEAR PROCESS</div><h2>From project code to complete paper</h2><p>Work through each stage in sequence and keep your project development organized.</p></div>
+      <div class="steps">
+        <article class="step"><div class="step-number">STEP 01</div><h3>Build a prompt</h3><p>Describe your project and create a structured prompt with its unique code.</p></article>
+        <article class="step"><div class="step-number">STEP 02</div><h3>Generate your TOC</h3><p>Use the project code to create your table of contents.</p></article>
+        <article class="step"><div class="step-number">STEP 03</div><h3>Author sections</h3><p>Develop preliminary pages and chapters in manageable stages.</p></article>
+        <article class="step"><div class="step-number">STEP 04</div><h3>Refine &amp; assemble</h3><p>Integrate figures, review content and bring sections together.</p></article>
+        <article class="step"><div class="step-number">STEP 05</div><h3>Export your work</h3><p>Prepare your assembled document for Word or PDF export.</p></article>
+      </div>
+    </div>
+  </section>
 
-  <button id="submitBtn">Submit</button>
-  <div class="toggle" id="toggleLink">Switch to Register</div>
-  <a href="forget-password.html" style="color: #94a3b8; display: block; text-align: center; margin-top: 10px;">Forgot password</a>
-  <p id="msg"></p>
-</div>
+  <section class="cta-band" id="about">
+    <div class="section-inner">
+      <div class="section-kicker">START WITH A PLAN</div>
+      <h2>Give your next project a structured beginning.</h2>
+      <p>Set up your Monkey Scout account and access your academic workspace.</p>
+      <button class="btn btn-green" type="button" data-auth="register">Get Started with Monkey Scout →</button>
+    </div>
+  </section>
+</main>
+
+<section class="auth-view" id="authView" aria-label="Account access">
+  <div class="auth-card">
+    <button class="auth-back" type="button" id="backToHome">← Back to home</button>
+    <div class="auth-logo"><span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 4.5h10a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-11a2 2 0 0 1 2-2Z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></span> MONKEY SCOUT</div>
+    <h2 id="authTitle">Welcome back.</h2>
+    <p class="auth-subtitle" id="authSubtitle">Sign in to continue to your academic workspace.</p>
+    <form class="auth-form" id="authForm">
+      <div class="field hidden" id="usernameField"><label for="username">Username</label><input id="username" name="username" placeholder="Choose a username" autocomplete="username"></div>
+      <div class="field hidden" id="emailField"><label for="email">Email address</label><input id="email" name="email" placeholder="you@example.com" type="email" autocomplete="email"></div>
+      <div class="field" id="identifierField"><label for="identifier">Email or username</label><input id="identifier" name="identifier" placeholder="Enter your email or username" autocomplete="username"></div>
+      <div class="field"><label for="password">Password</label><input id="password" name="password" type="password" placeholder="Enter your password" autocomplete="current-password"></div>
+      <div class="forgot-row" id="forgotRow"><a href="forget-password.html">Forgot password?</a></div>
+      <button class="btn btn-green auth-submit" id="submitBtn" type="submit">Sign In</button>
+      <p id="msg" role="status" aria-live="polite"></p>
+    </form>
+    <p class="auth-switch"><span id="switchText">New to Monkey Scout?</span> <button class="text-action" type="button" id="toggleLink">Create an account</button></p>
+    <div class="auth-divider"></div>
+    <p class="auth-footnote">By continuing, you agree to use the workspace responsibly and review generated work before submission.</p>
+  </div>
+</section>
 
 <script>
-(function () {
+(function(){
+  "use strict";
   const API_BASE = "https://term-paper-n4kl.onrender.com";
-
-  let isLogin = true;
-  const titleEl = document.getElementById("title");
+  const landingView = document.getElementById("landingView");
+  const authView = document.getElementById("authView");
+  const authTitle = document.getElementById("authTitle");
+  const authSubtitle = document.getElementById("authSubtitle");
+  const usernameField = document.getElementById("usernameField");
+  const emailField = document.getElementById("emailField");
+  const identifierField = document.getElementById("identifierField");
   const usernameEl = document.getElementById("username");
   const emailEl = document.getElementById("email");
   const identifierEl = document.getElementById("identifier");
   const passwordEl = document.getElementById("password");
   const msgEl = document.getElementById("msg");
   const toggleLink = document.getElementById("toggleLink");
+  const switchText = document.getElementById("switchText");
   const submitBtn = document.getElementById("submitBtn");
+  const forgotRow = document.getElementById("forgotRow");
+  const authForm = document.getElementById("authForm");
+  let isLogin = true;
 
-  function updateUI() {
-    titleEl.innerText = isLogin ? "Login" : "Register";
-    usernameEl.style.display = isLogin ? "none" : "block";
-    emailEl.style.display = isLogin ? "none" : "block";
-    identifierEl.style.display = isLogin ? "block" : "none";
-    toggleLink.innerText = isLogin ? "Switch to Register" : "Switch to Login";
-    msgEl.innerText = "";
-    msgEl.style.color = "#ffdddd";
+  function showAuth(mode){
+    isLogin = mode !== "register";
+    landingView.hidden = true;
+    landingView.style.display = "none";
+    authView.classList.add("active");
+    updateAuthUI();
+    window.scrollTo({top:0,behavior:"smooth"});
+    setTimeout(()=> (isLogin ? identifierEl : usernameEl).focus({preventScroll:true}),80);
+    history.replaceState(null,"",isLogin ? "#sign-in" : "#sign-up");
   }
-
-  toggleLink.addEventListener("click", () => {
-    isLogin = !isLogin;
-    updateUI();
+  function showLanding(){
+    authView.classList.remove("active");
+    landingView.hidden = false;
+    landingView.style.display = "";
+    msgEl.textContent = "";
+    history.replaceState(null,"",window.location.pathname + window.location.search);
+    window.scrollTo({top:0,behavior:"smooth"});
+  }
+  function updateAuthUI(){
+    authTitle.textContent = isLogin ? "Welcome back." : "Create your account.";
+    authSubtitle.textContent = isLogin
+      ? "Sign in to continue to your academic workspace."
+      : "Register to start organizing your academic projects.";
+    usernameField.classList.toggle("hidden",isLogin);
+    emailField.classList.toggle("hidden",isLogin);
+    identifierField.classList.toggle("hidden",!isLogin);
+    forgotRow.classList.toggle("hidden",!isLogin);
+    usernameEl.required = !isLogin;
+    emailEl.required = !isLogin;
+    identifierEl.required = isLogin;
+    passwordEl.autocomplete = isLogin ? "current-password" : "new-password";
+    submitBtn.textContent = isLogin ? "Sign In" : "Create Account";
+    toggleLink.textContent = isLogin ? "Create an account" : "Sign in instead";
+    switchText.textContent = isLogin ? "New to Monkey Scout?" : "Already have an account?";
+    msgEl.textContent = "";
+    msgEl.style.color = "#b42318";
+  }
+  document.querySelectorAll("[data-auth]").forEach(button=>{
+    button.addEventListener("click",()=>showAuth(button.dataset.auth));
   });
+  document.getElementById("backToHome").addEventListener("click",showLanding);
+  document.getElementById("brandHome").addEventListener("click",e=>{
+    e.preventDefault();
+    if(authView.classList.contains("active")) showLanding();
+    else window.scrollTo({top:0,behavior:"smooth"});
+  });
+  toggleLink.addEventListener("click",()=>{isLogin=!isLogin;updateAuthUI();});
+  const menuToggle=document.getElementById("menuToggle");
+  const navLinks=document.getElementById("navLinks");
+  menuToggle.addEventListener("click",()=>{
+    const open=navLinks.classList.toggle("open");
+    menuToggle.setAttribute("aria-expanded",String(open));
+    menuToggle.textContent=open?"✕":"☰";
+  });
+  navLinks.querySelectorAll("a").forEach(a=>a.addEventListener("click",()=>{
+    navLinks.classList.remove("open");
+    menuToggle.setAttribute("aria-expanded","false");
+    menuToggle.textContent="☰";
+  }));
 
-  submitBtn.addEventListener("click", submitForm);
-  [usernameEl, emailEl, identifierEl, passwordEl].forEach(el =>
-    el.addEventListener("keydown", (e) => { 
-      if (e.key === "Enter" && !submitBtn.disabled) submitForm(); 
-    })
-  );
-
-  function saveAuth(data) {
-    // Save token if present
-    if (data.token) {
-      localStorage.setItem("token", data.token);
-    }
-    // Save user_id - check 3 possible places backend might send it
-    if (data.user_id) {
-      localStorage.setItem("user_id", data.user_id);
-    } else if (data.user && data.user.id) {
-      localStorage.setItem("user_id", data.user.id);
-    } else if (data.user && data.user_id) {
-      localStorage.setItem("user_id", data.user_id);
-    }
+  function saveAuth(data){
+    if(data.token) localStorage.setItem("token",data.token);
+    if(data.user_id) localStorage.setItem("user_id",data.user_id);
+    else if(data.user && data.user.id) localStorage.setItem("user_id",data.user.id);
   }
-
-  async function submitForm() {
-    msgEl.innerText = "";
-    submitBtn.disabled = true;
-    const originalBtnText = submitBtn.innerText;
-    submitBtn.innerText = "Loading...";
-
-    try {
-      if (isLogin) {
-        const payload = {
-          identifier: identifierEl.value.trim(),
-          password: passwordEl.value
-        };
-
-        const res = await fetch(API_BASE + "/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        });
-
-        const data = await res.json().catch(()=>({ error: "Invalid response from server" }));
-        
-        if (res.ok) {
-          msgEl.style.color = "#c9fdd1";
-          msgEl.innerText = data.message || "Login successful";
-          saveAuth(data); // <-- THIS FIXES THE LOOP
-          
-          setTimeout(() => { window.location.href = "dashboard.html"; }, 500);
-        } else {
-          msgEl.style.color = "#ffcccc";
-          msgEl.innerText = data.error || "Login failed";
-          submitBtn.disabled = false;
-          submitBtn.innerText = originalBtnText;
-
-          if (data.error === "Verify email first") {
-            const maybeEmail = payload.identifier.includes("@") ? payload.identifier : "";
-            const url = "verify.html" + (maybeEmail ? "?email=" + encodeURIComponent(maybeEmail) : "");
-            setTimeout(() => { window.location.href = url; }, 500);
-          }
+  function setMessage(message,success){
+    msgEl.textContent=message;
+    msgEl.style.color=success?"#08734b":"#b42318";
+  }
+  authForm.addEventListener("submit",async function(event){
+    event.preventDefault();
+    setMessage("",false);
+    const originalText=submitBtn.textContent;
+    submitBtn.disabled=true;
+    submitBtn.textContent="Please wait...";
+    try{
+      let endpoint,payload;
+      if(isLogin){
+        payload={identifier:identifierEl.value.trim(),password:passwordEl.value};
+        if(!payload.identifier || !payload.password) throw new Error("Enter your email or username and password.");
+        endpoint="/login";
+      }else{
+        payload={username:usernameEl.value.trim(),email:emailEl.value.trim(),password:passwordEl.value};
+        if(!payload.username || !payload.email || !payload.password) throw new Error("Please complete all fields.");
+        endpoint="/register";
+      }
+      const response=await fetch(API_BASE+endpoint,{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify(payload)
+      });
+      const data=await response.json().catch(()=>({error:"The server returned an invalid response."}));
+      if(response.ok || (!isLogin && response.status===201)){
+        saveAuth(data);
+        if(isLogin){
+          setMessage(data.message || "Sign in successful. Opening your workspace...",true);
+          setTimeout(()=>{window.location.href="dashboard.html";},500);
+        }else{
+          setMessage(data.message || "Account created. Please check your email to verify your account.",true);
+          setTimeout(()=>{window.location.href="verify.html?email="+encodeURIComponent(payload.email);},800);
         }
-      } else {
-        const payload = {
-          username: usernameEl.value.trim(),
-          email: emailEl.value.trim(),
-          password: passwordEl.value
-        };
-
-        if(!payload.username || !payload.email || !payload.password){
-          msgEl.innerText = "Please fill all fields";
-          submitBtn.disabled = false;
-          submitBtn.innerText = originalBtnText;
-          return;
-        }
-
-        const res = await fetch(API_BASE + "/register", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        });
-
-        const data = await res.json().catch(()=>({ error: "Invalid response from server" }));
-        
-        if (res.ok || res.status === 201) {
-          msgEl.style.color = "#c9fdd1";
-          msgEl.innerText = data.message || "Registered. Check your email";
-          saveAuth(data); // save in case backend auto-logins
-          
-          const url = "verify.html?email=" + encodeURIComponent(payload.email);
-          setTimeout(() => { window.location.href = url; }, 700);
-        } else {
-          msgEl.style.color = "#ffcccc";
-          msgEl.innerText = data.error || "Register failed";
-          submitBtn.disabled = false;
-          submitBtn.innerText = originalBtnText;
+      }else{
+        const error=data.error || data.message || (isLogin?"Sign in failed. Please try again.":"Registration failed. Please try again.");
+        setMessage(error,false);
+        if(isLogin && error.toLowerCase().includes("verify email first")){
+          const maybeEmail=payload.identifier.includes("@")?payload.identifier:"";
+          setTimeout(()=>{window.location.href="verify.html"+(maybeEmail?"?email="+encodeURIComponent(maybeEmail):"");},700);
         }
       }
-    } catch (err) {
-      console.error(err);
-      msgEl.style.color = "#ffcccc";
-      msgEl.innerText = "Network error. Check your connection";
-      submitBtn.disabled = false;
-      submitBtn.innerText = originalBtnText;
+    }catch(error){
+      setMessage(error.message==="Failed to fetch"?"Unable to connect. Check your internet connection and try again.":error.message,false);
+    }finally{
+      submitBtn.disabled=false;
+      submitBtn.textContent=originalText;
     }
-  }
+  });
 
-  updateUI();
+  // Support direct links such as index.html#sign-in and index.html#sign-up.
+  if(window.location.hash==="#sign-in") showAuth("login");
+  else if(window.location.hash==="#sign-up") showAuth("register");
 })();
 </script>
-
 </body>
 </html>
