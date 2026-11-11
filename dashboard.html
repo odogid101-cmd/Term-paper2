@@ -1677,6 +1677,119 @@ svg { display: block; }
   #mergedPaperOutput .a4-page .page-number{position:absolute!important;bottom:12mm!important;right:18mm!important}
   #mergedPaperOutput .a4-footer{display:none!important}
 }
+
+
+/* =========================================================
+   MONKEY SCOUT CORPORATE EMERALD THEME
+   Visual-only layer: preserves the existing workflow markup.
+   ========================================================= */
+:root {
+  --bg: #f4f8f5;
+  --bg-glow: radial-gradient(1000px 520px at 0% 0%, rgba(9, 105, 66, .09), transparent 54%),
+             radial-gradient(900px 460px at 100% 0%, rgba(21, 128, 82, .06), transparent 52%);
+  --sidebar: #073f2d;
+  --panel: #ffffff;
+  --card: #ffffff;
+  --card-hover: #f0f7f2;
+  --accent: #087447;
+  --accent-hover: #065f3a;
+  --accent-soft: rgba(8, 116, 71, .11);
+  --accent-gradient: linear-gradient(135deg, #15945d 0%, #087447 58%, #075c3b 100%);
+  --text: #17352a;
+  --muted: #64796e;
+  --border: rgba(7, 63, 45, .13);
+  --soft-border: rgba(7, 63, 45, .07);
+  --danger: #dc5757;
+  --success: #138653;
+  --paper-bg: #ffffff;
+  --paper-text: #1e293b;
+  --shadow-soft: 0 20px 48px rgba(7, 63, 45, .12);
+  --shadow-card: 0 8px 24px rgba(7, 63, 45, .07);
+}
+[data-theme="light"], [data-theme="dark"] {
+  --bg: #f4f8f5;
+  --bg-glow: radial-gradient(1000px 520px at 0% 0%, rgba(9, 105, 66, .09), transparent 54%),
+             radial-gradient(900px 460px at 100% 0%, rgba(21, 128, 82, .06), transparent 52%);
+  --sidebar: #073f2d;
+  --panel: #ffffff;
+  --card: #ffffff;
+  --card-hover: #f0f7f2;
+  --accent: #087447;
+  --accent-hover: #065f3a;
+  --accent-soft: rgba(8, 116, 71, .11);
+  --text: #17352a;
+  --muted: #64796e;
+  --border: rgba(7, 63, 45, .13);
+  --soft-border: rgba(7, 63, 45, .07);
+  --paper-bg: #ffffff;
+  --paper-text: #1e293b;
+  --shadow-soft: 0 20px 48px rgba(7, 63, 45, .12);
+  --shadow-card: 0 8px 24px rgba(7, 63, 45, .07);
+}
+body { background-color: var(--bg); color: var(--text); }
+.sidebar { background: linear-gradient(180deg, #06432f 0%, #063724 100%); color: #f5fff8; border-right: 1px solid rgba(255,255,255,.10); }
+.sidebar .logo, .sidebar .menu-left, .sidebar .profile-info .name { color: #f5fff8; }
+.sidebar .menu-section-title, .sidebar .profile-info .email { color: rgba(235,255,242,.66); }
+.sidebar .menu-item { color: rgba(235,255,242,.78); }
+.sidebar .menu-item:hover { color: #fff; background: rgba(255,255,255,.09); border-color: rgba(255,255,255,.10); }
+.sidebar .menu-item.active { color: #fff; background: rgba(255,255,255,.14); border-color: rgba(190,255,215,.22); box-shadow: inset 3px 0 #9be0b6; }
+.sidebar .submenu-item { color: rgba(235,255,242,.72); }
+.sidebar .submenu-item:hover { color: #fff; background: rgba(255,255,255,.09); }
+.sidebar .profile-box:hover { background: rgba(255,255,255,.08); }
+.logo-dot, .profile-avatar { background: linear-gradient(135deg,#a8e7bd,#15945d 55%,#075c3b); box-shadow: 0 8px 20px rgba(0,0,0,.18); }
+.topbar { background: rgba(255,255,255,.92); border-bottom: 1px solid var(--border); box-shadow: 0 3px 16px rgba(7,63,45,.035); }
+.topbar .heading { background: none; color: #124b35; -webkit-text-fill-color: currentColor; }
+.chat-area { background: transparent; }
+.welcome-placeholder { background: linear-gradient(155deg,#ffffff 0%,#f0f8f2 100%); border-color: rgba(8,116,71,.15); color: #64796e; }
+.welcome-placeholder::before { background: radial-gradient(circle,rgba(21,148,93,.13),transparent 70%); }
+.welcome-placeholder h2 { color: #104b34; }
+.chat-msg.user { background: linear-gradient(135deg,#128653,#075c3b); box-shadow: 0 8px 18px rgba(8,116,71,.15); }
+.chat-msg.ai-normal, .prompt-builder-panel, .prompt-toc-panel, .ai-message-board,
+.prompt-toc-header, .document-stats, .tp-image-panel { background: #fff; border-color: var(--border); box-shadow: var(--shadow-card); }
+.form-field input, .form-field select, .form-field textarea, .toc-input { background: #f8fbf9; color: #17352a; border-color: #d7e5dc; }
+.form-field input:focus, .form-field select:focus, .form-field textarea:focus, .toc-input:focus { border-color: #168653; box-shadow: 0 0 0 3px rgba(8,116,71,.12); }
+.primary-btn, .prompt-toc-switch.primary, .btn-icon { background: var(--accent-gradient); box-shadow: 0 8px 18px rgba(8,116,71,.18); }
+.secondary-btn, .subtle-btn, .code-btn, .prompt-toc-switch, .copy-latest-btn { background: #f7fbf8; color: #15543a; border-color: #d8e7dd; }
+.ai-fab { background: linear-gradient(145deg,#15945d,#075c3b); box-shadow: 0 12px 28px rgba(7,92,59,.34),0 0 0 4px rgba(21,148,93,.12),inset 0 1px 0 rgba(255,255,255,.25); touch-action: none; user-select: none; -webkit-user-select: none; }
+.ai-chat-window { background: #fff; border-color: #d8e7dd; box-shadow: 0 22px 60px rgba(7,63,45,.20); color: #17352a; }
+.ai-chat-header { background: #073f2d; color: #fff; border-bottom-color: rgba(255,255,255,.12); touch-action: none; }
+.ai-chat-header .title { color: #fff; }
+.ai-chat-header .title .dot { background: linear-gradient(135deg,#a8e7bd,#15945d); }
+.ai-chat-header .controls button { background: rgba(255,255,255,.12); color: #fff; }
+.ai-chat-body { background: #f5f9f6; }
+.ai-chat-msg.ai { background: #fff; color: #17352a; border-color: #dce9e0; }
+.ai-chat-msg.user { background: linear-gradient(135deg,#128653,#075c3b); }
+.ai-chat-input { background: #fff; border-top-color: #e0ebe4; }
+.ai-chat-input input { background: #f7fbf8; color: #17352a; border-color: #d8e7dd; }
+.ai-chat-input input:focus { border-color: #168653; box-shadow: 0 0 0 3px rgba(8,116,71,.12); }
+.menu-item.active { border-color: rgba(8,116,71,.2); }
+.status-box.success { color: #087447; }
+.tp-figure.selected img { outline-color: #087447; }
+.tp-handle { background: #087447; }
+
+@media (max-width: 900px) {
+  .ai-chat-window { width: min(420px, calc(100vw - 24px)); max-width: calc(100vw - 24px); height: min(620px, calc(100dvh - 110px)); max-height: calc(100dvh - 110px); right: 12px; bottom: 88px; }
+  .ai-fab { width: 56px; height: 56px; right: 16px; bottom: 16px; }
+}
+@media (max-width: 600px) {
+  body { overflow: hidden; }
+  .topbar { min-height: 58px; height: 58px; padding: 0 12px; }
+  .chat-area { padding: 12px 10px 18px; gap: 14px; }
+  .input-container { padding: 10px 10px calc(12px + env(safe-area-inset-bottom)); }
+  .input-bar { gap: 8px; padding: 8px 9px 8px 12px; border-radius: 14px; }
+  .btn-icon { width: 40px; height: 40px; min-width: 40px; }
+  .a4-page { padding: 28px 18px; }
+  .ai-chat-window { left: 12px !important; right: 12px !important; width: auto; bottom: calc(82px + env(safe-area-inset-bottom)); height: min(68dvh, 560px); max-height: calc(100dvh - 110px); border-radius: 16px; }
+  .ai-chat-header { padding: 13px 14px; }
+  .ai-chat-body { padding: 12px; }
+  .ai-chat-input { padding: 10px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+  .ai-fab { right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); width: 54px; height: 54px; }
+  .ai-fab svg { width: 22px; height: 22px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
 </style>
 </head>
 <body>
@@ -2430,21 +2543,83 @@ document.addEventListener("DOMContentLoaded", async () => {
     setTimeout(() => { copyBtn.textContent = "Copy"; }, 1500);
   });
 
-  let dragging = false;
-  let offsetX = 0, offsetY = 0;
-  aiChatHeader.onmousedown = (e) => {
-    dragging = true;
-    offsetX = e.clientX - aiChatWindow.getBoundingClientRect().left;
-    offsetY = e.clientY - aiChatWindow.getBoundingClientRect().top;
-  };
-  document.onmousemove = (e) => {
-    if (!dragging) return;
-    aiChatWindow.style.left = `${e.clientX - offsetX}px`;
-    aiChatWindow.style.top = `${e.clientY - offsetY}px`;
+  // Pointer-based assistant window dragging (mouse, stylus and touch).
+  let panelDragging = false;
+  let panelOffsetX = 0, panelOffsetY = 0;
+  aiChatHeader.addEventListener("pointerdown", (e) => {
+    if (e.target.closest("button")) return;
+    panelDragging = true;
+    const rect = aiChatWindow.getBoundingClientRect();
+    panelOffsetX = e.clientX - rect.left;
+    panelOffsetY = e.clientY - rect.top;
+    aiChatHeader.setPointerCapture?.(e.pointerId);
+    e.preventDefault();
+  });
+  aiChatHeader.addEventListener("pointermove", (e) => {
+    if (!panelDragging) return;
+    const maxLeft = Math.max(8, window.innerWidth - aiChatWindow.offsetWidth - 8);
+    const maxTop = Math.max(8, window.innerHeight - aiChatWindow.offsetHeight - 8);
+    const left = Math.min(maxLeft, Math.max(8, e.clientX - panelOffsetX));
+    const top = Math.min(maxTop, Math.max(8, e.clientY - panelOffsetY));
+    aiChatWindow.style.left = `${left}px`;
+    aiChatWindow.style.top = `${top}px`;
     aiChatWindow.style.right = "auto";
     aiChatWindow.style.bottom = "auto";
+  });
+  const stopPanelDrag = () => { panelDragging = false; };
+  aiChatHeader.addEventListener("pointerup", stopPanelDrag);
+  aiChatHeader.addEventListener("pointercancel", stopPanelDrag);
+
+  // Drag the floating assistant button with touch or mouse. A short tap still opens it.
+  let fabPointer = null;
+  let fabMoved = false;
+  let suppressFabClick = false;
+  const fabSavedPosition = (() => {
+    try { return JSON.parse(localStorage.getItem("monkeyScoutFabPosition") || "null"); }
+    catch (_) { return null; }
+  })();
+  if (fabSavedPosition && Number.isFinite(fabSavedPosition.left) && Number.isFinite(fabSavedPosition.top)) {
+    const left = Math.min(window.innerWidth - aiFab.offsetWidth - 8, Math.max(8, fabSavedPosition.left));
+    const top = Math.min(window.innerHeight - aiFab.offsetHeight - 8, Math.max(8, fabSavedPosition.top));
+    aiFab.style.left = `${left}px`; aiFab.style.top = `${top}px`;
+    aiFab.style.right = "auto"; aiFab.style.bottom = "auto";
+  }
+  aiFab.addEventListener("pointerdown", (e) => {
+    if (e.button !== undefined && e.button !== 0) return;
+    const rect = aiFab.getBoundingClientRect();
+    fabPointer = { id: e.pointerId, startX: e.clientX, startY: e.clientY, left: rect.left, top: rect.top };
+    fabMoved = false;
+    aiFab.setPointerCapture?.(e.pointerId);
+  });
+  aiFab.addEventListener("pointermove", (e) => {
+    if (!fabPointer || fabPointer.id !== e.pointerId) return;
+    const dx = e.clientX - fabPointer.startX;
+    const dy = e.clientY - fabPointer.startY;
+    if (!fabMoved && Math.hypot(dx, dy) < 7) return;
+    fabMoved = true;
+    e.preventDefault();
+    const left = Math.min(window.innerWidth - aiFab.offsetWidth - 8, Math.max(8, fabPointer.left + dx));
+    const top = Math.min(window.innerHeight - aiFab.offsetHeight - 8, Math.max(8, fabPointer.top + dy));
+    aiFab.style.left = `${left}px`; aiFab.style.top = `${top}px`;
+    aiFab.style.right = "auto"; aiFab.style.bottom = "auto";
+  });
+  const finishFabPointer = (e) => {
+    if (!fabPointer || (e && fabPointer.id !== e.pointerId)) return;
+    if (fabMoved) {
+      suppressFabClick = true;
+      const rect = aiFab.getBoundingClientRect();
+      try { localStorage.setItem("monkeyScoutFabPosition", JSON.stringify({left: rect.left, top: rect.top})); } catch (_) {}
+      setTimeout(() => { suppressFabClick = false; }, 350);
+    }
+    fabPointer = null;
   };
-  document.onmouseup = () => { dragging = false; };
+  aiFab.addEventListener("pointerup", finishFabPointer);
+  aiFab.addEventListener("pointercancel", finishFabPointer);
+  aiFab.addEventListener("click", (e) => {
+    if (!suppressFabClick) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    suppressFabClick = false;
+  }, true);
 
   if (userId && /^\d+$/.test(String(userId))) await loadProfile(userId);
   else {
@@ -2582,7 +2757,7 @@ function repositionChatWindowAboveInput() {
   document.getElementById('aiFab').addEventListener('click', () => {
     setTimeout(() => {
       if (document.activeElement === input) doReposition();
-      else aiWindow.style.bottom = defaultBottom + 'px';
+      else if (window.innerWidth > 600 && !aiWindow.style.top) aiWindow.style.bottom = defaultBottom + 'px';
     }, 80);
   });
 }
