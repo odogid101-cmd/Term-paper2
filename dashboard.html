@@ -666,6 +666,68 @@ svg { display: block; }
   font-style: italic;
 }
 
+/* Academic tables (from markdown pipe tables) */
+.a4-content .tp-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  margin: 18px 0 22px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  -webkit-overflow-scrolling: touch;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.a4-content table.tp-table,
+.a4-content table {
+  width: 100%;
+  border-collapse: collapse;
+  border-spacing: 0;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #1e293b;
+  table-layout: auto;
+}
+.a4-content table.tp-table thead th,
+.a4-content table thead th {
+  background: #f1f5f9;
+  color: #0f172a;
+  font-weight: 700;
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 2px solid #cbd5e1;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+.a4-content table.tp-table tbody td,
+.a4-content table tbody td,
+.a4-content table.tp-table td,
+.a4-content table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #e2e8f0;
+  vertical-align: top;
+  text-align: left;
+  word-break: break-word;
+}
+.a4-content table.tp-table tbody tr:nth-child(even) td,
+.a4-content table tbody tr:nth-child(even) td {
+  background: #f8fafc;
+}
+.a4-content table.tp-table tbody tr:last-child td,
+.a4-content table tbody tr:last-child td {
+  border-bottom: none;
+}
+.a4-content table.tp-table tbody tr:hover td,
+.a4-content table tbody tr:hover td {
+  background: #eef2ff;
+}
+@media print {
+  .a4-content .tp-table-wrap { overflow: visible; border: 1px solid #cbd5e1; }
+  .a4-content table.tp-table tbody tr:hover td { background: transparent; }
+}
+
+
 .chat-actions {
   max-width: 860px;
   width: 100%;
@@ -1662,6 +1724,12 @@ svg { display: block; }
   color:var(--paper-text); text-align:center; cursor:pointer; break-inside:avoid;
 }
 .tp-image-placeholder:hover, .tp-image-placeholder:focus { outline:2px solid rgba(8,116,71,.25); background:rgba(8,116,71,.09); }
+.tp-image-placeholder.dragover {
+  outline: 2px solid #087447;
+  background: rgba(8,116,71,.16);
+  border-color: #087447;
+  transform: scale(1.01);
+}
 .tp-placeholder-icon { width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:#087447;color:#fff;font-size:24px;line-height:1; }
 .tp-placeholder-action { color:#087447;font-size:11px;font-weight:800;letter-spacing:.09em; }
 .tp-image-placeholder small { max-width:95%; color:#52616b; font-size:12px; line-height:1.5; }
@@ -2078,6 +2146,7 @@ function markdownToHTML(markdown) {
   const lines = String(markdown).replace(/\r/g, "").split("\n");
   const out = [];
   let paragraph = [], listItems = [], listType = null;
+  let tableRows = [];
   const esc = value => String(value).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   const inline = value => esc(value)
     .replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>")
@@ -2092,9 +2161,89 @@ function markdownToHTML(markdown) {
       listItems=[]; listType=null;
     }
   };
-  for (const rawLine of lines) {
+  const isSeparatorRow = (cells) => cells.length > 0 && cells.every(c => /^:?-{2,}:?$/.test(String(c).trim()) || c === "");
+  const splitTableCells = (line) => {
+    let s = String(line || "").trim();
+    if (s.startsWith("|")) s = s.slice(1);
+    if (s.endsWith("|")) s = s.slice(0, -1);
+    return s.split("|").map(c => c.trim());
+  };
+  const expandJammedTableLine = (line) => {
+    const t = String(line || "").trim();
+    const sepRe = /\|\s*:?-{2,}:?(?:\s*\|\s*:?-{2,}:?)+\s*\|/g;
+    if (!sepRe.test(t) && !/\|\s*-{2,}\s*\|/.test(t)) {
+      return [splitTableCells(t)];
+    }
+    const chunks = t.split(/(\|\s*:?-{2,}:?(?:\s*\|\s*:?-{2,}:?)+\s*\|)/);
+    const rows = [];
+    for (const chunk of chunks) {
+      const c = chunk.trim();
+      if (!c) continue;
+      rows.push(splitTableCells(c));
+    }
+    return rows.length ? rows : [splitTableCells(t)];
+  };
+  const isTableLine = (line) => {
+    const t = String(line || "").trim();
+    if (!t.includes("|")) return false;
+    const pipes = (t.match(/\|/g) || []).length;
+    if (pipes < 2) return false;
+    if (/^\|/.test(t) || /\|\s*$/.test(t)) return true;
+    if (pipes >= 3) return true;
+    return false;
+  };
+  const flushTable = () => {
+    if (!tableRows.length) return;
+    const cleaned = [];
+    let headerIdx = -1;
+    for (let i = 0; i < tableRows.length; i++) {
+      if (isSeparatorRow(tableRows[i])) {
+        if (cleaned.length === 1) headerIdx = 0;
+        continue;
+      }
+      if (tableRows[i].every(c => !String(c).trim())) continue;
+      cleaned.push(tableRows[i]);
+    }
+    if (!cleaned.length) { tableRows = []; return; }
+    if (headerIdx < 0 && cleaned.length >= 1) headerIdx = 0;
+    const colCount = cleaned[headerIdx] ? cleaned[headerIdx].length : Math.max(...cleaned.map(r => r.length));
+    const pad = (cells) => {
+      const next = cells.slice(0, colCount);
+      while (next.length < colCount) next.push("");
+      return next;
+    };
+    let html = '<div class="tp-table-wrap"><table class="tp-table"><thead>';
+    cleaned.forEach((cells, ri) => {
+      const row = pad(cells);
+      if (ri === headerIdx) {
+        html += "<tr>" + row.map(c => `<th>${inline(c)}</th>`).join("") + "</tr></thead><tbody>";
+      } else {
+        html += "<tr>" + row.map(c => `<td>${inline(c)}</td>`).join("") + "</tr>";
+      }
+    });
+    if (headerIdx >= 0) html += "</tbody>";
+    else html += "</thead><tbody></tbody>";
+    html += "</table></div>";
+    out.push(html);
+    tableRows = [];
+  };
+  for (let i = 0; i < lines.length; i++) {
+    const rawLine = lines[i];
     const line = rawLine.trim();
-    if (!line) { flushParagraph(); flushList(); continue; }
+    if (!line) {
+      flushParagraph();
+      flushList();
+      flushTable();
+      continue;
+    }
+    if (isTableLine(line)) {
+      flushParagraph();
+      flushList();
+      expandJammedTableLine(line).forEach(row => tableRows.push(row));
+      continue;
+    }
+    if (tableRows.length) flushTable();
+
     let m = line.match(/^(#{1,3})\s+(.+)$/);
     if (m) { flushParagraph(); flushList(); out.push(`<h${m[1].length}>${inline(m[2])}</h${m[1].length}>`); continue; }
     m = line.match(/^\*\*\s*(\d+\.\d+(?:\.\d+)?\s+.+?)\s*\*\*$/);
@@ -2123,7 +2272,9 @@ function markdownToHTML(markdown) {
     flushList();
     paragraph.push(line.replace(/^>\s?/, ""));
   }
-  flushParagraph(); flushList();
+  flushParagraph();
+  flushList();
+  flushTable();
   return out.join("\n");
 }
 
@@ -2376,11 +2527,43 @@ function parseTocLine(line){
   }
   return {label: label.replace(/[\s.]+$/,"").trim(), page};
 }
+/** Split a jammed LOF string (multiple Fig./Figure entries on one line) into separate entries. */
+function splitFigureEntries(line){
+  const text = String(line || "").trim();
+  if (!text) return [];
+  // Split before each Fig./Figure token so "Fig. 1.1: ... 6 Fig. 1.2: ..." becomes separate items
+  const parts = text.split(/(?=(?:Fig\.?|Figure)\s*[\d.]+)/i).map(s => s.trim()).filter(Boolean);
+  if (parts.length <= 1) {
+    if (/^(?:Fig\.?|Figure)\s*[\d.]+/i.test(text)) {
+      return [parseTocLine(text)];
+    }
+    return [];
+  }
+  const results = [];
+  for (const part of parts) {
+    // Leading "List of Figures" glued to the first figure
+    if (/^list of figures\b/i.test(part)) {
+      results.push({ label: "List of Figures", page: "" });
+      const rest = part.replace(/^list of figures\b[:\s.]*/i, "").trim();
+      if (rest && /^(?:Fig\.?|Figure)\s*[\d.]+/i.test(rest)) {
+        results.push(parseTocLine(rest));
+      }
+      continue;
+    }
+    if (/^(?:Fig\.?|Figure)\s*[\d.]+/i.test(part)) {
+      results.push(parseTocLine(part));
+    }
+  }
+  return results;
+}
+function isFigureLabel(label){
+  return /^(?:Fig\.?|Figure)\s*[\d.]+/i.test(String(label || "").trim());
+}
 function formatTOCHTML(bodyHtml, options){
   const showHeading = !options || options.showHeading !== false;
   const temp = document.createElement("div");
   temp.innerHTML = bodyHtml;
-  const prelim = [], body = [], end = [];
+  const prelim = [], body = [], end = [], figures = [];
   const seen = new Set();
   const push = (entry) => {
     let label = String(entry.label||"").trim();
@@ -2398,37 +2581,71 @@ function formatTOCHTML(bodyHtml, options){
     if (seen.has(key)) return;
     seen.add(key);
     const final = {label, page:entry.page||""};
-    if (isPreliminaryLabel(label)) prelim.push(final);
+    if (isFigureLabel(label)) figures.push(final);
+    else if (isPreliminaryLabel(label)) prelim.push(final);
     else if (isEndMatterLabel(label)) end.push(final);
     else body.push(final);
   };
-  // Read only actual line nodes. Selecting every ancestor div duplicated all
-  // descendant TOC text and caused headings/page numbers to be mis-parsed.
-  [...temp.querySelectorAll("p,li,h1,h2,h3,div")].filter(node => {
-    return ![...node.children].some(child => /^(P|LI|H1|H2|H3|DIV)$/.test(child.tagName));
-  }).forEach(node => {
-    let line = (node.textContent || "").trim();
-    if (!line) return;
-    if (/^table of contents$/i.test(line)) return;
-    line = line.replace(/^[-*•]+\s*/, "");
-    // Jammed preliminary block (many titles in one string, no page numbers)
-    const prelimHits = splitKnownItems(line, PRELIM_PATTERNS);
-    if (prelimHits.length >= 3) {
-      prelimHits.forEach(push);
-      return;
-    }
-    const parsed = parseTocLine(line);
-    if (!parsed.label) return;
-    // If a single line still contains multiple known end-matter titles, split them
-    const endHits = splitKnownItems(parsed.label, END_PATTERNS);
-    if (endHits.length >= 2 && parsed.label.length > 40) {
-      endHits.forEach(e => push({label:e.label, page:parsed.page}));
-      return;
-    }
-    push({label:parsed.label, page:parsed.page});
-  });
+  // Prefer already-structured TOC rows (from List of Figures refresh)
+  const structuredRows = [...temp.querySelectorAll(".toc-row")];
+  if (structuredRows.length) {
+    structuredRows.forEach(row => {
+      const labelEl = row.querySelector(".toc-label");
+      const pageEl = row.querySelector(".toc-page");
+      const label = (labelEl ? labelEl.textContent : row.textContent || "").trim();
+      const page = (pageEl ? pageEl.textContent : "").trim();
+      if (label) push({ label, page });
+    });
+    [...temp.querySelectorAll("h2")].forEach(h => {
+      const t = (h.textContent || "").trim();
+      if (t && !/^table of contents$/i.test(t)) push({ label: t, page: "" });
+    });
+  } else {
+    // Read only actual line nodes. Selecting every ancestor div duplicated all
+    // descendant TOC text and caused headings/page numbers to be mis-parsed.
+    [...temp.querySelectorAll("p,li,h1,h2,h3,div")].filter(node => {
+      return ![...node.children].some(child => /^(P|LI|H1|H2|H3|DIV)$/.test(child.tagName));
+    }).forEach(node => {
+      let line = (node.textContent || "").trim();
+      if (!line) return;
+      if (/^table of contents$/i.test(line)) return;
+      line = line.replace(/^[-*•]+\s*/, "");
+      // Jammed List-of-Figures block: one paragraph with many "Fig. x.y: … page" entries
+      const figHits = splitFigureEntries(line);
+      if (figHits.length >= 1 && (figHits.length >= 2 || isFigureLabel(figHits[0].label) || /list of figures/i.test(line))) {
+        figHits.forEach(push);
+        if (!/[Cc]hapter\s+\d/.test(line) && figHits.some(f => isFigureLabel(f.label))) return;
+      }
+      // Jammed preliminary block (many titles in one string, no page numbers)
+      const prelimHits = splitKnownItems(line, PRELIM_PATTERNS);
+      if (prelimHits.length >= 3) {
+        prelimHits.forEach(push);
+        return;
+      }
+      const parsed = parseTocLine(line);
+      if (!parsed.label) return;
+      // If a single line still contains multiple known end-matter titles, split them
+      const endHits = splitKnownItems(parsed.label, END_PATTERNS);
+      if (endHits.length >= 2 && parsed.label.length > 40) {
+        endHits.forEach(e => push({label:e.label, page:parsed.page}));
+        return;
+      }
+      push({label:parsed.label, page:parsed.page});
+    });
+  }
   prelim.sort((a,b) => prelimOrder(a.label) - prelimOrder(b.label) || a.label.localeCompare(b.label));
   end.sort((a,b) => endMatterOrder(a.label) - endMatterOrder(b.label) || a.label.localeCompare(b.label));
+  // Stable figure order by chapter.figure number when possible
+  figures.sort((a,b) => {
+    const ma = String(a.label).match(/(\d+)\.(\d+)/);
+    const mb = String(b.label).match(/(\d+)\.(\d+)/);
+    if (ma && mb) {
+      const ca = parseInt(ma[1],10), cb = parseInt(mb[1],10);
+      if (ca !== cb) return ca - cb;
+      return parseInt(ma[2],10) - parseInt(mb[2],10);
+    }
+    return a.label.localeCompare(b.label);
+  });
   // Fill missing preliminary page numbers from the rendered preliminary pages
   try {
     const info = getPreliminaryPageInfo();
@@ -2442,7 +2659,22 @@ function formatTOCHTML(bodyHtml, options){
       else if (!entry.page) entry.page = "";
     });
   } catch (e) { /* preliminary pages may not be mounted yet */ }
-  const ordered = [...prelim, ...body, ...end];
+  // Insert figure rows immediately after the "List of Figures" prelim title so the
+  // LOF is arranged like List of Tables / chapters (one entry per row with page #).
+  const ordered = [];
+  let figuresInserted = false;
+  for (const entry of prelim) {
+    ordered.push(entry);
+    if (!figuresInserted && /^list of figures$/i.test(entry.label)) {
+      ordered.push(...figures);
+      figuresInserted = true;
+    }
+  }
+  if (!figuresInserted && figures.length) {
+    ordered.push({ label: "List of Figures", page: "" });
+    ordered.push(...figures);
+  }
+  ordered.push(...body, ...end);
   const rows = [];
   if (showHeading) rows.push({heading:true, label:"TABLE OF CONTENTS", page:""});
   rows.push(...ordered);
@@ -4034,6 +4266,43 @@ function ensureWorkflowDelegation(){
     e.preventDefault();
     showImagePanel(container, placeholder);
   });
+  // Drag-and-drop onto AI image placeholders (same upload flow as Add Image)
+  const isFileDrag = (e) => {
+    const types = e.dataTransfer && e.dataTransfer.types;
+    if (!types) return false;
+    return [...types].includes("Files") || [...types].includes("application/x-moz-file");
+  };
+  chatArea.addEventListener("dragenter", (e) => {
+    const ph = e.target.closest && e.target.closest(".tp-image-placeholder");
+    if (!ph || !isFileDrag(e)) return;
+    e.preventDefault();
+    ph.classList.add("dragover");
+  });
+  chatArea.addEventListener("dragover", (e) => {
+    const ph = e.target.closest && e.target.closest(".tp-image-placeholder");
+    if (!ph || !isFileDrag(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+    ph.classList.add("dragover");
+  });
+  chatArea.addEventListener("dragleave", (e) => {
+    const ph = e.target.closest && e.target.closest(".tp-image-placeholder");
+    if (!ph) return;
+    if (ph.contains(e.relatedTarget)) return;
+    ph.classList.remove("dragover");
+  });
+  chatArea.addEventListener("drop", (e) => {
+    const ph = e.target.closest && e.target.closest(".tp-image-placeholder");
+    if (!ph) return;
+    e.preventDefault();
+    e.stopPropagation();
+    ph.classList.remove("dragover");
+    const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (!file) return;
+    const container = ph.closest(".chat-msg");
+    if (!container) return;
+    showImagePanel(container, ph, file);
+  });
   chatArea.addEventListener("change", (e) => {
     const t = e.target;
     if(!t || t.dataset.action !== "inline-toggle") return;
@@ -4396,7 +4665,7 @@ function extractFiguresFromHTML(html) {
   }));
 }
 
-function showImagePanel(container, targetPlaceholder = null) {
+function showImagePanel(container, targetPlaceholder = null, preselectedFile = null) {
   document.querySelectorAll(".tp-image-panel").forEach(p => p.remove());
   const placeholderMain = targetPlaceholder ? (targetPlaceholder.dataset.figMainLabel || "") : "";
   const placeholderSub = targetPlaceholder ? (targetPlaceholder.dataset.figCaption || "") : "";
@@ -4405,7 +4674,7 @@ function showImagePanel(container, targetPlaceholder = null) {
 
   panel.innerHTML = `
     <h4>${targetPlaceholder ? "Fill this illustration position" : "Add Image to this section"}</h4>
-    <div class="hint">Choose an image from your gallery. The image will be saved at this position with its academic label and caption. Manual images can be added anywhere in the chapter.</div>
+    <div class="hint">Choose an image from your gallery, or drag and drop one onto the green placeholder or this panel. The image will be saved at this position with its academic label and caption.</div>
     ${placeholderMain ? `<div class="image-target-label"><strong>${escapeHTML(placeholderMain)}</strong></div>` : ""}
     <div class="dropzone" id="tpDropZone" tabindex="0" role="button" aria-label="Drop image here or click to choose">
       <div class="dz-icon">⬆</div>
@@ -4531,15 +4800,24 @@ function showImagePanel(container, targetPlaceholder = null) {
     }
   });
 
-  // Prevent browser opening the file when dropped outside
+  // Prevent browser opening the file when dropped outside; accept drops on panel
   panel.addEventListener("dragover", (e) => e.preventDefault());
-  panel.addEventListener("drop", (e) => e.preventDefault());
+  panel.addEventListener("drop", (e) => {
+    e.preventDefault();
+    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) acceptFile(f);
+  });
 
   panel.querySelector("[data-cancel]").onclick = () => {
     if (objectUrl) URL.revokeObjectURL(objectUrl);
     panel.remove();
     activeImagePanel = null;
   };
+
+  // Pre-load a file dropped directly onto an AI image placeholder
+  if (preselectedFile) {
+    acceptFile(preselectedFile);
+  }
 
   const unlockActions = () => { refreshWorkflowActionAvailability(); };
 
