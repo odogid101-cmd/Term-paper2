@@ -1654,8 +1654,51 @@ svg { display: block; }
 .tp-image-panel .status.error { color: #fca5a5; }
 .tp-image-panel .status.success { color: #a7f3d0; }
 
+/* AI-suggested illustration slots */
+.tp-image-placeholder {
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px;
+  width:min(78%,520px); min-height:150px; margin:22px auto; padding:22px 18px;
+  border:2px dashed rgba(8,116,71,.48); border-radius:12px; background:rgba(8,116,71,.045);
+  color:var(--paper-text); text-align:center; cursor:pointer; break-inside:avoid;
+}
+.tp-image-placeholder:hover, .tp-image-placeholder:focus { outline:2px solid rgba(8,116,71,.25); background:rgba(8,116,71,.09); }
+.tp-placeholder-icon { width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:#087447;color:#fff;font-size:24px;line-height:1; }
+.tp-placeholder-action { color:#087447;font-size:11px;font-weight:800;letter-spacing:.09em; }
+.tp-image-placeholder small { max-width:95%; color:#52616b; font-size:12px; line-height:1.5; }
+.fig-main-label { display:block; margin:0 0 7px; font-weight:700; font-size:13px; color:var(--paper-text); }
+.image-mode-field { padding:13px 14px; border:1px solid var(--border); border-radius:12px; background:rgba(8,116,71,.045); }
+.image-mode-label { font-size:13px !important; color:var(--text) !important; }
+.image-mode-help { color:var(--muted); font-size:12px; line-height:1.55; }
+.image-target-label { margin:0 0 8px; color:var(--text); font-size:13px; }
+
+@media (max-width: 900px) {
+  /* Keep the desktop visual language while allowing every content surface to fit the phone. */
+  .chat-area { padding:14px 10px 22px; gap:14px; overflow-x:hidden; }
+  .chat-msg, .pages-container, .workflow-editor, .workflow-status { width:100%; max-width:100%; min-width:0; }
+  .a4-page { width:100%; max-width:100%; min-width:0; box-sizing:border-box; padding:34px 22px; font-size:14px; line-height:1.72; overflow-wrap:anywhere; word-break:normal; }
+  .a4-page .a4-content, .a4-page p, .a4-page li, .a4-page h1, .a4-page h2, .a4-page h3, .a4-page h4 { max-width:100%; overflow-wrap:anywhere; }
+  .prompt-toc-shell, .prompt-builder-panel, .prompt-toc-panel { width:100%; max-width:100%; min-width:0; }
+  .prompt-builder-form { grid-template-columns:minmax(0,1fr); gap:13px; }
+  .prompt-builder-form .form-field { min-width:0; }
+  .prompt-builder-form input, .prompt-builder-form select, .prompt-builder-form textarea { min-width:0; max-width:100%; font-size:14px; }
+  .workflow-output-actions { flex-wrap:wrap; }
+  .workflow-output-actions button { min-width:0; }
+  .tp-image-placeholder { width:94%; min-height:130px; padding:18px 12px; }
+}
+@media (max-width: 520px) {
+  .topbar .heading { font-size:14px; }
+  .welcome-placeholder { padding:22px 18px; }
+  .input-hint { text-align:left; padding-right:0; }
+  .chat-msg.ai-normal { padding:13px 12px; font-size:14px; }
+  .a4-page { padding:28px 18px; font-size:13.5px; }
+  .prompt-builder-panel { padding:12px; }
+  .prompt-toc-header { align-items:flex-start; gap:10px; flex-wrap:wrap; }
+  .prompt-toc-switch { max-width:100%; white-space:normal; }
+  .workflow-output-actions button { flex:1 1 calc(50% - 7px); }
+}
+
 @media print {
-  .tp-figure-handles, .tp-image-panel, .tp-handle { display: none !important; }
+  .tp-figure-handles, .tp-image-panel, .tp-handle, .tp-image-placeholder { display: none !important; }
   .tp-figure img { outline: none !important; max-height: none; }
 }
 
@@ -2987,6 +3030,14 @@ function renderPromptBuilderView() {
             <input id="pbChapters" name="pbChapters" type="number" min="1" max="12" value="${escapeHTML(draft.chapters || 5)}">
           </div>
 
+          <div class="form-field full image-mode-field">
+            <label class="image-mode-label" for="pbImages">Illustrations in this paper</label>
+            <div class="checkbox-row image-mode-row">
+              <label><input type="checkbox" id="pbImages" name="pbImages" ${draft.include_images ? "checked" : ""}> Ask Groq to mark useful image positions</label>
+            </div>
+            <small class="image-mode-help">When enabled, Groq adds labelled “ADD IMAGE HERE” positions. You upload the actual pictures. You can also add images manually in any chapter even when this is OFF.</small>
+          </div>
+
           <div class="form-field">
             <label for="pbBodySize">Body font size (pt)</label>
             <input id="pbBodySize" name="pbBodySize" type="number" min="8" max="24" value="${escapeHTML(draft.body_font_size || 12)}">
@@ -3109,6 +3160,7 @@ function defaultPromptBuilderDraft() {
     pages: 20,
     chapters: 5,
     conclusion_mode: "separate",
+    include_images: false,
     body_font_size: 12,
     heading1_size: 14,
     heading2_size: 14,
@@ -3136,6 +3188,7 @@ function getFormDraftFromInputs() {
     topic: document.getElementById("pbTopic") ? document.getElementById("pbTopic").value.trim() : "",
     pages: document.getElementById("pbPages") ? document.getElementById("pbPages").value : 20,
     chapters: document.getElementById("pbChapters") ? document.getElementById("pbChapters").value : 5,
+    include_images: document.getElementById("pbImages") ? document.getElementById("pbImages").checked : false,
     body_font_size: document.getElementById("pbBodySize") ? document.getElementById("pbBodySize").value : 12,
     heading1_size: document.getElementById("pbH1") ? document.getElementById("pbH1").value : 14,
     heading2_size: document.getElementById("pbH2") ? document.getElementById("pbH2").value : 14,
@@ -3193,6 +3246,7 @@ async function handlePromptBuilderSubmit(event) {
       topic: draft.topic,
       pages: draft.pages,
       chapters: draft.chapters,
+      include_images: !!draft.include_images,
       conclusion_mode: "separate",
       body_font_size: draft.body_font_size,
       heading1_size: draft.heading1_size,
@@ -3896,8 +3950,8 @@ function workflowActionsHTML(kind){
       `<div class="resend-panel">` +
         `<button type="button" data-action="resend-local" ${resendDisabled}>Update near image` +
           `<small>Only edit text that matches the figure caption</small></button>` +
-        `<button type="button" data-action="resend-full" ${resendDisabled}>Rewrite whole chapter` +
-          `<small>Regenerate the full section and keep figures</small></button>` +
+        `<button type="button" data-action="resend-full" ${resendDisabled}>Refine chapter wording` +
+          `<small>Improve selected wording while preserving the chapter and images</small></button>` +
       `</div>` +
     `</details>` +
     `<button type="button" class="primary" data-action="next">Pull Next</button>`;
@@ -3932,7 +3986,7 @@ function refreshWorkflowActionAvailability(){
           return;
         }
         const raw = card.dataset.raw || "";
-        const hasFig = card.querySelector(".tp-figure") || /data-fig-label=/.test(raw) || /class=["']?tp-figure["']?/.test(raw);
+        const hasFig = card.querySelector('.tp-figure:not([data-auto-image="1"])') || /class=["']?tp-figure["']?/.test(raw) && !/data-auto-image=["']1["']/.test(raw);
         btn.disabled = !hasFig;
         btn.title = hasFig ? "Only edit text that matches the figure caption" : "Add an image to this section first";
         return;
@@ -3963,6 +4017,22 @@ function ensureWorkflowDelegation(){
     e.preventDefault();
     e.stopPropagation();
     handleWorkflowAction(btn, container);
+  });
+  chatArea.addEventListener("click", (e) => {
+    const placeholder = e.target.closest(".tp-image-placeholder");
+    if (!placeholder) return;
+    const container = placeholder.closest(".chat-msg");
+    if (!container) return;
+    e.preventDefault();
+    showImagePanel(container, placeholder);
+  });
+  chatArea.addEventListener("keydown", (e) => {
+    if ((e.key !== "Enter" && e.key !== " ") || !e.target.closest(".tp-image-placeholder")) return;
+    const placeholder = e.target.closest(".tp-image-placeholder");
+    const container = placeholder.closest(".chat-msg");
+    if (!container) return;
+    e.preventDefault();
+    showImagePanel(container, placeholder);
   });
   chatArea.addEventListener("change", (e) => {
     const t = e.target;
@@ -4268,15 +4338,17 @@ function nextFigureLabel(container) {
   return { label: `Fig. ${chap}.${idx}`, chapter: chap, index: idx };
 }
 
-function buildFigureHTML(url, label, caption, widthPct = 70) {
+function buildFigureHTML(url, label, caption, widthPct = 70, mainLabel = "", autoGenerated = false) {
   const safeUrl = escapeHTML(url);
   const safeLabel = escapeHTML(label);
   const safeCap = escapeHTML(caption || "");
   const safeCaptionMeta = escapeHTML(caption || "");
+  const safeMain = escapeHTML(mainLabel || "");
   const figureId = "figure-" + String(label || "figure").toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-" + Date.now().toString(36);
   const w = Math.max(20, Math.min(100, Number(widthPct) || 70));
-  return `<div class="tp-figure" data-fig-id="${figureId}" data-fig-label="${safeLabel}" data-fig-caption="${safeCaptionMeta}" data-fig-url="${safeUrl}" data-fig-width="${w}" style="width:${w}%;max-width:100%;margin-left:auto;margin-right:auto">
-  <img src="${safeUrl}" alt="${safeLabel}" loading="lazy" draggable="false" />
+  return `<div class="tp-figure${autoGenerated ? " tp-ai-image" : ""}" data-fig-id="${figureId}" data-fig-label="${safeLabel}" data-fig-caption="${safeCaptionMeta}" data-fig-main-label="${safeMain}" data-fig-url="${safeUrl}" data-fig-width="${w}"${autoGenerated ? ' data-auto-image="1"' : ""} style="width:${w}%;max-width:100%;margin-left:auto;margin-right:auto">
+  ${safeMain ? `<span class="fig-main-label">${safeMain}</span>` : ""}
+  <img src="${safeUrl}" alt="${safeMain || safeLabel}" loading="lazy" draggable="false" />
   <span class="fig-caption"><span class="fig-label">${safeLabel}</span>${safeCap ? ": " + safeCap : ""}</span>
   <div class="tp-figure-handles">
     <div class="tp-handle move" title="Drag to move (including to another page)"></div>
@@ -4324,14 +4396,17 @@ function extractFiguresFromHTML(html) {
   }));
 }
 
-function showImagePanel(container) {
+function showImagePanel(container, targetPlaceholder = null) {
   document.querySelectorAll(".tp-image-panel").forEach(p => p.remove());
+  const placeholderMain = targetPlaceholder ? (targetPlaceholder.dataset.figMainLabel || "") : "";
+  const placeholderSub = targetPlaceholder ? (targetPlaceholder.dataset.figCaption || "") : "";
   const panel = document.createElement("div");
   panel.className = "tp-image-panel show";
 
   panel.innerHTML = `
-    <h4>Add Image to this section</h4>
-    <div class="hint">1. Upload an image (click or drag & drop).<br>2. Add a short caption.<br>3. Place it where you want (drag up/down after it appears).<br>4. Click <b>Resend</b> so Groq rewrites the chapter and refers to the figure.</div>
+    <h4>${targetPlaceholder ? "Fill this illustration position" : "Add Image to this section"}</h4>
+    <div class="hint">Choose an image from your gallery. The image will be saved at this position with its academic label and caption. Manual images can be added anywhere in the chapter.</div>
+    ${placeholderMain ? `<div class="image-target-label"><strong>${escapeHTML(placeholderMain)}</strong></div>` : ""}
     <div class="dropzone" id="tpDropZone" tabindex="0" role="button" aria-label="Drop image here or click to choose">
       <div class="dz-icon">⬆</div>
       <div class="dz-title">Drag & drop image here</div>
@@ -4340,7 +4415,7 @@ function showImagePanel(container) {
     </div>
     <div class="preview-box" id="tpImagePreview"><span style="color:var(--muted);font-size:13px">No image selected</span></div>
     <div class="row">
-      <input type="text" id="tpImageCaption" placeholder="Caption / sub-label (e.g. Background of coding diagram)" />
+      <input type="text" id="tpImageCaption" value="${escapeHTML(placeholderSub)}" placeholder="Caption / sub-label (e.g. Background of coding diagram)" />
     </div>
     <div class="actions">
       <button type="button" data-cancel>Cancel</button>
@@ -4532,7 +4607,8 @@ function showImagePanel(container) {
       if (!res.ok || !data.url) throw new Error(data.error || `Upload failed (${res.status}).`);
 
             const { label } = nextFigureLabel(container);
-      const figHtml = buildFigureHTML(data.url, label, caption, 70);
+      const mainLabel = placeholderMain;
+      const figHtml = buildFigureHTML(data.url, label, caption, 70, mainLabel, !!targetPlaceholder);
 
       let baseHtml;
       const currentRaw = container.dataset.raw || "";
@@ -4541,7 +4617,23 @@ function showImagePanel(container) {
       } else {
         baseHtml = markdownToHTML(cleanPaperText(currentRaw));
       }
-      let raw = "[[TEMPAPER_RICH_HTML]]" + baseHtml + figHtml;
+      let nextHtml = baseHtml;
+      if (targetPlaceholder) {
+        const temp = document.createElement("div");
+        temp.innerHTML = baseHtml;
+        const target = [...temp.querySelectorAll(".tp-image-placeholder")].find(node => node.dataset.placeholderId === targetPlaceholder.dataset.placeholderId);
+        if (target) {
+          const figureNode = document.createElement("div");
+          figureNode.innerHTML = figHtml;
+          target.replaceWith(figureNode.firstElementChild);
+          nextHtml = temp.innerHTML;
+        } else {
+          nextHtml += figHtml;
+        }
+      } else {
+        nextHtml += figHtml;
+      }
+      let raw = "[[TEMPAPER_RICH_HTML]]" + nextHtml;
       container.dataset.raw = raw;
 
       // Fresh action bar + figure bind (never clone outerHTML with dead buttons)
@@ -4554,9 +4646,9 @@ function showImagePanel(container) {
         rerenderWorkflowSection(container, raw);
         unlockActions();
         updateLocalHistory(raw);
-        status.textContent = `Saved as ${label}. Drag to place it (including onto another page), then click Resend so Groq refers to it.`;
+        status.textContent = targetPlaceholder ? `Image added under ${mainLabel || label}.` : `Saved as ${label}. Drag to place it anywhere in this chapter.`;
         status.className = "status success";
-        addWorkflowStatus(`${label} saved in this section. Place it, then click Resend to integrate it into the chapter text.`);
+        addWorkflowStatus(targetPlaceholder ? `${mainLabel || label} illustration saved at its suggested position.` : `${label} saved in this section. You can move it to the position you prefer.`);
         refreshWorkflowActionAvailability();
         try { await refreshListOfFigures(); } catch(_){}
       } catch (saveErr) {
@@ -4884,19 +4976,13 @@ async function handleWorkflowAction(button,container){
       // Close any open resend menus
       container.querySelectorAll("details.resend-menu[open]").forEach(d => { d.open = false; });
       const currentContent = syncSectionRawFromDOM(container) || container.dataset.raw || "";
-      const hasFig = /class=["']?tp-figure["']?/.test(currentContent) || /data-fig-label=/.test(currentContent);
+      const hasFig = !!container.querySelector('.tp-figure:not([data-auto-image="1"])') || (/class=["']?tp-figure["']?/.test(currentContent) && !/data-auto-image=["']1["']/.test(currentContent));
       if(mode === "local"){
         if(!hasFig) throw new Error("Add an image to this section first, then use Update near image.");
       }
-      // Confirm before full rewrite of preliminary pages (large + easy to trigger by mistake)
-      if(mode === "full" && container.dataset.kind === "preliminary"){
-        const ok = confirm("Rewrite the entire Preliminary Pages section? This can take a while and will replace the current text. Figures (if any) will be kept.");
-        if(!ok) return;
-      }
-      if(mode === "full" && container.dataset.kind === "chapter"){
-        const ok = confirm(hasFig
-          ? "Rewrite this whole chapter? Figures will be kept and the text regenerated."
-          : "Rewrite this whole chapter? There are no figures in this section.");
+      // Confirm a lightweight wording refinement; the backend applies only exact text patches.
+      if(mode === "full"){
+        const ok = confirm("Refine wording in this section? Groq will suggest small text improvements only. Existing headings, chapter structure and images will be preserved.");
         if(!ok) return;
       }
       const d=await workflowJSON("/pull-next",{
