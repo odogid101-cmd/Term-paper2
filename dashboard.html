@@ -1905,7 +1905,89 @@ body { background-color: var(--bg); color: var(--text); }
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
 
+/* Merged paper download bar */
+.merged-download-bar {
+  max-width: 860px;
+  margin: 18px auto 28px;
+  padding: 14px 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+  box-shadow: 0 8px 20px rgba(2, 6, 23, 0.12);
+}
+.merged-download-bar .download-label {
+  margin-right: auto;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.merged-download-btn {
+  min-height: 40px;
+  padding: 9px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.05);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+.merged-download-btn:hover:not(:disabled) {
+  background: rgba(255,255,255,0.09);
+  transform: translateY(-1px);
+}
+.merged-download-btn.primary {
+  color: #fff;
+  background: var(--accent-gradient);
+  border-color: transparent;
+  box-shadow: 0 10px 20px rgba(99,102,241,0.28), inset 0 1px 0 rgba(255,255,255,0.18);
+}
+.merged-download-btn.primary:hover:not(:disabled) {
+  box-shadow: 0 14px 26px rgba(99,102,241,0.36), inset 0 1px 0 rgba(255,255,255,0.22);
+}
+.merged-download-btn:disabled {
+  opacity: 0.55;
+  cursor: wait;
+  transform: none;
+}
+.merged-download-btn svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+}
+@media (max-width: 600px) {
+  .merged-download-bar {
+    margin: 14px 0 22px;
+    justify-content: stretch;
+  }
+  .merged-download-bar .download-label {
+    width: 100%;
+    margin: 0 0 4px;
+  }
+  .merged-download-btn {
+    flex: 1 1 calc(50% - 10px);
+    justify-content: center;
+  }
+}
+@media print {
+  .merged-download-bar { display: none !important; }
+}
+
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://unpkg.com/html-docx-js@0.3.1/dist/html-docx.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 </head>
 <body>
 
@@ -4549,7 +4631,7 @@ function renderMergedPaper(value){
   const wrap=document.createElement("div");wrap.className="chat-msg";wrap.id="mergedPaperOutput";
   const title=document.createElement("div");title.className="merged-paper-heading";
   title.textContent="Complete Merged Term Paper";wrap.appendChild(title);
-  const pages=document.createElement("div");pages.className="merged-pages";
+  const pages=document.createElement("div");pages.className="merged-pages";pages.id="mergedPagesRoot";
   const cards=[...document.querySelectorAll('#chatArea .chat-msg[data-kind]')]
     .filter(card=>card.dataset.kind!=="toc" && card.dataset.kind!=="status" && card.querySelector(".pages-container"));
   let arabicPage=1,romanPage=1;
@@ -4591,7 +4673,137 @@ function renderMergedPaper(value){
   wrap.appendChild(pages);
   const note=document.createElement("div");note.className="workflow-merged-note";
   note.textContent="Merged document. Inline Groq refinement is disabled. Individual section edits remain saved through the existing backend.";
-  wrap.appendChild(note);document.getElementById("chatArea").appendChild(wrap);
+  wrap.appendChild(note);
+
+  // Download PDF / Word buttons
+  const bar=document.createElement("div");
+  bar.className="merged-download-bar";
+  bar.innerHTML=`
+    <span class="download-label">Export complete paper</span>
+    <button type="button" class="merged-download-btn" id="downloadMergedDocxBtn" title="Download as Microsoft Word">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Download as Word (.docx)
+    </button>
+    <button type="button" class="merged-download-btn primary" id="downloadMergedPdfBtn" title="Download as PDF">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Download as PDF
+    </button>
+  `;
+  wrap.appendChild(bar);
+  document.getElementById("chatArea").appendChild(wrap);
+  document.getElementById("downloadMergedPdfBtn")?.addEventListener("click",()=>downloadMergedAsPDF());
+  document.getElementById("downloadMergedDocxBtn")?.addEventListener("click",()=>downloadMergedAsDocx());
+}
+
+function getMergedExportTitle(){
+  const topic=(document.querySelector(".prompt-toc-header h2")?.textContent||"").trim();
+  const fromHistory=(Array.isArray(activeChatHistory)?activeChatHistory.find(h=>h&&h.workflow&&h.isPaper):null);
+  const base=topic||(fromHistory&&fromHistory.prompt?String(fromHistory.prompt).replace(/^Pull Next:\s*/i,""):"")||"Complete_Term_Paper";
+  return String(base).replace(/[\\/:*?"<>|]+/g,"_").replace(/\s+/g,"_").slice(0,80)||"Complete_Term_Paper";
+}
+
+/** Build a clean clone of the merged pages for export (strip UI chrome). */
+function buildMergedExportRoot(){
+  const source=document.getElementById("mergedPagesRoot");
+  if(!source)throw new Error("Merged pages not found. Generate and merge the paper first.");
+  const clone=source.cloneNode(true);
+  clone.querySelectorAll(".tp-figure-handles, .tp-handle").forEach(n=>n.remove());
+  clone.querySelectorAll(".tp-figure.selected").forEach(f=>f.classList.remove("selected"));
+  clone.querySelectorAll(".tp-image-placeholder").forEach(n=>n.remove());
+  clone.querySelectorAll("img").forEach(img=>{if(img.src)img.setAttribute("src",img.src);});
+  const wrapper=document.createElement("div");
+  wrapper.id="merged-export-root";
+  wrapper.style.cssText="background:#fff;color:#1e293b;font-family:Merriweather,Georgia,serif;";
+  wrapper.appendChild(clone);
+  return wrapper;
+}
+
+async function downloadMergedAsPDF(){
+  const btn=document.getElementById("downloadMergedPdfBtn");
+  if(!btn)return;
+  if(typeof html2pdf==="undefined"){
+    alert("PDF library not loaded. Check your internet connection and refresh the page.");
+    return;
+  }
+  const originalLabel=btn.innerHTML;
+  btn.disabled=true;
+  btn.textContent="Preparing PDF…";
+  let root=null;
+  try{
+    root=buildMergedExportRoot();
+    root.style.position="fixed";
+    root.style.left="-9999px";
+    root.style.top="0";
+    root.style.width="794px";
+    document.body.appendChild(root);
+    const filename=getMergedExportTitle()+".pdf";
+    const opt={
+      margin:[10,10,12,10],
+      filename,
+      image:{type:"jpeg",quality:0.92},
+      html2canvas:{scale:2,useCORS:true,allowTaint:true,logging:false,backgroundColor:"#ffffff"},
+      jsPDF:{unit:"mm",format:"a4",orientation:"portrait"},
+      pagebreak:{mode:["css","legacy"],avoid:[".tp-figure","h1","h2","h3","table"]}
+    };
+    await html2pdf().set(opt).from(root).save();
+  }catch(err){
+    console.error(err);
+    alert("Could not generate PDF: "+(err.message||"Unknown error"));
+  }finally{
+    if(root&&root.parentNode)root.remove();
+    btn.disabled=false;
+    btn.innerHTML=originalLabel;
+  }
+}
+
+async function downloadMergedAsDocx(){
+  const btn=document.getElementById("downloadMergedDocxBtn");
+  if(!btn)return;
+  if(typeof htmlDocx==="undefined"||typeof saveAs==="undefined"){
+    alert("Word export library not loaded. Check your internet connection and refresh the page.");
+    return;
+  }
+  const originalLabel=btn.innerHTML;
+  btn.disabled=true;
+  btn.textContent="Preparing Word…";
+  try{
+    const root=buildMergedExportRoot();
+    const pagesHtml=root.innerHTML;
+    const fullHtml=`<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>${getMergedExportTitle()}</title>
+<style>
+  body{font-family:Georgia,'Times New Roman',serif;font-size:12pt;line-height:1.6;color:#1e293b;}
+  h1{font-size:18pt;text-align:center;margin:18pt 0 12pt;}
+  h2{font-size:14pt;margin:14pt 0 8pt;}
+  h3{font-size:12pt;margin:12pt 0 6pt;}
+  p{margin:0 0 10pt;text-align:justify;}
+  .tp-figure{text-align:center;margin:14pt auto;page-break-inside:avoid;}
+  .tp-figure img{max-width:100%;height:auto;}
+  .fig-caption{font-size:10pt;font-weight:600;margin-top:6pt;}
+  table{border-collapse:collapse;width:100%;margin:12pt 0;}
+  th,td{border:1px solid #cbd5e1;padding:6pt 8pt;}
+  th{background:#f1f5f9;}
+  .page-number{display:none;}
+  .a4-page{margin-bottom:18pt;}
+</style>
+</head>
+<body>${pagesHtml}</body>
+</html>`;
+    const blob=htmlDocx.asBlob(fullHtml,{
+      orientation:"portrait",
+      margins:{top:720,right:720,bottom:720,left:720}
+    });
+    saveAs(blob,getMergedExportTitle()+".docx");
+  }catch(err){
+    console.error(err);
+    alert("Could not generate Word file: "+(err.message||"Unknown error"));
+  }finally{
+    btn.disabled=false;
+    btn.innerHTML=originalLabel;
+  }
 }
 
 
