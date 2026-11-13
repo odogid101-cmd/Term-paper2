@@ -1193,7 +1193,7 @@ svg { display: block; }
 }
 .form-field label {
   font-size: 12px;
-  color: var(--muted);
+  color: #3d5a4c;
   font-weight: 600;
 }
 .form-field input,
@@ -1304,7 +1304,7 @@ svg { display: block; }
 }
 .toc-label {
   font-size: 12px;
-  color: var(--muted);
+  color: #3d5a4c;
   font-weight: 600;
 }
 .toc-input {
@@ -1327,14 +1327,15 @@ svg { display: block; }
 .ai-message-board { padding: 18px; }
 
 .ai-message {
-  background: rgba(15, 23, 42, 0.72);
+  background: #ffffff;
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 18px;
+  color: #17352a;
 }
 .ai-message .message-header {
   font-size: 12px;
-  color: var(--muted);
+  color: #5b7166;
   text-transform: uppercase;
   letter-spacing: 0.12em;
   margin-bottom: 12px;
@@ -1344,15 +1345,15 @@ svg { display: block; }
   white-space: pre-wrap;
   word-break: break-word;
   line-height: 1.75;
-  color: var(--text);
+  color: #1f3d31;
   font-size: 14px;
 }
-.ai-message .message-body strong { color: var(--text); }
+.ai-message .message-body strong { color: #0f2f22; }
 .ai-message .message-body code {
-  background: rgba(148,163,184,0.12);
+  background: #eef6f1;
   border-radius: 6px;
   padding: 2px 6px;
-  color: var(--text);
+  color: #0f2f22;
   font-family: 'JetBrains Mono', monospace;
   font-size: 12px;
 }
@@ -1360,14 +1361,14 @@ svg { display: block; }
   margin-top: 18px;
   padding: 12px 14px;
   border-radius: 10px;
-  background: rgba(79, 70, 229, 0.12);
-  border: 1px solid rgba(99,102,241,0.2);
-  color: var(--text);
+  background: rgba(8, 116, 71, 0.08);
+  border: 1px solid rgba(8, 116, 71, 0.18);
+  color: #17352a;
   font-size: 13px;
   line-height: 1.6;
 }
 .ai-message .code-banner strong {
-  color: #c7d2fe;
+  color: #087447;
 }
 .message-actions {
   display: flex;
@@ -1857,6 +1858,9 @@ body { background-color: var(--bg); color: var(--text); }
 .chat-msg.user { background: linear-gradient(135deg,#128653,#075c3b); box-shadow: 0 8px 18px rgba(8,116,71,.15); }
 .chat-msg.ai-normal, .prompt-builder-panel, .prompt-toc-panel, .ai-message-board,
 .prompt-toc-header, .document-stats, .tp-image-panel { background: #fff; border-color: var(--border); box-shadow: var(--shadow-card); }
+.ai-message { background: #fff; border-color: var(--border); color: #17352a; }
+.ai-message .message-body { color: #1f3d31; }
+.ai-message .message-header { color: #5b7166; }
 .form-field input, .form-field select, .form-field textarea, .toc-input { background: #f8fbf9; color: #17352a; border-color: #d7e5dc; }
 .form-field input:focus, .form-field select:focus, .form-field textarea:focus, .toc-input:focus { border-color: #168653; box-shadow: 0 0 0 3px rgba(8,116,71,.12); }
 .primary-btn, .prompt-toc-switch.primary, .btn-icon { background: var(--accent-gradient); box-shadow: 0 8px 18px rgba(8,116,71,.18); }
@@ -2949,6 +2953,13 @@ function setView(view) {
     aiFab.style.display = (view === APP_VIEWS.CHAT) ? "" : "none";
   }
   if (aiChatWindow) aiChatWindow.classList.remove("show");
+
+  // Hide the bottom composer on Prompt Builder / TOC screens
+  const inputContainer = document.querySelector(".input-container");
+  const inputHint = document.querySelector(".input-hint");
+  const hideComposer = (view === APP_VIEWS.PROMPT || view === APP_VIEWS.TOC);
+  if (inputContainer) inputContainer.style.display = hideComposer ? "none" : "";
+  if (inputHint) inputHint.style.display = hideComposer ? "none" : "";
 
   const chatArea = document.getElementById("chatArea");
   if (!chatArea) return;
@@ -4256,7 +4267,12 @@ function ensureWorkflowDelegation(){
     const container = placeholder.closest(".chat-msg");
     if (!container) return;
     e.preventDefault();
+    // Open the same upload panel as Add Image, then immediately open the device file picker
     showImagePanel(container, placeholder);
+    requestAnimationFrame(() => {
+      const fileInput = document.getElementById("tpImageFile");
+      if (fileInput) fileInput.click();
+    });
   });
   chatArea.addEventListener("keydown", (e) => {
     if ((e.key !== "Enter" && e.key !== " ") || !e.target.closest(".tp-image-placeholder")) return;
@@ -4265,6 +4281,10 @@ function ensureWorkflowDelegation(){
     if (!container) return;
     e.preventDefault();
     showImagePanel(container, placeholder);
+    requestAnimationFrame(() => {
+      const fileInput = document.getElementById("tpImageFile");
+      if (fileInput) fileInput.click();
+    });
   });
   // Drag-and-drop onto AI image placeholders (same upload flow as Add Image)
   const isFileDrag = (e) => {
