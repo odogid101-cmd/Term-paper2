@@ -1984,8 +1984,49 @@ body { background-color: var(--bg); color: var(--text); }
   .merged-download-bar { display: none !important; }
 }
 
+
+/* =========================================================
+   ACADEMIC TYPOGRAPHY: TIMES NEW ROMAN EVERYWHERE IN THE PAPER
+   ========================================================= */
+.a4-page, .a4-page *, .merged-pages, .merged-pages *, .pdf-export-stage, .pdf-export-stage * {
+  font-family: "Times New Roman", Times, "Liberation Serif", Tinos, serif !important;
+}
+.a4-page { font-size: 16px; line-height: 1.6; }
+.a4-page .a4-content h1 { font-size: 24px; line-height: 1.3; }
+.a4-page .a4-content h2 { font-size: 20px; line-height: 1.3; }
+.a4-page .a4-content h3 { font-size: 16px; line-height: 1.4; }
+.a4-page .page-number { font-size: 14px; }
+
+/* TABLE OF CONTENTS: titles left, dotted leader, page numbers on the right margin */
+.a4-page.toc-page .toc-row { display:flex; align-items:flex-end; gap:6px; width:100%; margin:0 0 6px; line-height:1.5; text-align:left; }
+.a4-page.toc-page .toc-row .toc-label { font-size:16px; flex:0 1 auto; max-width:86%; min-width:0; text-align:left; font-weight:400; color:#000; overflow-wrap:break-word; }
+.a4-page.toc-page .toc-row .toc-leader { font-size:16px; display:block !important; flex:1 1 0; min-width:0; overflow:hidden; white-space:nowrap; line-height:1.5; color:#000; }
+.a4-page.toc-page .toc-row .toc-leader::after { content:"........................................................................................................................................................"; letter-spacing:0.12em; }
+.a4-page.toc-page .toc-row .toc-page { font-size:16px; flex:0 0 auto; min-width:2.6em; margin-left:0; text-align:right; font-weight:400; color:#000; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.a4-page.toc-page .toc-row.toc-sub .toc-label { padding-left:28px; }
+.a4-page.toc-page .toc-row.toc-chap .toc-label { font-weight:700; }
+.a4-page.toc-page .toc-sec-title { text-align:center !important; font-weight:700 !important; border:0 !important; padding:0 !important; margin:0 0 22px !important; }
+
+/* PDF export staging area: exact A4, plain white, no UI chrome */
+.pdf-export-stage { position:absolute; left:0; top:0; width:794px; background:#fff; z-index:-1; }
+.pdf-export-stage .a4-page {
+  position:relative; width:794px !important; height:1123px !important; min-height:0 !important; box-sizing:border-box;
+  margin:0 !important; padding:70px 80px !important; overflow:hidden;
+  border:0 !important; border-radius:0 !important; box-shadow:none !important; transition:none !important;
+  background:#fff !important; color:#000 !important; font-size:16px; line-height:1.6;
+}
+.pdf-export-stage .a4-page::before { display:none !important; }
+.pdf-export-stage .a4-page .a4-content, .pdf-export-stage .a4-page .a4-content * { color:#000 !important; }
+.pdf-export-stage .a4-footer { display:none !important; }
+.pdf-export-stage .page-number {
+  position:absolute !important; left:0 !important; right:0 !important; bottom:38px !important; top:auto !important;
+  text-align:center; background:none !important; border:0 !important; box-shadow:none !important;
+  padding:0 !important; font-size:16px !important; color:#000 !important; visibility:visible !important;
+}
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://unpkg.com/docx@9.8.1/dist/index.iife.js"></script>
 <script src="https://unpkg.com/html-docx-js@0.3.1/dist/html-docx.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 </head>
@@ -2343,7 +2384,7 @@ function markdownToHTML(markdown) {
     }
     if (/^[A-Za-zΑ-ω][A-Za-z0-9Α-ω₀-₉]*\s*=\s*.{2,120}$/.test(line) && !/[.?!]$/.test(line) && line.length < 140) {
       flushParagraph(); flushList();
-      out.push(`<p style="text-align:center;font-family:Merriweather,Georgia,serif">${inline(line)}</p>`);
+      out.push(`<p style="text-align:center">${inline(line)}</p>`);
       continue;
     }
     m = line.match(/^\s*(\d+)[.)]\s+(.+)$/);
@@ -2375,9 +2416,9 @@ function paginateContent(html) {
   const measurePage = document.createElement('div');
   measurePage.style.width = '794px';
   measurePage.style.boxSizing = 'border-box';
-  measurePage.style.fontFamily = "'Merriweather', serif";
-  measurePage.style.fontSize = '15px';
-  measurePage.style.lineHeight = '1.82';
+  measurePage.style.fontFamily = '"Times New Roman", Times, "Liberation Serif", serif';
+  measurePage.style.fontSize = '16px';
+  measurePage.style.lineHeight = '1.6';
   measurePage.style.padding = '0';
 
   const measureBody = document.createElement('div');
@@ -2388,9 +2429,9 @@ function paginateContent(html) {
   const measureContent = document.createElement('div');
   measureContent.style.width = '100%';
   measureContent.style.boxSizing = 'border-box';
-  measureContent.style.fontFamily = "'Merriweather', serif";
-  measureContent.style.fontSize = '15px';
-  measureContent.style.lineHeight = '1.82';
+  measureContent.style.fontFamily = '"Times New Roman", Times, "Liberation Serif", serif';
+  measureContent.style.fontSize = '16px';
+  measureContent.style.lineHeight = '1.6';
 
   measureBody.appendChild(measureContent);
   measurePage.appendChild(measureBody);
@@ -2424,7 +2465,9 @@ function paginateContent(html) {
     const clone = node.cloneNode(true);
     const headingLabel = (clone.textContent || "").trim();
     const isTocRow = (clone.classList && clone.classList.contains("toc-row")) || /\btoc-row\b/.test(clone.className||"");
-    const isMajorPageHeading = !isTocRow && /^\s*(cover\s*page|title\s*page|certification|declaration|dedication|acknowledg(?:e)?ments?|abstract|table of contents|list of (?:tables|figures|abbreviations|symbols)|preface|foreword|chapter\s+(?:one|i|1)\b)/i.test(headingLabel);
+    const majorRe = /^\s*(?:cover\s*page|title\s*page|certification(?:\s*\/\s*approval)?|approval(?:\s+page)?|declaration|dedication|acknowledg(?:e)?ments?|abstract|table of contents|contents|list of (?:tables|figures|abbreviations|symbols)|preface|foreword|chapter\s+(?:\d+|[ivxlcdm]+|one|two|three|four|five|six|seven|eight|nine|ten)|conclusions?|recommendations?|references?|bibliography|works\s+cited|appendi(?:x|ces))\b/i;
+    const headingLike = /^H[1-6]$/.test(clone.tagName || "") || (headingLabel.length <= 90 && !/[.;,]$/.test(headingLabel));
+    const isMajorPageHeading = !isTocRow && headingLike && majorRe.test(headingLabel);
     if (isMajorPageHeading && measureContent.childNodes.length > 0) {
       pages.push(Array.from(measureContent.childNodes).map(n => n.cloneNode(true)));
       measureContent.innerHTML = '';
@@ -2667,7 +2710,7 @@ function formatTOCHTML(bodyHtml, options){
     if (seen.has(key)) return;
     seen.add(key);
     const final = {label, page:entry.page||""};
-    if (isFigureLabel(label)) figures.push(final);
+    if (isFigureLabel(label)) { final.fig = true; figures.push(final); }
     else if (isPreliminaryLabel(label)) prelim.push(final);
     else if (isEndMatterLabel(label)) end.push(final);
     else body.push(final);
@@ -2766,7 +2809,7 @@ function formatTOCHTML(bodyHtml, options){
   rows.push(...ordered);
   return rows.map(r => r.heading
     ? `<h2 style="font-weight:800;text-align:left;margin:0 0 20px">${escapeHTML(r.label)}</h2>`
-    : `<div class="toc-row"><span class="toc-label">${escapeHTML(r.label)}</span><span class="toc-leader"></span><span class="toc-page">${escapeHTML(r.page)}</span></div>`
+    : `<div class="toc-row${r.fig ? " toc-fig" : ""}${/^\s*\d+\.\d+/.test(r.label) ? " toc-sub" : (/^\s*chapter\b/i.test(r.label) ? " toc-chap" : "")}"><span class="toc-label">${escapeHTML(r.label)}</span><span class="toc-leader"></span><span class="toc-page">${escapeHTML(r.page)}</span></div>`
   ).join("");
 }
 
@@ -2802,34 +2845,37 @@ function removeTocFromPreliminary(text){
  const marker=/(^|\n)\s*(?:#{1,3}\s*)?(?:table of contents|contents)\s*(?:\n|$)/im;
  const match=marker.exec(text);return match?text.slice(0,match.index).trim():String(text||"").trim();
 }
-function packTocPages(rowsHtml){
-  // Dedicated TOC packer: keep every entry together, never force a page
-  // break on preliminary titles, and put the heading only on page 1.
-  const temp = document.createElement("div");
-  temp.innerHTML = rowsHtml;
-  const rows = Array.from(temp.children);
-  if (!rows.length) return ["<div class=\"toc-lines\"></div>"];
+function packRowsIntoPages(rows, headingHtml, keepHeadingInOutput){
+  if (!rows.length) return [];
   const measureWrapper = document.createElement("div");
-  measureWrapper.style.cssText = "position:absolute;left:-99999px;top:0;width:794px;";
+  measureWrapper.style.cssText = "position:absolute;left:-99999px;top:0;width:634px;";
   document.body.appendChild(measureWrapper);
   const page = document.createElement("div");
-  page.style.cssText = "width:794px;box-sizing:border-box;font-family:Inter,sans-serif;font-size:15px;line-height:1.5;";
+  page.className = "a4-page toc-page";
+  page.style.cssText = "width:634px;min-height:0;padding:0;border:0;box-shadow:none;box-sizing:border-box;position:static;";
   const body = document.createElement("div");
   body.style.cssText = "height:860px;overflow:hidden;box-sizing:border-box;";
+  const wrap = document.createElement("div");
+  wrap.className = "a4-content";
   const content = document.createElement("div");
   content.className = "toc-lines";
-  body.appendChild(content);
-  page.appendChild(body);
-  measureWrapper.appendChild(page);
+  wrap.appendChild(content); body.appendChild(wrap); page.appendChild(body); measureWrapper.appendChild(page);
   const pages = [];
+  let first = true;
+  const startPage = () => { content.innerHTML = headingHtml || ""; };
   const flush = () => {
     if (!content.childNodes.length) return;
-    pages.push(content.innerHTML);
+    let html = content.innerHTML;
+    if (first && headingHtml && !keepHeadingInOutput) html = html.slice(headingHtml.length);
+    // heading is only measured/kept on the first page of each group
+    pages.push(html);
+    first = false;
     content.innerHTML = "";
   };
-  rows.forEach((row, i) => {
+  startPage();
+  rows.forEach(row => {
     content.appendChild(row.cloneNode(true));
-    if (content.scrollHeight > body.clientHeight + 1) {
+    if (content.scrollHeight > body.clientHeight + 1 && content.children.length > 1) {
       content.removeChild(content.lastChild);
       flush();
       content.appendChild(row.cloneNode(true));
@@ -2837,7 +2883,23 @@ function packTocPages(rowsHtml){
   });
   flush();
   document.body.removeChild(measureWrapper);
-  return pages.length ? pages : [rowsHtml];
+  return pages;
+}
+function packTocPages(rowsHtml){
+  // TOC entries (with leaders) first; figure entries go on their own
+  // "LIST OF FIGURES" page(s), which always start on a fresh page.
+  const temp = document.createElement("div");
+  temp.innerHTML = rowsHtml;
+  const all = Array.from(temp.children);
+  const main = all.filter(r => !r.classList.contains("toc-fig"));
+  const figs = all.filter(r => r.classList.contains("toc-fig"));
+  const tocHeading = `<h2 style="font-weight:800;text-align:left;margin:0 0 20px">TABLE OF CONTENTS</h2>`;
+  const mainPages = packRowsIntoPages(main, tocHeading, false);
+  const lofPages = figs.length ? packRowsIntoPages(figs, `<h2 class="toc-sec-title">LIST OF FIGURES</h2>`, true) : [];
+  const out = [...mainPages, ...lofPages];
+  if (!out.length) out.push("<div class=\"toc-lines\"></div>");
+  out.mainCount = Math.max(1, mainPages.length);
+  return out;
 }
 function createA4Pages(htmlContent,totalWords,options={}){
   const kind=options.kind||"normal", startPage=Number(options.startPage||1);
@@ -2845,6 +2907,22 @@ function createA4Pages(htmlContent,totalWords,options={}){
   if (kind === "toc") {
     const rowsHtml = formatTOCHTML(htmlContent, {showHeading: false});
     pageBodies = packTocPages(rowsHtml);
+    const mainCount = pageBodies.mainCount || pageBodies.length;
+    if (mainCount < pageBodies.length) {
+      // The "List of Figures" entry in the TOC must point at the LOF page that follows it.
+      const startRoman = Number(options.romanStart || getPreliminaryPageInfo().nextRoman || 1);
+      const lofRoman = romanNumber(startRoman + mainCount);
+      pageBodies = pageBodies.map((h, i) => {
+        if (i >= mainCount) return h;
+        const d = document.createElement("div"); d.innerHTML = h;
+        d.querySelectorAll(".toc-row").forEach(r => {
+          const l = (r.querySelector(".toc-label")?.textContent || "").trim();
+          const pg = r.querySelector(".toc-page");
+          if (/^list of figures$/i.test(l) && pg) pg.textContent = lofRoman;
+        });
+        return d.innerHTML;
+      });
+    }
     totalPages = pageBodies.length || 1;
   } else {
     pageBodies = paginateContent(htmlContent);
@@ -4702,100 +4780,335 @@ function getMergedExportTitle(){
   return String(base).replace(/[\\/:*?"<>|]+/g,"_").replace(/\s+/g,"_").slice(0,80)||"Complete_Term_Paper";
 }
 
-/** Build a clean clone of the merged pages for export (strip UI chrome). */
-function buildMergedExportRoot(){
+/* =====================================================================
+   EXPORT (PDF + Word)
+   - PDF: every A4 page is rendered on its own (html2canvas) and placed on its
+     own PDF page, so nothing can end up blank, shifted or split mid-page.
+   - Word: a real .docx is built with the docx library (Times New Roman,
+     hard page breaks, right-aligned dotted TOC tab leaders, PAGE-field footers
+     with roman/arabic numbering). If that library is missing the older
+     HTML->docx path is used as a fallback.
+   ===================================================================== */
+const EXPORT_FONT_CSS = '"Times New Roman",Times,"Liberation Serif",serif';
+
+/** Clean clones of every merged A4 page (UI chrome removed). */
+function buildMergedExportPages(){
   const source=document.getElementById("mergedPagesRoot");
   if(!source)throw new Error("Merged pages not found. Generate and merge the paper first.");
   const clone=source.cloneNode(true);
-  clone.querySelectorAll(".tp-figure-handles, .tp-handle").forEach(n=>n.remove());
+  clone.querySelectorAll(".tp-figure-handles, .tp-handle, .tp-image-placeholder, .tp-image-panel, .a4-footer").forEach(n=>n.remove());
   clone.querySelectorAll(".tp-figure.selected").forEach(f=>f.classList.remove("selected"));
-  clone.querySelectorAll(".tp-image-placeholder").forEach(n=>n.remove());
-  clone.querySelectorAll("img").forEach(img=>{if(img.src)img.setAttribute("src",img.src);});
+  clone.querySelectorAll("img").forEach(img=>{ if(img.src) img.setAttribute("src",img.src); });
+  clone.querySelectorAll("[style]").forEach(el=>{ el.style.removeProperty("font-family"); });
+  return [...clone.querySelectorAll(".a4-page")];
+}
+
+/** Kept for compatibility with any other caller. */
+function buildMergedExportRoot(){
   const wrapper=document.createElement("div");
   wrapper.id="merged-export-root";
-  wrapper.style.cssText="background:#fff;color:#1e293b;font-family:Merriweather,Georgia,serif;";
-  wrapper.appendChild(clone);
+  buildMergedExportPages().forEach(p=>wrapper.appendChild(p));
   return wrapper;
 }
 
+function getMergedExportTitle(){
+  const topic=(document.querySelector(".prompt-toc-header h2")?.textContent||"").trim();
+  const fromHistory=(Array.isArray(activeChatHistory)?activeChatHistory.find(h=>h&&h.workflow&&h.isPaper):null);
+  const base=topic||(fromHistory&&fromHistory.prompt?String(fromHistory.prompt).replace(/^Pull Next:\s*/i,""):"")||"Complete_Term_Paper";
+  return String(base).replace(/[\\/:*?"<>|]+/g,"_").replace(/\s+/g,"_").slice(0,80)||"Complete_Term_Paper";
+}
+
+function waitForImages(root){
+  const imgs=[...root.querySelectorAll("img")];
+  return Promise.all(imgs.map(img=>img.complete&&img.naturalWidth>0?Promise.resolve():new Promise(res=>{
+    img.addEventListener("load",res,{once:true});img.addEventListener("error",res,{once:true});setTimeout(res,6000);
+  })));
+}
+
+/* ------------------------------ PDF ------------------------------ */
 async function downloadMergedAsPDF(){
   const btn=document.getElementById("downloadMergedPdfBtn");
   if(!btn)return;
-  if(typeof html2pdf==="undefined"){
-    alert("PDF library not loaded. Check your internet connection and refresh the page.");
+  const JsPDF=window.jspdf&&window.jspdf.jsPDF;
+  if(typeof html2canvas==="undefined"||!JsPDF){
+    alert("PDF libraries did not load. Check your internet connection and refresh the page.");
     return;
   }
   const originalLabel=btn.innerHTML;
   btn.disabled=true;
-  btn.textContent="Preparing PDF…";
-  let root=null;
+  let stage=null;
+  const scrollY=window.scrollY;
   try{
-    root=buildMergedExportRoot();
-    root.style.position="fixed";
-    root.style.left="-9999px";
-    root.style.top="0";
-    root.style.width="794px";
-    document.body.appendChild(root);
-    const filename=getMergedExportTitle()+".pdf";
-    const opt={
-      margin:[10,10,12,10],
-      filename,
-      image:{type:"jpeg",quality:0.92},
-      html2canvas:{scale:2,useCORS:true,allowTaint:true,logging:false,backgroundColor:"#ffffff"},
-      jsPDF:{unit:"mm",format:"a4",orientation:"portrait"},
-      pagebreak:{mode:["css","legacy"],avoid:[".tp-figure","h1","h2","h3","table"]}
-    };
-    await html2pdf().set(opt).from(root).save();
+    const pages=buildMergedExportPages();
+    if(!pages.length)throw new Error("There are no pages to export.");
+    stage=document.createElement("div");
+    stage.className="pdf-export-stage";
+    document.body.appendChild(stage);
+    window.scrollTo(0,0);
+    if(document.fonts&&document.fonts.ready){try{await document.fonts.ready;}catch(_){}}
+    const pdf=new JsPDF({unit:"mm",format:"a4",orientation:"portrait",compress:true});
+    for(let i=0;i<pages.length;i++){
+      btn.textContent=`Rendering page ${i+1} of ${pages.length}…`;
+      stage.innerHTML="";
+      stage.appendChild(pages[i]);
+      await waitForImages(stage);
+      const canvas=await html2canvas(pages[i],{
+        scale:2,useCORS:true,allowTaint:false,logging:false,backgroundColor:"#ffffff",
+        width:794,height:1123,windowWidth:794
+      });
+      if(i>0)pdf.addPage("a4","portrait");
+      pdf.addImage(canvas.toDataURL("image/jpeg",0.95),"JPEG",0,0,210,297,undefined,"FAST");
+      canvas.width=0;canvas.height=0;
+      await new Promise(r=>setTimeout(r,0));
+    }
+    pdf.save(getMergedExportTitle()+".pdf");
   }catch(err){
     console.error(err);
     alert("Could not generate PDF: "+(err.message||"Unknown error"));
   }finally{
-    if(root&&root.parentNode)root.remove();
+    if(stage&&stage.parentNode)stage.remove();
+    window.scrollTo(0,scrollY);
     btn.disabled=false;
     btn.innerHTML=originalLabel;
   }
 }
 
+/* ------------------------------ WORD ------------------------------ */
+async function imageForDocx(src){
+  try{
+    const res=await fetch(src);
+    const blob=await res.blob();
+    const url=URL.createObjectURL(blob);
+    const img=await new Promise((ok,fail)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=fail;i.src=url;});
+    const maxW=1200,k=Math.min(1,maxW/(img.naturalWidth||maxW));
+    const w=Math.max(1,Math.round((img.naturalWidth||600)*k)),h=Math.max(1,Math.round((img.naturalHeight||400)*k));
+    const c=document.createElement("canvas");c.width=w;c.height=h;
+    const ctx=c.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,w,h);ctx.drawImage(img,0,0,w,h);
+    URL.revokeObjectURL(url);
+    const png=await new Promise(r=>c.toBlob(r,"image/png"));
+    return {data:await png.arrayBuffer(),width:w,height:h};
+  }catch(e){console.warn("Image skipped in Word export:",e);return null;}
+}
+
+async function buildNativeDocxBlob(pages){
+  const D=window.docx;
+  const FONT="Times New Roman",SZ=24;
+  let pendingBreak=false;
+  const bk=o=>{ if(pendingBreak){o.pageBreakBefore=true;pendingBreak=false;} return o; };
+  const R=(text,fmt={})=>new D.TextRun({text,font:FONT,size:SZ,color:"000000",...fmt});
+
+  const inlineRuns=(node,fmt={})=>{
+    const out=[];
+    node.childNodes.forEach(n=>{
+      if(n.nodeType===3){
+        const t=n.textContent.replace(/\s+/g," ");
+        if(t&&t!==" "||(t===" "&&out.length))out.push(R(t,fmt));
+      }else if(n.nodeType===1){
+        const tag=n.tagName;
+        if(tag==="BR"){out.push(new D.TextRun({break:1,font:FONT,size:SZ}));return;}
+        if(tag==="IMG"||tag==="SCRIPT"||tag==="STYLE")return;
+        const f={...fmt};
+        if(tag==="STRONG"||tag==="B")f.bold=true;
+        if(tag==="EM"||tag==="I")f.italics=true;
+        if(tag==="U")f.underline={};
+        if(tag==="SUP")f.superScript=true;
+        if(tag==="SUB")f.subScript=true;
+        out.push(...inlineRuns(n,f));
+      }
+    });
+    return out;
+  };
+
+  const AL=D.AlignmentType;
+  const alignOf=(node,dflt)=>{
+    const ta=(node.style&&node.style.textAlign)||"";
+    if(ta==="center")return AL.CENTER; if(ta==="right")return AL.RIGHT;
+    if(ta==="left")return AL.LEFT; if(ta==="justify")return AL.JUSTIFIED;
+    return dflt;
+  };
+
+  const sections=[];           // {kind, children[]}
+  const groupOf=el=>el.classList.contains("cover-page")?"cover":(el.classList.contains("preliminary-page")||el.classList.contains("toc-page")?"front":"body");
+
+  async function convertBlock(node,ctx,children){
+    if(node.nodeType!==1)return;
+    const tag=node.tagName,cls=node.classList;
+    if(/^(SCRIPT|STYLE|BUTTON)$/.test(tag))return;
+    if(cls.contains("page-number")||cls.contains("a4-footer"))return;
+
+    if(cls.contains("toc-row")){
+      const label=(node.querySelector(".toc-label")?.textContent||"").trim();
+      const page=(node.querySelector(".toc-page")?.textContent||"").trim();
+      const sub=cls.contains("toc-sub"),chap=cls.contains("toc-chap");
+      children.push(new D.Paragraph(bk({
+        tabStops:[{type:D.TabStopType.RIGHT,position:9026,leader:D.LeaderType.DOT}],
+        indent:sub?{left:567}:undefined,
+        spacing:{after:100,line:300},
+        children:[R(label,chap?{bold:true}:{}),new D.TextRun({text:"\t",font:FONT,size:SZ}),R(page)]
+      })));
+      return;
+    }
+    if(/^H[1-6]$/.test(tag)){
+      const lvl=Number(tag[1]);
+      const centered=lvl===1||ctx.front||cls.contains("toc-sec-title");
+      const size=lvl===1?32:(lvl===2?28:SZ);
+      children.push(new D.Paragraph(bk({
+        heading:lvl===1?D.HeadingLevel.HEADING_1:(lvl===2?D.HeadingLevel.HEADING_2:(lvl===3?D.HeadingLevel.HEADING_3:undefined)),
+        alignment:alignOf(node,centered?AL.CENTER:AL.LEFT),
+        spacing:{before:lvl===1?0:200,after:200},
+        keepNext:true,
+        children:inlineRuns(node,{bold:true,size})
+      })));
+      return;
+    }
+    if(tag==="P"){
+      const runs=inlineRuns(node);
+      if(!runs.length&&!node.querySelector("img"))return;
+      children.push(new D.Paragraph(bk({
+        alignment:alignOf(node,ctx.cover?AL.CENTER:AL.JUSTIFIED),
+        spacing:{after:160,line:360},
+        children:runs
+      })));
+      return;
+    }
+    if(tag==="UL"||tag==="OL"){
+      let i=0;
+      for(const li of node.children){
+        if(li.tagName!=="LI")continue;
+        i++;
+        children.push(new D.Paragraph(bk({
+          alignment:AL.JUSTIFIED,indent:{left:720,hanging:360},spacing:{after:80,line:360},
+          children:[R(tag==="OL"?`${i}.\t`:"\u2022\t"),...inlineRuns(li)]
+        })));
+      }
+      return;
+    }
+    if(tag==="TABLE"){
+      const trs=[...node.querySelectorAll("tr")];
+      if(!trs.length)return;
+      if(pendingBreak)children.push(new D.Paragraph(bk({spacing:{after:0},children:[]})));
+      const rows=trs.map(tr=>new D.TableRow({children:[...tr.children].filter(c=>/^T[DH]$/.test(c.tagName)).map(c=>new D.TableCell({
+        columnSpan:c.colSpan>1?c.colSpan:undefined,
+        margins:{top:60,bottom:60,left:100,right:100},
+        children:[new D.Paragraph({spacing:{after:0},children:inlineRuns(c,{size:22,bold:c.tagName==="TH"})})]
+      }))}));
+      children.push(new D.Table({width:{size:100,type:D.WidthType.PERCENTAGE},rows}));
+      children.push(new D.Paragraph({spacing:{after:160},children:[]}));
+      return;
+    }
+    if(cls.contains("tp-figure")||tag==="FIGURE"){
+      const img=node.querySelector("img");
+      if(img&&img.getAttribute("src")){
+        const im=await imageForDocx(img.getAttribute("src"));
+        if(im){
+          const k=Math.min(1,520/im.width);
+          children.push(new D.Paragraph(bk({alignment:AL.CENTER,spacing:{before:120,after:80},keepNext:true,children:[
+            new D.ImageRun({data:im.data,type:"png",transformation:{width:Math.round(im.width*k),height:Math.round(im.height*k)}})
+          ]})));
+        }
+      }
+      const cap=(node.querySelector(".fig-caption")?.textContent||"").trim();
+      if(cap)children.push(new D.Paragraph(bk({alignment:AL.CENTER,spacing:{after:200},children:[R(cap,{bold:true,size:22})]})));
+      return;
+    }
+    if(tag==="IMG")return;
+    if(tag==="DIV"||tag==="SECTION"||tag==="ARTICLE"||tag==="SPAN"||tag==="BLOCKQUOTE"||tag==="PRE"){
+      const hasBlock=[...node.children].some(c=>/^(P|H[1-6]|UL|OL|TABLE|DIV|SECTION|ARTICLE|BLOCKQUOTE|PRE|FIGURE)$/.test(c.tagName));
+      if(hasBlock){for(const c of node.childNodes){await convertBlock(c,ctx,children);}return;}
+      const runs=inlineRuns(node);
+      if(runs.length)children.push(new D.Paragraph(bk({alignment:alignOf(node,AL.JUSTIFIED),spacing:{after:160,line:360},children:runs})));
+    }
+  }
+
+  // group consecutive pages into Word sections (cover / roman front matter / arabic body)
+  let current=null;
+  for(let i=0;i<pages.length;i++){
+    const pg=pages[i],g=groupOf(pg);
+    if(!current||current.kind!==g){current={kind:g,children:[],pageCount:0};sections.push(current);}
+    pendingBreak=current.pageCount>0;      // hard page break before every page except a section's first
+    const content=pg.querySelector(".a4-content")||pg;
+    const ctx={front:g==="front"||g==="cover",cover:g==="cover"};
+    const before=current.children.length;
+    for(const n of content.childNodes){await convertBlock(n,ctx,current.children);}
+    if(current.children.length===before){            // empty page: keep numbering consistent
+      current.children.push(new D.Paragraph(bk({children:[]})));
+    }
+    pendingBreak=false;
+    current.pageCount++;
+  }
+
+  const footerFor=()=>new D.Footer({children:[new D.Paragraph({alignment:AL.CENTER,children:[
+    new D.TextRun({children:[D.PageNumber.CURRENT],font:FONT,size:SZ})
+  ]})]});
+  const pageProps=(extra)=>({page:{size:{width:11906,height:16838},margin:{top:1440,right:1440,bottom:1440,left:1440},...extra}});
+
+  const docSections=sections.map(sec=>{
+    if(sec.kind==="cover")return {properties:pageProps(),children:sec.children};
+    if(sec.kind==="front")return {properties:pageProps({pageNumbers:{start:1,formatType:D.NumberFormat.LOWER_ROMAN}}),footers:{default:footerFor()},children:sec.children};
+    return {properties:pageProps({pageNumbers:{start:1,formatType:D.NumberFormat.DECIMAL}}),footers:{default:footerFor()},children:sec.children};
+  });
+
+  const hStyle=(size)=>({run:{font:FONT,size,bold:true,color:"000000"},paragraph:{keepNext:true}});
+  const doc=new D.Document({
+    creator:"Monkey Scout Academic Engine",title:getMergedExportTitle().replace(/_/g," "),
+    styles:{default:{document:{run:{font:FONT,size:SZ,color:"000000"}},heading1:hStyle(32),heading2:hStyle(28),heading3:hStyle(SZ)}},
+    sections:docSections
+  });
+  return D.Packer.toBlob(doc);
+}
+
+/** Fallback only: HTML->docx with Times New Roman, page-break-before on each page, tab-leader TOC rows. */
+function buildFallbackDocxBlob(pages){
+  const esc=t=>String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const body=pages.map((pg,i)=>{
+    const c=pg.querySelector(".a4-content")||pg;
+    const clone=c.cloneNode(true);
+    clone.querySelectorAll(".toc-row").forEach(r=>{
+      const label=esc((r.querySelector(".toc-label")?.textContent||"").trim());
+      const page=esc((r.querySelector(".toc-page")?.textContent||"").trim());
+      const ind=r.classList.contains("toc-sub")?"margin-left:20pt;":"";
+      const p=document.createElement("p");
+      p.setAttribute("style",`margin:0 0 6pt;${ind}tab-stops:right dotted 451.3pt;text-align:left`);
+      p.innerHTML=`${label}<span style="mso-tab-count:1 dotted">&nbsp;..........&nbsp;</span>${page}`;
+      r.replaceWith(p);
+    });
+    const num=(pg.querySelector(".page-number")?.textContent||"").trim();
+    return `<div style="${i>0?"page-break-before:always;":""}">${clone.innerHTML}${num?`<p style="text-align:center;margin-top:18pt">${esc(num)}</p>`:""}</div>`;
+  }).join("");
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(getMergedExportTitle())}</title><style>
+  body,div,p,span,li,td,th,h1,h2,h3,h4{font-family:"Times New Roman",Times,serif;color:#000;}
+  body{font-size:12pt;line-height:1.5;}
+  h1{font-size:16pt;text-align:center;margin:0 0 12pt;} h2{font-size:14pt;margin:12pt 0 8pt;} h3{font-size:12pt;margin:10pt 0 6pt;}
+  p{margin:0 0 8pt;text-align:justify;}
+  .tp-figure{text-align:center;margin:12pt auto;page-break-inside:avoid;} .tp-figure img{max-width:100%;height:auto;}
+  .fig-caption{font-size:10pt;font-weight:bold;}
+  table{border-collapse:collapse;width:100%;margin:10pt 0;} th,td{border:1px solid #000;padding:4pt 6pt;} th{background:#eeeeee;}
+  </style></head><body>${body}</body></html>`;
+  return htmlDocx.asBlob(html,{orientation:"portrait",margins:{top:1440,right:1440,bottom:1440,left:1440}});
+}
+
 async function downloadMergedAsDocx(){
   const btn=document.getElementById("downloadMergedDocxBtn");
   if(!btn)return;
-  if(typeof htmlDocx==="undefined"||typeof saveAs==="undefined"){
-    alert("Word export library not loaded. Check your internet connection and refresh the page.");
+  if(typeof saveAs==="undefined"){
+    alert("Download helper did not load. Check your internet connection and refresh the page.");
     return;
   }
   const originalLabel=btn.innerHTML;
   btn.disabled=true;
   btn.textContent="Preparing Word…";
   try{
-    const root=buildMergedExportRoot();
-    const pagesHtml=root.innerHTML;
-    const fullHtml=`<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<title>${getMergedExportTitle()}</title>
-<style>
-  body{font-family:Georgia,'Times New Roman',serif;font-size:12pt;line-height:1.6;color:#1e293b;}
-  h1{font-size:18pt;text-align:center;margin:18pt 0 12pt;}
-  h2{font-size:14pt;margin:14pt 0 8pt;}
-  h3{font-size:12pt;margin:12pt 0 6pt;}
-  p{margin:0 0 10pt;text-align:justify;}
-  .tp-figure{text-align:center;margin:14pt auto;page-break-inside:avoid;}
-  .tp-figure img{max-width:100%;height:auto;}
-  .fig-caption{font-size:10pt;font-weight:600;margin-top:6pt;}
-  table{border-collapse:collapse;width:100%;margin:12pt 0;}
-  th,td{border:1px solid #cbd5e1;padding:6pt 8pt;}
-  th{background:#f1f5f9;}
-  .page-number{display:none;}
-  .a4-page{margin-bottom:18pt;}
-</style>
-</head>
-<body>${pagesHtml}</body>
-</html>`;
-    const blob=htmlDocx.asBlob(fullHtml,{
-      orientation:"portrait",
-      margins:{top:720,right:720,bottom:720,left:720}
-    });
+    const pages=buildMergedExportPages();
+    if(!pages.length)throw new Error("There are no pages to export.");
+    let blob=null;
+    if(window.docx&&window.docx.Document){
+      try{ blob=await buildNativeDocxBlob(pages); }
+      catch(e){ console.error("Native DOCX build failed, using fallback:",e); }
+    }
+    if(!blob){
+      if(typeof htmlDocx==="undefined")throw new Error("Word export library not loaded. Check your internet connection and refresh the page.");
+      blob=buildFallbackDocxBlob(pages);
+    }
     saveAs(blob,getMergedExportTitle()+".docx");
   }catch(err){
     console.error(err);
