@@ -4610,27 +4610,124 @@ async function commitWorkflowEdit(container,value,button){
   finally{button.disabled=false;button.textContent="Commit Edit";}
 }
 
-async function updateCurrentTOC(button,container){
-  const userId=getWorkflowUserId();if(!userId||!activeTocCode)throw new Error("This TOC is not linked to a signed-in paper.");
-  button.disabled=true;button.textContent="Updating…";
-  try{
-    const map={};
-    document.querySelectorAll('#chatArea .chat-msg[data-order-no]').forEach(el=>{
-      if(el.dataset.kind==="toc")return;
-      const title=el.dataset.title||"";
-      const isPre=el.dataset.kind==="preliminary" && !isEndMatterLabel(title);
-      const isEnd=isEndMatterLabel(title);
-      const start=Number(el.dataset.pageStart||1);
-      const pages=[...el.querySelectorAll('.a4-page')];
-      // Preliminaries use Roman; chapters and end-matter (Conclusion, References, …) use Arabic
+async function updateCurrentTOC(button, container) {
+  const userId = getWorkflowUserId();
+  if (!userId || !activeTocCode) throw new Error("This TOC is not linked to a signed-in paper.");
+  button.disabled = true;
+  button.textContent = "Updating…";
+  try {
+    const map = {};
+
+    // Normalize a heading/label for exact matching (case, punctuation, whitespace)
+    const normalizeLabel = (s) => String(s || "")
+      .toLowerCase()
+      .replace(/[\u2013\u2014]/g, "-")
+      .replace(/[^\w\s\-./]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    // Canonical end-matter keys we care about (order matters for fallbacks)
+    const END_MATTER_CANONICAL = [
+      { keys: ["conclusion", "conclusions", "summary"], label: "Conclusion" },
+      { keys: ["recommendation", "recommendations"], label: "Recommendations" },
+      { keys: ["references", "reference"], label: "References" },
+      { keys: ["bibliography"], label: "Bibliography" },
+      { keys: ["works cited", "works-cited"], label: "Works Cited" },
+      { keys: ["appendix", "appendices"], label: "Appendices" }
+    ];
+
+    const matchEndMatter = (text) => {
+      const n = normalizeLabel(text);
+      for (const entry of END_MATTER_CANONICAL) {
+        for (const k of entry.keys) {
+          // Exact or starts-with match so "Conclusion and Recommendations" is handled carefully
+          if (n === k || n.startsWith(k + " ") || n.startsWith(k + " and") || n === k + "s") {
+            return entry.label;
+          }
+        }
+      }
+      // Combined heading: "Conclusion and Recommendations" → treat as Conclusion for the first page
+      if (/^conclusion\s+and\s+recommendations?$/.test(n)) return "Conclusion";
+      return null;
+    };
+
+    // Walk every section card (skip TOC itself)
+    document.querySelectorAll('#chatArea .chat-msg[data-order-no]').forEach(el => {
+      if (el.dataset.kind === "toc") return;
+
+      const title = el.dataset.title || "";
+      const isPre = el.dataset.kind === "preliminary" && !isEndMatterLabel(title);
+      const isEnd = isEndMatterLabel(title);
+      const start = Number(el.dataset.pageStart || 1);
+      const pages = [...el.querySelectorAll(".a4-page")];
+
+      // Section-level entry (used for chapter titles)
       const pageStart = isPre ? "i" : String(start);
-      map[title||`Section ${el.dataset.orderNo}`]={order_no:Number(el.dataset.orderNo),page_start:pageStart,page_count:Number(el.dataset.pageCount||pages.length||1),kind:isEnd?"end-matter":(isPre?"preliminary":"chapter")};
-      pages.forEach((page,pi)=>page.querySelectorAll('h1,h2,h3').forEach(h=>{
-        const heading=(h.textContent||"").trim();if(!heading)return;
-        const hStart = isPre ? (pi===0 ? "" : romanNumber(pi)) : String(start+pi);
-        map[heading]={order_no:Number(el.dataset.orderNo),page_start:hStart,page_count:1,kind:isEnd?"end-matter":(isPre?"preliminary":"chapter")};
-      }));
+      const sectionKey = title || `Section ${el.dataset.orderNo}`;
+      map[sectionKey] = {
+        order_no: Number(el.dataset.orderNo),
+        page_start: pageStart,
+        page_count: Number(el.dataset.pageCount || pages.length || 1),
+        kind: isEnd ? "end-matter" : (isPre ? "preliminary" : "chapter")
+      };
+
+      // Also map normalized section title
+      map[normalizeLabel(sectionKey)] = map[sectionKey];
+
+      // Per-page / per-heading scan – this is what gives EACH end-matter item its own page
+      pages.forEach((page, pi) => {
+        const hStart = isPre
+          ? (pi === 0 ? "" : romanNumber(pi))
+          : String(start + pi);
+
+        page.querySelectorAll("h1, h2, h3").forEach(h => {
+          const heading = (h.textContent || "").trim();
+          if (!heading) return;
+
+          // Always record the raw heading
+          map[heading] = {
+            order_no: Number(el.dataset.orderNo),
+            page_start: hStart,
+            page_count: 1,
+            kind: isEnd ? "end-matter" : (isPre ? "preliminary" : "chapter")
+          };
+          map[normalizeLabel(heading)] = map[heading];
+
+          // If this heading is a recognised end-matter item, also write the canonical label
+          const canonical = matchEndMatter(heading);
+          if (canonical) {
+            // Only set if not already present, OR if this page is earlier (prefer first occurrence)
+            const existing = map[canonical];
+            if (!existing || Number(existing.page_start) > Number(hStart) || existing.page_start === "") {
+              map[canonical] = {
+                order_no: Number(el.dataset.orderNo),
+                page_start: hStart,
+                page_count: 1,
+                kind: "end-matter"
+              };
+              map[normalizeLabel(canonical)] = map[canonical];
+            }
+          }
+        });
+      });
+
+      // If the whole section card IS an end-matter section (title matches),
+      // ensure the canonical label points at this section's start page.
+      const sectionCanonical = matchEndMatter(title);
+      if (sectionCanonical) {
+        const existing = map[sectionCanonical];
+        if (!existing || existing.page_start === "" || Number(existing.page_start) > start) {
+          map[sectionCanonical] = {
+            order_no: Number(el.dataset.orderNo),
+            page_start: String(start),
+            page_count: Number(el.dataset.pageCount || pages.length || 1),
+            kind: "end-matter"
+          };
+          map[normalizeLabel(sectionCanonical)] = map[sectionCanonical];
+        }
+      }
     });
+
     // Include current figures so LOF page numbers stay aligned
     const figs = collectAllFigures();
     figs.forEach(f => {
@@ -4640,8 +4737,15 @@ async function updateCurrentTOC(button,container){
       const full = f.caption ? `${f.label}: ${f.caption}` : f.label;
       if (full && !map[full]) map[full] = { page_start: f.page || "", page_count: 1, kind: "figure" };
     });
-    const d=await workflowJSON("/sync-toc-pages",{user_id:userId,toc_code:activeTocCode,page_map:map},"Could not update table of contents.");
-    if(!d.toc)throw new Error("The server did not return an updated table of contents.");
+
+    const d = await workflowJSON("/sync-toc-pages", {
+      user_id: userId,
+      toc_code: activeTocCode,
+      page_map: map
+    }, "Could not update table of contents.");
+
+    if (!d.toc) throw new Error("The server did not return an updated table of contents.");
+
     let tocText = d.toc;
     const lofPlain = buildListOfFiguresPlain(figs);
     if (lofPlain) {
@@ -4676,7 +4780,10 @@ async function updateCurrentTOC(button,container){
     }
     updateDisplayedTableOfContents(tocText);
     try { await refreshListOfFigures(); } catch (_) {}
-  }finally{button.disabled=false;button.textContent="↻ Update TOC";}
+  } finally {
+    button.disabled = false;
+    button.textContent = "↻ Update TOC";
+  }
 }
 
 function showMergeControl(){
@@ -5058,33 +5165,185 @@ async function buildNativeDocxBlob(pages){
 }
 
 /** Fallback only: HTML->docx with Times New Roman, page-break-before on each page, tab-leader TOC rows. */
-function buildFallbackDocxBlob(pages){
-  const esc=t=>String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-  const body=pages.map((pg,i)=>{
-    const c=pg.querySelector(".a4-content")||pg;
-    const clone=c.cloneNode(true);
-    clone.querySelectorAll(".toc-row").forEach(r=>{
-      const label=esc((r.querySelector(".toc-label")?.textContent||"").trim());
-      const page=esc((r.querySelector(".toc-page")?.textContent||"").trim());
-      const ind=r.classList.contains("toc-sub")?"margin-left:20pt;":"";
-      const p=document.createElement("p");
-      p.setAttribute("style",`margin:0 0 6pt;${ind}tab-stops:right dotted 451.3pt;text-align:left`);
-      p.innerHTML=`${label}<span style="mso-tab-count:1 dotted">&nbsp;..........&nbsp;</span>${page}`;
+function buildFallbackDocxBlob(pages) {
+  const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  const body = pages.map((pg, i) => {
+    const c = pg.querySelector(".a4-content") || pg;
+    const clone = c.cloneNode(true);
+
+    // Convert every .toc-row into a reliable two-column table row.
+    // html-docx-js handles <table> far more reliably than flex or mso-tab spans.
+    const tocRows = [...clone.querySelectorAll(".toc-row")];
+    if (tocRows.length) {
+      // Group consecutive toc-rows into one table
+      let table = null;
+      tocRows.forEach((r, idx) => {
+        const label = esc((r.querySelector(".toc-label")?.textContent || "").trim());
+        const page = esc((r.querySelector(".toc-page")?.textContent || "").trim());
+        const isSub = r.classList.contains("toc-sub");
+        const isChap = r.classList.contains("toc-chap");
+
+        if (!table) {
+          table = document.createElement("table");
+          table.setAttribute("style",
+            "width:100%;border-collapse:collapse;border:none;margin:0 0 6pt;table-layout:fixed;");
+          // 85% title / 15% page number
+          const colgroup = document.createElement("colgroup");
+          colgroup.innerHTML = '<col style="width:85%"><col style="width:15%">';
+          table.appendChild(colgroup);
+        }
+
+        const tr = document.createElement("tr");
+        const tdLabel = document.createElement("td");
+        tdLabel.setAttribute("style",
+          `border:none;padding:2pt 4pt 2pt ${isSub ? "20pt" : "0"};` +
+          `font-family:"Times New Roman",Times,serif;font-size:12pt;` +
+          `font-weight:${isChap ? "bold" : "normal"};text-align:left;vertical-align:bottom;`);
+        // Dotted leader via trailing dots that fill remaining space (simple & reliable)
+        tdLabel.innerHTML = label +
+          '<span style="font-size:12pt;letter-spacing:2pt;color:#000"> ' +
+          ".".repeat(40) + "</span>";
+
+        const tdPage = document.createElement("td");
+        tdPage.setAttribute("style",
+          'border:none;padding:2pt 0;font-family:"Times New Roman",Times,serif;' +
+          "font-size:12pt;text-align:right;vertical-align:bottom;white-space:nowrap;");
+        tdPage.textContent = page;
+
+        tr.appendChild(tdLabel);
+        tr.appendChild(tdPage);
+        table.appendChild(tr);
+
+        // Replace the original .toc-row; if this is the last consecutive row, insert the table
+        const next = r.nextElementSibling;
+        const isLastInGroup = !next || !next.classList.contains("toc-row");
+        r.replaceWith(idx === 0 ? table : document.createTextNode("")); // keep table only once
+        if (isLastInGroup) table = null;
+      });
+    }
+
+    // Any remaining lone .toc-row (safety)
+    clone.querySelectorAll(".toc-row").forEach(r => {
+      const label = esc((r.querySelector(".toc-label")?.textContent || "").trim());
+      const page = esc((r.querySelector(".toc-page")?.textContent || "").trim());
+      const p = document.createElement("p");
+      p.setAttribute("style",
+        'margin:0 0 6pt;font-family:"Times New Roman",Times,serif;font-size:12pt;');
+      p.innerHTML = `${label}<span style="float:right">${page}</span>`;
       r.replaceWith(p);
     });
-    const num=(pg.querySelector(".page-number")?.textContent||"").trim();
-    return `<div style="${i>0?"page-break-before:always;":""}">${clone.innerHTML}${num?`<p style="text-align:center;margin-top:18pt">${esc(num)}</p>`:""}</div>`;
+
+    const num = (pg.querySelector(".page-number")?.textContent || "").trim();
+    return `<div style="${i > 0 ? "page-break-before:always;" : ""}">${clone.innerHTML}` +
+      (num ? `<p style="text-align:center;margin-top:18pt;font-family:'Times New Roman',Times,serif">${esc(num)}</p>` : "") +
+      `</div>`;
   }).join("");
-  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(getMergedExportTitle())}</title><style>
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(getMergedExportTitle())}</title>
+<style>
   body,div,p,span,li,td,th,h1,h2,h3,h4{font-family:"Times New Roman",Times,serif;color:#000;}
   body{font-size:12pt;line-height:1.5;}
-  h1{font-size:16pt;text-align:center;margin:0 0 12pt;} h2{font-size:14pt;margin:12pt 0 8pt;} h3{font-size:12pt;margin:10pt 0 6pt;}
+  h1{font-size:16pt;text-align:center;margin:0 0 12pt;}
+  h2{font-size:14pt;margin:12pt 0 8pt;}
+  h3{font-size:12pt;margin:10pt 0 6pt;}
   p{margin:0 0 8pt;text-align:justify;}
-  .tp-figure{text-align:center;margin:12pt auto;page-break-inside:avoid;} .tp-figure img{max-width:100%;height:auto;}
+  .tp-figure{text-align:center;margin:12pt auto;page-break-inside:avoid;}
+  .tp-figure img{max-width:100%;height:auto;}
   .fig-caption{font-size:10pt;font-weight:bold;}
-  table{border-collapse:collapse;width:100%;margin:10pt 0;} th,td{border:1px solid #000;padding:4pt 6pt;} th{background:#eeeeee;}
-  </style></head><body>${body}</body></html>`;
-  return htmlDocx.asBlob(html,{orientation:"portrait",margins:{top:1440,right:1440,bottom:1440,left:1440}});
+  table{border-collapse:collapse;width:100%;margin:10pt 0;}
+  th,td{border:1px solid #000;padding:4pt 6pt;}
+  th{background:#eeeeee;}
+  /* TOC tables – no borders, clean alignment */
+  table[style*="border:none"] td{border:none !important;}
+
+/* MONKEY_SCOUT_PDF_PAGEBREAK_FIX */
+/* =========================================================
+   PDF / PRINT PAGE-BREAK INTEGRITY
+   Prevents lines, paragraphs, table rows, math blocks and
+   figures from being split horizontally across PDF pages.
+   ========================================================= */
+
+/* Live paper view – keep blocks together when possible */
+.a4-page .a4-content p,
+.a4-page .a4-content li,
+.a4-page .a4-content tr,
+.a4-page .a4-content .tp-figure,
+.a4-page .a4-content table,
+.a4-page .a4-content .tp-table-wrap,
+.a4-page .a4-content blockquote,
+.a4-page .a4-content pre,
+.a4-page .a4-content .math-block,
+.a4-page .a4-content [class*="equation"],
+.a4-page .a4-content h1,
+.a4-page .a4-content h2,
+.a4-page .a4-content h3,
+.a4-page .a4-content h4 {
+  break-inside: avoid;
+  page-break-inside: avoid;
+  -webkit-column-break-inside: avoid;
+}
+
+/* Headings should stay with the following paragraph when feasible */
+.a4-page .a4-content h1,
+.a4-page .a4-content h2,
+.a4-page .a4-content h3 {
+  break-after: avoid;
+  page-break-after: avoid;
+}
+
+/* PDF export staging area – same rules, forced for html2canvas capture */
+.pdf-export-stage .a4-page .a4-content p,
+.pdf-export-stage .a4-page .a4-content li,
+.pdf-export-stage .a4-page .a4-content tr,
+.pdf-export-stage .a4-page .a4-content .tp-figure,
+.pdf-export-stage .a4-page .a4-content table,
+.pdf-export-stage .a4-page .a4-content .tp-table-wrap,
+.pdf-export-stage .a4-page .a4-content blockquote,
+.pdf-export-stage .a4-page .a4-content pre,
+.pdf-export-stage .a4-page .a4-content .math-block,
+.pdf-export-stage .a4-page .a4-content [class*="equation"] {
+  break-inside: avoid !important;
+  page-break-inside: avoid !important;
+  -webkit-column-break-inside: avoid !important;
+}
+
+@media print {
+  .a4-page .a4-content p,
+  .a4-page .a4-content li,
+  .a4-page .a4-content tr,
+  .a4-page .a4-content .tp-figure,
+  .a4-page .a4-content table,
+  .a4-page .a4-content .tp-table-wrap,
+  .a4-page .a4-content blockquote,
+  .a4-page .a4-content pre,
+  .a4-page .a4-content .math-block {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .a4-page .a4-content h1,
+  .a4-page .a4-content h2,
+  .a4-page .a4-content h3 {
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+  }
+
+  /* Keep table header with at least one body row */
+  .a4-page .a4-content thead {
+    display: table-header-group;
+  }
+  .a4-page .a4-content tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+}
+</style></head><body>${body}</body></html>`;
+
+  return htmlDocx.asBlob(html, {
+    orientation: "portrait",
+    margins: { top: 1440, right: 1440, bottom: 1440, left: 1440 }
+  });
 }
 
 async function downloadMergedAsDocx(){
