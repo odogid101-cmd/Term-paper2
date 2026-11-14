@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <title>Monkey Scout | Academic Workspace</title>
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300&display=swap" rel="stylesheet">
@@ -494,8 +494,8 @@ svg { display: block; }
 }
 
 .pages-container {
-  max-width: 860px;
-  width: 100%;
+  max-width: 794px;
+  width: 794px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -504,11 +504,15 @@ svg { display: block; }
 
 .a4-page {
   position: relative;
-  width: 100%;
-  min-height: 1056px;
+  box-sizing: border-box;
+  width: 794px;
+  min-width: 794px;
+  max-width: 794px;
+  height: 1123px;
+  min-height: 1123px;
   background: var(--paper-bg);
   color: var(--paper-text);
-  padding: 70px 80px;
+  padding: 75px 65px;
   box-shadow:
     0 1px 0 rgba(255,255,255,0.6) inset,
     0 24px 48px rgba(2, 6, 23, 0.22),
@@ -1064,8 +1068,8 @@ svg { display: block; }
 }
 
 @media (max-width: 900px) {
-  .pages-container { overflow-x: auto; align-items: flex-start; padding-bottom: 8px; }
-  .a4-page { width: 860px !important; min-width: 860px !important; max-width: 860px !important; min-height: 1056px !important; height: 1056px !important; padding: 70px 80px !important; }
+  .pages-container { overflow-x: auto; align-items: flex-start; padding: 0 12px 8px; width: 100%; max-width: 100%; }
+  .a4-page { box-sizing: border-box !important; width: 794px !important; min-width: 794px !important; max-width: 794px !important; height: 1123px !important; min-height: 1123px !important; padding: 75px 65px !important; font-size: 15px !important; line-height: 1.6 !important; }
   .sidebar {
     transform: translateX(-100%);
   }
@@ -1077,7 +1081,6 @@ svg { display: block; }
   .nav-toggle { display: flex; }
   .topbar { padding: 0 16px; }
   .chat-area { padding: 16px; }
-  .a4-page { padding: 40px 24px; min-height: auto; }
   .input-container { padding: 12px 16px 16px; }
   .overlay.show { display: block; opacity: 1; }
   .ai-chat-window {
@@ -1099,7 +1102,7 @@ svg { display: block; }
   .sidebar, .topbar, .input-container, .chat-actions, .ai-fab, .ai-chat-window { display: none !important; }
   .main { margin-left: 0; width: 100%; }
   .chat-area { padding: 0; overflow: visible; }
-  .a4-page { box-shadow: none; border: none; margin: 0; padding: 70px 80px; }
+  .a4-page { box-sizing:border-box; width:794px; min-width:794px; max-width:794px; height:1123px; min-height:1123px; box-shadow:none; border:none; margin:0; padding:75px 65px; }
   .page-number {
     background: transparent;
     color: #6b7280;
@@ -1744,9 +1747,10 @@ svg { display: block; }
 
 @media (max-width: 900px) {
   /* Keep the desktop visual language while allowing every content surface to fit the phone. */
-  .chat-area { padding:14px 10px 22px; gap:14px; overflow-x:hidden; }
-  .chat-msg, .pages-container, .workflow-editor, .workflow-status { width:100%; max-width:100%; min-width:0; }
-  .a4-page { width:100%; max-width:100%; min-width:0; box-sizing:border-box; padding:34px 22px; font-size:14px; line-height:1.72; overflow-wrap:anywhere; word-break:normal; }
+  .chat-area { padding:14px 10px 22px; gap:14px; overflow-x:auto; }
+  .chat-msg, .workflow-editor, .workflow-status { width:100%; max-width:100%; min-width:0; }
+  .pages-container { width:100%; max-width:100%; overflow-x:auto; align-items:flex-start; }
+  .a4-page { width:794px !important; min-width:794px !important; max-width:794px !important; height:1123px !important; min-height:1123px !important; box-sizing:border-box; padding:75px 65px !important; font-size:15px !important; line-height:1.6 !important; overflow-wrap:anywhere; word-break:normal; }
   .a4-page .a4-content, .a4-page p, .a4-page li, .a4-page h1, .a4-page h2, .a4-page h3, .a4-page h4 { max-width:100%; overflow-wrap:anywhere; }
   .prompt-toc-shell, .prompt-builder-panel, .prompt-toc-panel { width:100%; max-width:100%; min-width:0; }
   .prompt-builder-form { grid-template-columns:minmax(0,1fr); gap:13px; }
@@ -1761,7 +1765,6 @@ svg { display: block; }
   .welcome-placeholder { padding:22px 18px; }
   .input-hint { text-align:left; padding-right:0; }
   .chat-msg.ai-normal { padding:13px 12px; font-size:14px; }
-  .a4-page { padding:28px 18px; font-size:13.5px; }
   .prompt-builder-panel { padding:12px; }
   .prompt-toc-header { align-items:flex-start; gap:10px; flex-wrap:wrap; }
   .prompt-toc-switch { max-width:100%; white-space:normal; }
@@ -1895,7 +1898,6 @@ body { background-color: var(--bg); color: var(--text); }
   .input-container { padding: 10px 10px calc(12px + env(safe-area-inset-bottom)); }
   .input-bar { gap: 8px; padding: 8px 9px 8px 12px; border-radius: 14px; }
   .btn-icon { width: 40px; height: 40px; min-width: 40px; }
-  .a4-page { padding: 28px 18px; }
   .ai-chat-window { left: 12px !important; right: 12px !important; width: auto; bottom: calc(82px + env(safe-area-inset-bottom)); height: min(68dvh, 560px); max-height: calc(100dvh - 110px); border-radius: 16px; }
   .ai-chat-header { padding: 13px 14px; }
   .ai-chat-body { padding: 12px; }
@@ -2409,13 +2411,12 @@ function markdownToHTML(markdown) {
 
 // FIXED: no double append
 function paginateContent(html) {
-  // The preview is an A4 sheet: 860px wide, 70px vertical and 80px
-  // horizontal padding, with 1056px total height. Measure the same usable
-  // content box as the visible page so page starts cannot drift between cards.
-  const PAGE_WIDTH = 860;
-  const PAGE_HEIGHT = 1056;
-  const PAGE_PAD_X = 80;
-  const PAGE_PAD_Y = 70;
+  // Standard A4 at 96 CSS DPI: 210 × 297 mm ≈ 794 × 1123 CSS px.
+  // Keep these dimensions and margins identical to the visible page CSS.
+  const PAGE_WIDTH = 794;
+  const PAGE_HEIGHT = 1123;
+  const PAGE_PAD_X = 65;
+  const PAGE_PAD_Y = 75;
   const CONTENT_WIDTH = PAGE_WIDTH - PAGE_PAD_X * 2;
   const CONTENT_HEIGHT = PAGE_HEIGHT - PAGE_PAD_Y * 2;
 
@@ -4159,7 +4160,7 @@ async function openWorkflowFromRecent(promptCode, tocCode) {
   try {
     const codes = { prompt_code: String(promptCode).toUpperCase(), toc_code: String(tocCode).toUpperCase() };
     await startPaperWithCodes(codes, `PROMPT: ${codes.prompt_code} TOC: ${codes.toc_code}`);
-    try { await refreshListOfFigures(); } catch (_) {}
+    try { await refreshListOfFigures(); await refreshListOfTables(); } catch (_) {}
   } catch (err) {
     alert(err.message || "Could not open this paper.");
   }
@@ -5020,7 +5021,7 @@ async function updateCurrentTOC(button, container) {
       tocText = cleaned.join("\n");
     }
     updateDisplayedTableOfContents(tocText);
-    try { await refreshListOfFigures(); } catch (_) {}
+    try { await refreshListOfFigures(); await refreshListOfTables(); } catch (_) {}
 
     // Authoritative client-side page numbers from rendered A4 pages
     try { syncAllTocPagesFromRenderedDocument(); } catch (e) { console.warn("TOC page sync failed", e); }
@@ -5981,7 +5982,7 @@ function showImagePanel(container, targetPlaceholder = null, preselectedFile = n
         status.className = "status success";
         addWorkflowStatus(targetPlaceholder ? `${mainLabel || label} illustration saved at its suggested position.` : `${label} saved in this section. You can move it to the position you prefer.`);
         refreshWorkflowActionAvailability();
-        try { await refreshListOfFigures(); } catch(_){}
+        try { await refreshListOfFigures(); await refreshListOfTables(); } catch(_){}
       } catch (saveErr) {
         status.textContent = `Image shown locally but server save failed: ${saveErr.message}. Click Edit → Commit or Resend to retry.`;
         status.className = "status error";
@@ -6064,7 +6065,7 @@ function bindFigureInteractions(root) {
                 order_no: orderNo, content: card.dataset.raw, inline_enabled: false
               }, "Could not save figure deletion.");
             }
-            try { await refreshListOfFigures(); } catch(_){}
+            try { await refreshListOfFigures(); await refreshListOfTables(); } catch(_){}
           } catch (_) {}
         }
       });
@@ -6236,6 +6237,59 @@ function buildListOfFiguresHTML(figs) {
   return `<h2>List of Figures</h2><div class="toc-lines">${rows}</div>`;
 }
 
+/** Collect all rendered academic tables and resolve their chapter labels and page numbers. */
+function collectAllTables() {
+  const tables = [];
+  const counters = Object.create(null);
+  document.querySelectorAll("#chatArea .chat-msg .a4-page .tp-table-wrap").forEach(wrap => {
+    const card = wrap.closest(".chat-msg");
+    if (!card || card.dataset.kind === "toc") return;
+    const pageEl = wrap.closest(".a4-page");
+    const page = (pageEl?.querySelector(".page-number")?.textContent || "").trim();
+    const chapter = getChapterNumberFromTitle(card.dataset.title || "") || Number(card.dataset.orderNo || 1) || 1;
+    const key = String(chapter);
+    const table = wrap.querySelector("table");
+    if (!table) return;
+    let label = wrap.dataset.tableLabel || table.dataset.tableLabel || "";
+    let caption = wrap.dataset.tableCaption || table.dataset.tableCaption || "";
+    // A conventional caption immediately before the table takes precedence.
+    if (!label) {
+      let prev = wrap.previousElementSibling;
+      while (prev && !prev.textContent.trim()) prev = prev.previousElementSibling;
+      const text = (prev?.textContent || "").trim();
+      const match = text.match(/^(Table\s+\d+(?:\.\d+)*)(?:\s*[:.\-–]\s*(.*))?$/i);
+      if (match) {
+        label = match[1];
+        caption = caption || (match[2] || "").trim();
+      }
+    }
+    if (!label) {
+      counters[key] = (counters[key] || 0) + 1;
+      label = `Table ${chapter}.${counters[key]}`;
+    } else {
+      const num = label.match(/\.(\d+)$/);
+      if (num) counters[key] = Math.max(counters[key] || 0, Number(num[1]));
+    }
+    wrap.dataset.tableLabel = label;
+    wrap.dataset.tableCaption = caption;
+    table.dataset.tableLabel = label;
+    table.dataset.tableCaption = caption;
+    tables.push({ label, caption, page, orderNo: Number(card.dataset.orderNo || 0), chapter });
+  });
+  tables.sort((a,b) => (a.orderNo-b.orderNo) || a.chapter-b.chapter || a.label.localeCompare(b.label, undefined, {numeric:true}));
+  return tables;
+}
+
+function buildListOfTablesHTML(tables) {
+  if (!tables.length) return "";
+  const rows = tables.map(t => {
+    const left = escapeHTML(`${t.label}${t.caption ? ": " + t.caption : ""}`);
+    const page = escapeHTML(String(t.page || "").trim());
+    return `<div class="toc-row"><span class="toc-label">${left}</span><span class="toc-leader"></span><span class="toc-page">${page}</span></div>`;
+  }).join("");
+  return `<h2>List of Tables</h2><div class="toc-lines">${rows}</div>`;
+}
+
 /** Plain-text LOF lines for embedding into the saved TOC text. */
 function buildListOfFiguresPlain(figs) {
   if (!figs.length) return "";
@@ -6278,6 +6332,42 @@ async function refreshListOfFigures() {
     tmp.appendChild(lofWrap);
   }
   const newRaw = "[[TEMPAPER_RICH_HTML]]" + tmp.innerHTML;
+  tocCard.dataset.raw = newRaw;
+  rerenderWorkflowSection(tocCard, newRaw, {title: tocCard.dataset.title || "Table of Contents", kind: "toc", startPage: 1});
+  try { syncAllTocPagesFromRenderedDocument(); } catch (_) {}
+}
+
+
+async function refreshListOfTables() {
+  const tables = collectAllTables();
+  const tocCard = document.querySelector('#chatArea .chat-msg[data-kind="toc"]');
+  if (!tocCard) return;
+  const raw = tocCard.dataset.raw || "";
+  let html = raw.startsWith("[[TEMPAPER_RICH_HTML]]")
+    ? raw.slice("[[TEMPAPER_RICH_HTML]]".length)
+    : markdownToHTML(cleanPaperText(raw));
+  const tmp = document.createElement("div");
+  tmp.innerHTML = html;
+  [...tmp.querySelectorAll("h1,h2")].forEach(h => {
+    if (/list of tables/i.test(h.textContent || "")) {
+      let n = h.nextSibling;
+      h.remove();
+      while (n) {
+        const next = n.nextSibling;
+        if (n.nodeType === 1 && (n.tagName === "H1" || n.tagName === "H2")) break;
+        n.remove(); n = next;
+      }
+    }
+  });
+  if (tables.length) {
+    const wrap = document.createElement("div");
+    wrap.innerHTML = buildListOfTablesHTML(tables);
+    // Insert List of Tables before List of Figures when present; otherwise append.
+    const lof = [...tmp.querySelectorAll("h1,h2")].find(h => /list of figures/i.test(h.textContent || ""));
+    if (lof) tmp.insertBefore(wrap, lof); else tmp.appendChild(wrap);
+  }
+  const newRaw = "[[TEMPAPER_RICH_HTML]]" + tmp.innerHTML;
+  if (newRaw === raw) return;
   tocCard.dataset.raw = newRaw;
   rerenderWorkflowSection(tocCard, newRaw, {title: tocCard.dataset.title || "Table of Contents", kind: "toc", startPage: 1});
   try { syncAllTocPagesFromRenderedDocument(); } catch (_) {}
@@ -6332,7 +6422,7 @@ async function handleWorkflowAction(button,container){
       addWorkflowStatus(d.message || (mode === "local"
         ? "Updated only the parts that match your figure captions."
         : (hasFig ? "Full chapter rewritten. Figures were kept." : "Full chapter rewritten (no figures in this section).")));
-      try { await refreshListOfFigures(); } catch(_){}
+      try { await refreshListOfFigures(); await refreshListOfTables(); } catch(_){}
     } else if(action==="next"){
       const d=await workflowJSON("/pull-next",{user_id:userId,project_id:projectId,action:"next"},"Could not generate next section.");
       if(d.done){showMergeControl();addWorkflowStatus(d.message||"All sections have been generated.");return;}
