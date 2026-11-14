@@ -2010,8 +2010,8 @@ body { background-color: var(--bg); color: var(--text); }
 /* PDF export staging area: exact A4, plain white, no UI chrome */
 .pdf-export-stage { position:absolute; left:0; top:0; width:794px; background:#fff; z-index:-1; }
 .pdf-export-stage .a4-page {
-  position:relative; width:794px !important; height:1123px !important; min-height:0 !important; box-sizing:border-box;
-  margin:0 !important; padding:70px 80px !important; overflow:hidden;
+  position:relative; width:794px !important; min-height:1123px; height:auto; box-sizing:border-box;
+  margin:0 !important; padding:70px 80px !important; overflow:visible;
   border:0 !important; border-radius:0 !important; box-shadow:none !important; transition:none !important;
   background:#fff !important; color:#000 !important; font-size:16px; line-height:1.6;
 }
@@ -2511,7 +2511,7 @@ function paginateContent(html) {
 
     const text = (clone.textContent || '').trim();
     if (!text) continue;
-    const words = text.split(/\\s+/);
+    const words = text.split(/\s+/);
     let buffer = '';
 
     for (let w = 0; w < words.length; w++) {
@@ -2581,9 +2581,9 @@ function isPreliminaryLabel(label){
     || /\b(certification|declaration|dedication|acknowledg(e)?ments?|abstract)\b/.test(t);
 }
 function isEndMatterLabel(label){
+  // Only unnumbered top-level end-matter titles (not "5.1 Policy Recommendations…")
   const t = String(label||"").trim().toLowerCase();
-  return /^(conclusion|conclusions|summary|recommendations?|references?|bibliography|works cited|appendices|appendix)\b/.test(t)
-    || /\b(conclusion|references?|bibliography|works cited|recommendations?)\b/.test(t);
+  return /^(conclusion|conclusions|summary|recommendations?|references?|bibliography|works cited|appendices|appendix)\b/.test(t);
 }
 function prelimOrder(label){
   const t = String(label||"").trim().toLowerCase();
@@ -4168,7 +4168,7 @@ async function generatePaper() {
 
     if (res.ok && data.result) {
       const cleaned = cleanPaperText(data.result);
-      const wordCount = data.word_count || cleaned.split(/\\s+/).length;
+      const wordCount = data.word_count || cleaned.split(/\s+/).length;
       const pageCount = data.page_count || Math.max(1, Math.ceil(wordCount / 250));
       const htmlContent = markdownToHTML(cleaned);
       const paginatedHTML = createA4Pages(htmlContent, wordCount, pageCount);
@@ -4618,7 +4618,6 @@ async function updateCurrentTOC(button, container) {
   try {
     const map = {};
 
-    // Normalize a heading/label for exact matching (case, punctuation, whitespace)
     const normalizeLabel = (s) => String(s || "")
       .toLowerCase()
       .replace(/[\u2013\u2014]/g, "-")
@@ -4626,7 +4625,11 @@ async function updateCurrentTOC(button, container) {
       .replace(/\s+/g, " ")
       .trim();
 
-    // Canonical end-matter keys we care about (order matters for fallbacks)
+    // Strip leading numbering like "4.1 " or "Chapter 3:" for alternate keys
+    const stripNumber = (s) => String(s || "")
+      .replace(/^\s*(?:chapter\s+)?(?:\d+(?:\.\d+)*|[ivxlcdm]+)[.):\-\s]+/i, "")
+      .trim();
+
     const END_MATTER_CANONICAL = [
       { keys: ["conclusion", "conclusions", "summary"], label: "Conclusion" },
       { keys: ["recommendation", "recommendations"], label: "Recommendations" },
@@ -4638,15 +4641,15 @@ async function updateCurrentTOC(button, container) {
 
     const matchEndMatter = (text) => {
       const n = normalizeLabel(text);
+      // Reject numbered chapter subsections (e.g. "5.1 policy recommendations…")
+      if (/^\d+(?:\.\d+)+\b/.test(n)) return null;
       for (const entry of END_MATTER_CANONICAL) {
         for (const k of entry.keys) {
-          // Exact or starts-with match so "Conclusion and Recommendations" is handled carefully
           if (n === k || n.startsWith(k + " ") || n.startsWith(k + " and") || n === k + "s") {
             return entry.label;
           }
         }
       }
-      // Combined heading: "Conclusion and Recommendations" → treat as Conclusion for the first page
       if (/^conclusion\s+and\s+recommendations?$/.test(n)) return "Conclusion";
       return null;
     };
@@ -4661,7 +4664,6 @@ async function updateCurrentTOC(button, container) {
       const start = Number(el.dataset.pageStart || 1);
       const pages = [...el.querySelectorAll(".a4-page")];
 
-      // Section-level entry (used for chapter titles)
       const pageStart = isPre ? "i" : String(start);
       const sectionKey = title || `Section ${el.dataset.orderNo}`;
       map[sectionKey] = {
@@ -4670,11 +4672,8 @@ async function updateCurrentTOC(button, container) {
         page_count: Number(el.dataset.pageCount || pages.length || 1),
         kind: isEnd ? "end-matter" : (isPre ? "preliminary" : "chapter")
       };
-
-      // Also map normalized section title
       map[normalizeLabel(sectionKey)] = map[sectionKey];
 
-      // Per-page / per-heading scan – this is what gives EACH end-matter item its own page
       pages.forEach((page, pi) => {
         const hStart = isPre
           ? (pi === 0 ? "" : romanNumber(pi))
@@ -4684,7 +4683,6 @@ async function updateCurrentTOC(button, container) {
           const heading = (h.textContent || "").trim();
           if (!heading) return;
 
-          // Always record the raw heading
           map[heading] = {
             order_no: Number(el.dataset.orderNo),
             page_start: hStart,
@@ -4692,11 +4690,14 @@ async function updateCurrentTOC(button, container) {
             kind: isEnd ? "end-matter" : (isPre ? "preliminary" : "chapter")
           };
           map[normalizeLabel(heading)] = map[heading];
+          const stripped = stripNumber(heading);
+          if (stripped && stripped !== heading) {
+            map[stripped] = map[heading];
+            map[normalizeLabel(stripped)] = map[heading];
+          }
 
-          // If this heading is a recognised end-matter item, also write the canonical label
           const canonical = matchEndMatter(heading);
           if (canonical) {
-            // Only set if not already present, OR if this page is earlier (prefer first occurrence)
             const existing = map[canonical];
             if (!existing || Number(existing.page_start) > Number(hStart) || existing.page_start === "") {
               map[canonical] = {
@@ -4711,16 +4712,16 @@ async function updateCurrentTOC(button, container) {
         });
       });
 
-      // If the whole section card IS an end-matter section (title matches),
-      // ensure the canonical label points at this section's start page.
+      // Section title itself may be end-matter
       const sectionCanonical = matchEndMatter(title);
-      if (sectionCanonical) {
+      if (sectionCanonical && pages.length) {
+        const firstPage = isPre ? "i" : String(start);
         const existing = map[sectionCanonical];
-        if (!existing || existing.page_start === "" || Number(existing.page_start) > start) {
+        if (!existing || Number(existing.page_start) > Number(firstPage) || existing.page_start === "") {
           map[sectionCanonical] = {
             order_no: Number(el.dataset.orderNo),
-            page_start: String(start),
-            page_count: Number(el.dataset.pageCount || pages.length || 1),
+            page_start: firstPage,
+            page_count: 1,
             kind: "end-matter"
           };
           map[normalizeLabel(sectionCanonical)] = map[sectionCanonical];
@@ -4743,7 +4744,6 @@ async function updateCurrentTOC(button, container) {
       toc_code: activeTocCode,
       page_map: map
     }, "Could not update table of contents.");
-
     if (!d.toc) throw new Error("The server did not return an updated table of contents.");
 
     let tocText = d.toc;
@@ -4780,6 +4780,77 @@ async function updateCurrentTOC(button, container) {
     }
     updateDisplayedTableOfContents(tocText);
     try { await refreshListOfFigures(); } catch (_) {}
+
+    // ===== Client-side exact page numbers from rendered DOM =====
+    // Scan every .a4-page in #chatArea (document order) and map headings → page number
+    const livePageMap = {};
+    const putLive = (label, page) => {
+      if (!label || page === undefined || page === null) return;
+      const p = String(page).trim();
+      livePageMap[label] = p;
+      livePageMap[normalizeLabel(label)] = p;
+      const stripped = stripNumber(label);
+      if (stripped && stripped !== label) {
+        livePageMap[stripped] = p;
+        livePageMap[normalizeLabel(stripped)] = p;
+      }
+      const canon = matchEndMatter(label);
+      if (canon) {
+        // Prefer the earliest occurrence for end-matter
+        if (livePageMap[canon] === undefined) livePageMap[canon] = p;
+        livePageMap[normalizeLabel(canon)] = livePageMap[canon];
+      }
+    };
+
+    document.querySelectorAll("#chatArea .a4-page").forEach(pageEl => {
+      // Skip TOC pages themselves
+      if (pageEl.closest('.chat-msg[data-kind="toc"]')) return;
+      const pageNum = (pageEl.querySelector(".page-number")?.textContent || "").trim();
+      pageEl.querySelectorAll("h1, h2, h3").forEach(h => {
+        const heading = (h.textContent || "").trim();
+        if (heading) putLive(heading, pageNum);
+      });
+      // Also map the section card title to the first page of that section
+      const card = pageEl.closest(".chat-msg[data-order-no]");
+      if (card && card.dataset.title) {
+        const firstPageOfCard = card.querySelector(".a4-page .page-number");
+        // Only set section title from its first page
+        if (pageEl === card.querySelector(".a4-page")) {
+          putLive(card.dataset.title, pageNum);
+        }
+      }
+    });
+
+    // Write matched page numbers directly into .toc-row .toc-page nodes
+    const tocCard = document.querySelector('#chatArea .chat-msg[data-kind="toc"]');
+    if (tocCard) {
+      tocCard.querySelectorAll(".toc-row").forEach(row => {
+        const labelEl = row.querySelector(".toc-label");
+        const pageEl = row.querySelector(".toc-page");
+        if (!labelEl || !pageEl) return;
+        const label = (labelEl.textContent || "").trim();
+        if (!label) return;
+        const candidates = [
+          label,
+          normalizeLabel(label),
+          stripNumber(label),
+          normalizeLabel(stripNumber(label))
+        ];
+        let page = "";
+        for (const c of candidates) {
+          if (c && livePageMap[c] !== undefined && livePageMap[c] !== "") {
+            page = livePageMap[c];
+            break;
+          }
+        }
+        // End-matter fallback via canonical match
+        if (!page) {
+          const canon = matchEndMatter(label);
+          if (canon && livePageMap[canon] !== undefined) page = livePageMap[canon];
+        }
+        if (page !== "") pageEl.textContent = page;
+      });
+    }
   } finally {
     button.disabled = false;
     button.textContent = "↻ Update TOC";
@@ -4961,7 +5032,7 @@ async function downloadMergedAsPDF(){
       await waitForImages(stage);
       const canvas=await html2canvas(pages[i],{
         scale:2,useCORS:true,allowTaint:false,logging:false,backgroundColor:"#ffffff",
-        width:794,height:1123,windowWidth:794
+        width:794,height:Math.max(1123, pages[i].scrollHeight),windowWidth:794
       });
       if(i>0)pdf.addPage("a4","portrait");
       pdf.addImage(canvas.toDataURL("image/jpeg",0.95),"JPEG",0,0,210,297,undefined,"FAST");
@@ -5094,7 +5165,7 @@ async function buildNativeDocxBlob(pages){
       const trs=[...node.querySelectorAll("tr")];
       if(!trs.length)return;
       if(pendingBreak)children.push(new D.Paragraph(bk({spacing:{after:0},children:[]})));
-      const rows=trs.map(tr=>new D.TableRow({children:[...tr.children].filter(c=>/^T[DH]$/.test(c.tagName)).map(c=>new D.TableCell({
+      const rows=trs.map(tr=>new D.TableRow({cantSplit:true,children:[...tr.children].filter(c=>/^T[DH]$/.test(c.tagName)).map(c=>new D.TableCell({
         columnSpan:c.colSpan>1?c.colSpan:undefined,
         margins:{top:60,bottom:60,left:100,right:100},
         children:[new D.Paragraph({spacing:{after:0},children:inlineRuns(c,{size:22,bold:c.tagName==="TH"})})]
@@ -5136,6 +5207,11 @@ async function buildNativeDocxBlob(pages){
     const content=pg.querySelector(".a4-content")||pg;
     const ctx={front:g==="front"||g==="cover",cover:g==="cover"};
     const before=current.children.length;
+    // Ensure page-break is applied even when the first node is a wrapper <div>
+    if (pendingBreak) {
+      current.children.push(new D.Paragraph({pageBreakBefore:true, spacing:{after:0}, children:[]}));
+      pendingBreak=false;
+    }
     for(const n of content.childNodes){await convertBlock(n,ctx,current.children);}
     if(current.children.length===before){            // empty page: keep numbering consistent
       current.children.push(new D.Paragraph(bk({children:[]})));
