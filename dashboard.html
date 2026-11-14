@@ -4,6 +4,16 @@
 <meta charset="utf-8" />
 <title>Monkey Scout | Academic Workspace</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes" />
+<meta name="description" content="Monkey Scout — professional academic paper generator. Research, structure, and export fully formatted term papers as PDF or Word." />
+<meta name="theme-color" content="#087447" />
+<meta name="color-scheme" content="light" />
+<meta property="og:title" content="Monkey Scout | Academic Workspace" />
+<meta property="og:description" content="Generate publication-ready academic papers with structured chapters, TOC, figures, and one-click PDF/Word export." />
+<meta property="og:type" content="website" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="Monkey Scout" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23087447'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-size='16' font-family='Georgia,serif' fill='white'%3EM%3C/text%3E%3C/svg%3E" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300&display=swap" rel="stylesheet">
@@ -512,17 +522,20 @@ svg { display: block; }
   min-height: 1123px;
   background: var(--paper-bg);
   color: var(--paper-text);
-  padding: 75px 65px;
+  /* Top/side generous; bottom only needs room for the page number.
+     MUST match paginateContent() measurement metrics. */
+  padding: 70px 65px 48px;
   box-shadow:
     0 1px 0 rgba(255,255,255,0.6) inset,
     0 24px 48px rgba(2, 6, 23, 0.22),
     0 8px 16px rgba(2, 6, 23, 0.12);
   border-radius: 4px;
   border: 1px solid rgba(15, 23, 42, 0.06);
-  font-family: 'Merriweather', Georgia, serif;
-  line-height: 1.82;
-  font-size: 15px;
+  font-family: "Times New Roman", Times, "Liberation Serif", Tinos, serif;
+  line-height: 1.6;
+  font-size: 16px;
   word-wrap: break-word;
+  overflow: hidden;
   page-break-after: always;
   transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
@@ -564,6 +577,10 @@ svg { display: block; }
   position: relative;
   z-index: 1;
   text-align: justify;
+  max-height: 100%;
+  overflow: hidden;
+  hyphens: auto;
+  -webkit-hyphens: auto;
 }
 .a4-page.preliminary-page .a4-content h1,
 .a4-page.preliminary-page .a4-content h2,
@@ -574,8 +591,20 @@ svg { display: block; }
 .a4-page.preliminary-page .a4-content p { text-align: justify; }
 .a4-page.preliminary-page .a4-content .cover-title,
 .a4-page.preliminary-page .a4-content h1:first-child { text-align: center; font-weight: 800; }
-.a4-page .a4-content h1, .a4-page .a4-content h2, .a4-page .a4-content h3 { break-after: avoid; page-break-after: avoid; break-inside: avoid; page-break-inside: avoid; }
-.a4-content p, .a4-content li { break-inside: avoid; page-break-inside: avoid; }
+/* Headings stay with the next block when possible. */
+.a4-page .a4-content h1, .a4-page .a4-content h2, .a4-page .a4-content h3 {
+  break-after: avoid;
+  page-break-after: avoid;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+/* Allow body text to split so pages fill densely instead of going half-empty. */
+.a4-content p, .a4-content li {
+  break-inside: auto;
+  page-break-inside: auto;
+  orphans: 2;
+  widows: 2;
+}
 
 .a4-footer {
   position: absolute;
@@ -1069,7 +1098,7 @@ svg { display: block; }
 
 @media (max-width: 900px) {
   .pages-container { overflow-x: auto; align-items: flex-start; padding: 0 12px 8px; width: 100%; max-width: 100%; }
-  .a4-page { box-sizing: border-box !important; width: 794px !important; min-width: 794px !important; max-width: 794px !important; height: 1123px !important; min-height: 1123px !important; padding: 75px 65px !important; font-size: 15px !important; line-height: 1.6 !important; }
+  .a4-page { box-sizing: border-box !important; width: 794px !important; min-width: 794px !important; max-width: 794px !important; height: 1123px !important; min-height: 1123px !important; padding: 70px 65px 48px !important; font-size: 16px !important; line-height: 1.6 !important; }
   .sidebar {
     transform: translateX(-100%);
   }
@@ -1102,7 +1131,7 @@ svg { display: block; }
   .sidebar, .topbar, .input-container, .chat-actions, .ai-fab, .ai-chat-window { display: none !important; }
   .main { margin-left: 0; width: 100%; }
   .chat-area { padding: 0; overflow: visible; }
-  .a4-page { box-sizing:border-box; width:794px; min-width:794px; max-width:794px; height:1123px; min-height:1123px; box-shadow:none; border:none; margin:0; padding:75px 65px; }
+  .a4-page { box-sizing:border-box; width:794px; min-width:794px; max-width:794px; height:1123px; min-height:1123px; box-shadow:none; border:none; margin:0; padding:70px 65px 48px; }
   .page-number {
     background: transparent;
     color: #6b7280;
@@ -1750,7 +1779,7 @@ svg { display: block; }
   .chat-area { padding:14px 10px 22px; gap:14px; overflow-x:auto; }
   .chat-msg, .workflow-editor, .workflow-status { width:100%; max-width:100%; min-width:0; }
   .pages-container { width:100%; max-width:100%; overflow-x:auto; align-items:flex-start; }
-  .a4-page { width:794px !important; min-width:794px !important; max-width:794px !important; height:1123px !important; min-height:1123px !important; box-sizing:border-box; padding:75px 65px !important; font-size:15px !important; line-height:1.6 !important; overflow-wrap:anywhere; word-break:normal; }
+  .a4-page { width:794px !important; min-width:794px !important; max-width:794px !important; height:1123px !important; min-height:1123px !important; box-sizing:border-box; padding:70px 65px 48px !important; font-size:16px !important; line-height:1.6 !important; overflow-wrap:anywhere; word-break:normal; }
   .a4-page .a4-content, .a4-page p, .a4-page li, .a4-page h1, .a4-page h2, .a4-page h3, .a4-page h4 { max-width:100%; overflow-wrap:anywhere; }
   .prompt-toc-shell, .prompt-builder-panel, .prompt-toc-panel { width:100%; max-width:100%; min-width:0; }
   .prompt-builder-form { grid-template-columns:minmax(0,1fr); gap:13px; }
@@ -1989,6 +2018,30 @@ body { background-color: var(--bg); color: var(--text); }
 }
 
 
+
+/* Production polish */
+::selection { background: rgba(8, 116, 71, 0.22); color: #0f2f22; }
+:focus-visible {
+  outline: 2px solid #15945d;
+  outline-offset: 2px;
+}
+.a4-page .a4-content p {
+  margin-bottom: 12px;
+  text-align: justify;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  overflow-wrap: break-word;
+}
+.a4-page .page-number {
+  pointer-events: none;
+  user-select: none;
+}
+/* Smoother paper hover without layout shift */
+.a4-page:hover { transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .a4-page { transition: none !important; }
+}
+
 /* =========================================================
    ACADEMIC TYPOGRAPHY: TIMES NEW ROMAN EVERYWHERE IN THE PAPER
    ========================================================= */
@@ -1999,7 +2052,11 @@ body { background-color: var(--bg); color: var(--text); }
 .a4-page .a4-content h1 { font-size: 24px; line-height: 1.3; }
 .a4-page .a4-content h2 { font-size: 20px; line-height: 1.3; }
 .a4-page .a4-content h3 { font-size: 16px; line-height: 1.4; }
-.a4-page .page-number { font-size: 14px; }
+.a4-page .page-number {
+  font-size: 14px;
+  font-family: "Times New Roman", Times, serif !important;
+  bottom: 14px;
+}
 
 /* TABLE OF CONTENTS: titles left, dotted leader, page numbers on the right margin */
 .a4-page.toc-page .toc-row { display:flex; align-items:flex-end; gap:6px; width:100%; margin:0 0 6px; line-height:1.5; text-align:left; }
@@ -2412,13 +2469,17 @@ function markdownToHTML(markdown) {
 // FIXED: no double append
 function paginateContent(html) {
   // Standard A4 at 96 CSS DPI: 210 × 297 mm ≈ 794 × 1123 CSS px.
-  // Keep these dimensions and margins identical to the visible page CSS.
+  // MUST stay in lock-step with the visible .a4-page CSS (padding, font, size, line-height)
+  // otherwise pages render half-empty or overflow.
   const PAGE_WIDTH = 794;
   const PAGE_HEIGHT = 1123;
+  const PAGE_PAD_TOP = 70;
+  const PAGE_PAD_BOTTOM = 48; // room for page-number badge only
   const PAGE_PAD_X = 65;
-  const PAGE_PAD_Y = 75;
   const CONTENT_WIDTH = PAGE_WIDTH - PAGE_PAD_X * 2;
-  const CONTENT_HEIGHT = PAGE_HEIGHT - PAGE_PAD_Y * 2;
+  // Usable content height = page height minus top+bottom padding.
+  // A tiny safety margin (-2) prevents the last line colliding with the page number.
+  const CONTENT_HEIGHT = PAGE_HEIGHT - PAGE_PAD_TOP - PAGE_PAD_BOTTOM - 2;
 
   const measureWrapper = document.createElement('div');
   measureWrapper.setAttribute('aria-hidden', 'true');
@@ -2427,11 +2488,40 @@ function paginateContent(html) {
 
   const measurePage = document.createElement('div');
   measurePage.className = 'a4-page body-page';
-  measurePage.style.cssText = `position:static!important;width:${PAGE_WIDTH}px!important;min-width:${PAGE_WIDTH}px!important;max-width:${PAGE_WIDTH}px!important;min-height:${PAGE_HEIGHT}px!important;height:${PAGE_HEIGHT}px!important;padding:${PAGE_PAD_Y}px ${PAGE_PAD_X}px!important;margin:0!important;border:0!important;box-shadow:none!important;transform:none!important;`;
+  // Force the exact same metrics the live pages use (Times New Roman 16px / 1.6).
+  measurePage.style.cssText = [
+    'position:static!important',
+    `width:${PAGE_WIDTH}px!important`,
+    `min-width:${PAGE_WIDTH}px!important`,
+    `max-width:${PAGE_WIDTH}px!important`,
+    `min-height:${PAGE_HEIGHT}px!important`,
+    `height:${PAGE_HEIGHT}px!important`,
+    `padding:${PAGE_PAD_TOP}px ${PAGE_PAD_X}px ${PAGE_PAD_BOTTOM}px!important`,
+    'margin:0!important',
+    'border:0!important',
+    'box-shadow:none!important',
+    'transform:none!important',
+    'font-family:"Times New Roman",Times,"Liberation Serif",Tinos,serif!important',
+    'font-size:16px!important',
+    'line-height:1.6!important',
+    'overflow:hidden!important'
+  ].join(';');
 
   const measureContent = document.createElement('div');
   measureContent.className = 'a4-content';
-  measureContent.style.cssText = `position:relative;width:${CONTENT_WIDTH}px!important;max-width:${CONTENT_WIDTH}px!important;height:${CONTENT_HEIGHT}px;min-height:${CONTENT_HEIGHT}px;overflow:hidden;box-sizing:border-box;`;
+  measureContent.style.cssText = [
+    'position:relative',
+    `width:${CONTENT_WIDTH}px!important`,
+    `max-width:${CONTENT_WIDTH}px!important`,
+    `height:${CONTENT_HEIGHT}px`,
+    `min-height:${CONTENT_HEIGHT}px`,
+    'overflow:hidden',
+    'box-sizing:border-box',
+    'font-family:"Times New Roman",Times,"Liberation Serif",Tinos,serif!important',
+    'font-size:16px!important',
+    'line-height:1.6!important',
+    'text-align:justify'
+  ].join(';');
   measurePage.appendChild(measureContent);
   measureWrapper.appendChild(measurePage);
 
@@ -2439,20 +2529,24 @@ function paginateContent(html) {
   temp.innerHTML = String(html || '');
   const blocks = Array.from(temp.childNodes).map(n => n.cloneNode(true));
   const pages = [];
-  const fits = () => measureContent.scrollHeight <= CONTENT_HEIGHT + 1;
+  // Allow 2px tolerance so fractional font metrics do not leave a near-full page empty.
+  const fits = () => measureContent.scrollHeight <= CONTENT_HEIGHT + 2;
   const flush = () => {
     if (!measureContent.childNodes.length) return;
     pages.push(Array.from(measureContent.childNodes).map(n => n.cloneNode(true)));
     measureContent.innerHTML = '';
   };
-  const isHeading = node => node.nodeType === 1 && /^H[1-6]$/.test(node.tagName);
+    const isHeading = node => node.nodeType === 1 && /^H[1-6]$/.test(node.tagName);
   const isMajorHeading = node => {
     if (!isHeading(node)) return false;
     const t = (node.textContent || '').trim();
     return /^(?:cover\s*page|title\s*page|certification(?:\s*\/\s*approval)?|approval(?:\s+page)?|declaration|dedication|acknowledg(?:e)?ments?|abstract|table of contents|contents|list of (?:tables|figures|abbreviations|symbols)|preface|foreword|chapter\s+(?:\d+|[ivxlcdm]+|one|two|three|four|five|six|seven|eight|nine|ten)|conclusions?|recommendations?|references?|bibliography|works\s+cited|appendi(?:x|ces))\b/i.test(t);
   };
+  // Tables, figures and forced-keep blocks stay atomic.
+  // Lists (ul/ol) are intentionally NOT atomic so they can fill remaining
+  // space on a page instead of jumping wholly to the next page.
   const isAtomicBlock = node => node.nodeType === 1 && (
-    /^(TABLE|FIGURE|IMG|UL|OL)$/.test(node.tagName) ||
+    /^(TABLE|FIGURE|IMG)$/.test(node.tagName) ||
     node.matches('.tp-figure,.tp-table-wrap,[data-keep-together="true"]')
   );
 
@@ -2492,11 +2586,43 @@ function paginateContent(html) {
     measureContent.removeChild(measureContent.lastChild);
     if (measureContent.childNodes.length) flush();
 
-    // Never flatten tables, lists, figures, or rich blocks into plain text.
+    // Never flatten tables/figures into plain text.
     // Place an oversized atomic block on its own page rather than corrupting it.
     if (isAtomicBlock(clone)) {
       measureContent.appendChild(clone.cloneNode(true));
       flush();
+      continue;
+    }
+
+    // Split long lists across pages so each page fills instead of leaving
+    // a half-empty page before a long bullet list.
+    if (clone.tagName === 'UL' || clone.tagName === 'OL') {
+      const items = Array.from(clone.children).filter(c => c.tagName === 'LI');
+      if (!items.length) {
+        measureContent.appendChild(clone.cloneNode(true));
+        flush();
+        continue;
+      }
+      let list = document.createElement(clone.tagName);
+      Array.from(clone.attributes).forEach(a => list.setAttribute(a.name, a.value));
+      for (const li of items) {
+        list.appendChild(li.cloneNode(true));
+        measureContent.appendChild(list);
+        if (fits()) continue;
+        // last item overflowed
+        list.removeChild(list.lastChild);
+        measureContent.removeChild(list);
+        if (list.childNodes.length) {
+          measureContent.appendChild(list);
+          flush();
+        } else if (measureContent.childNodes.length) {
+          flush();
+        }
+        list = document.createElement(clone.tagName);
+        Array.from(clone.attributes).forEach(a => list.setAttribute(a.name, a.value));
+        list.appendChild(li.cloneNode(true));
+        measureContent.appendChild(list);
+      }
       continue;
     }
 
