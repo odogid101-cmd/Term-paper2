@@ -2641,20 +2641,27 @@ function splitKnownItems(raw, patterns){
   return found;
 }
 function parseTocLine(line){
-  let page = "", label = line;
+  let page = "", label = String(line || "").trim();
   // Preliminary-page TOCs commonly prefix entries with Roman numerals (i. Abstract).
-  // Move that numeral into the page-number column instead of displaying it as part of the title.
-  const leadingRoman = line.match(/^\s*([ivxlcdm]+)[.)]\s+(.+)$/i);
-  if (leadingRoman && isPreliminaryLabel(leadingRoman[2])) {
+  const leadingRoman = label.match(/^\s*([ivxlcdm]+)[.)]\s+(.+)$/i);
+  if (leadingRoman && typeof isPreliminaryLabel === "function" && isPreliminaryLabel(leadingRoman[2])) {
     return { label: leadingRoman[2].trim(), page: leadingRoman[1].toLowerCase() };
   }
-  const match = line.match(/^(.*?)(?:\s*\.{2,}|\s{2,}|\t+)([ivxlcdm]+|\d+)\s*$/i);
-  if (match) { label = match[1].replace(/[\s.]+$/,"").trim(); page = match[2].trim(); }
-  else {
-    const tail = line.match(/^(.*?)\s+([ivxlcdm]+|\d+)\s*$/i);
-    if (tail && tail[1].length > 3) { label = tail[1].replace(/[\s.]+$/,"").trim(); page = tail[2].trim(); }
+  // Leaders: dots, en/em dashes, or multiple spaces/tabs before the page number
+  const match = label.match(/^(.*?)(?:\s*[.\u2022\u00b7\-\u2013\u2014]{2,}|\s{2,}|\t+)\s*([ivxlcdm]+|\d+)\s*$/i);
+  if (match) {
+    label = match[1].replace(/[\s.\u2022\u00b7\-\u2013\u2014]+$/,"").trim();
+    page = match[2].trim();
+  } else {
+    // Trailing page number after a normal title (no leader) — only if title is long enough
+    const tail = label.match(/^(.*?)\s+([ivxlcdm]+|\d+)\s*$/i);
+    if (tail && tail[1].trim().length > 3 && !/^\d+(?:\.\d+)+$/.test(tail[1].trim())) {
+      // Avoid stripping a lone section number like "1.1" as if "1" were the page
+      label = tail[1].replace(/[\s.]+$/,"").trim();
+      page = tail[2].trim();
+    }
   }
-  return {label: label.replace(/[\s.]+$/,"").trim(), page};
+  return { label: label.replace(/[\s.]+$/,"").trim(), page };
 }
 /** Split a jammed LOF string (multiple Fig./Figure entries on one line) into separate entries. */
 function splitFigureEntries(line){
@@ -2688,6 +2695,55 @@ function splitFigureEntries(line){
 function isFigureLabel(label){
   return /^(?:Fig\.?|Figure)\s*[\d.]+/i.test(String(label || "").trim());
 }
+
+/** Convert a plain-text / server TOC outline into stable HTML rows.
+ *  Does NOT use markdownToHTML — that mis-classifies "1.1 Title ..... 12" as headings.
+ */
+function tocTextToHTML(tocText) {
+  const raw = String(tocText || "").replace(/\r/g, "");
+  if (raw.startsWith("[[TEMPAPER_RICH_HTML]]")) {
+    return raw.slice("[[TEMPAPER_RICH_HTML]]".length);
+  }
+  // Already structured TOC rows
+  if (/class\s*=\s*["']toc-row["']/.test(raw) || /class\s*=\s*["']toc-lines["']/.test(raw)) {
+    return raw;
+  }
+  // Already proper TOC row markup
+  if (/class\s*=\s*["']toc-row["']/.test(raw)) {
+    return raw;
+  }
+  // HTML that was wrongly turned into headings by markdownToHTML — recover line text
+  if (/<(p|div|h[1-3]|li|table)\b/i.test(raw) && raw.includes("</")) {
+    const tmp = document.createElement("div");
+    tmp.innerHTML = raw;
+    // If it looks like a TOC outline (many short lines / dotted leaders), flatten to <p>
+    const blocks = [...tmp.querySelectorAll("h1,h2,h3,p,li")];
+    const looksLikeToc = blocks.length >= 3 && blocks.some(b => /\.{2,}|\d+$/.test((b.textContent||"").trim()));
+    if (looksLikeToc) {
+      return blocks.map(b => {
+        const t = (b.textContent || "").trim();
+        if (!t || /^table of contents$/i.test(t)) return "";
+        return "<p>" + t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;") + "</p>";
+      }).filter(Boolean).join("\n");
+    }
+    return raw;
+  }
+  const lines = raw.split("\n");
+  const out = [];
+  for (const line of lines) {
+    const t = line.trim();
+    if (!t) continue;
+    if (/^table of contents$/i.test(t)) continue;
+    // Keep each TOC entry as its own <p> so formatTOCHTML/parseTocLine see one entry per line
+    const esc = String(t)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+    out.push(`<p>${esc}</p>`);
+  }
+  return out.join("\n") || "<p></p>";
+}
+
 function formatTOCHTML(bodyHtml, options){
   const showHeading = !options || options.showHeading !== false;
   const temp = document.createElement("div");
@@ -2788,6 +2844,52 @@ function formatTOCHTML(bodyHtml, options){
       else if (!entry.page) entry.page = "";
     });
   } catch (e) { /* preliminary pages may not be mounted yet */ }
+
+  // Fill body + end-matter page numbers from the rendered A4 pages (authoritative).
+  // Each heading keeps its OWN starting page so Conclusion / Recommendations /
+  // References / Appendices never share a single page number.
+  try {
+    const liveMap = Object.create(null);
+    const norm = (s) => String(s||"").toLowerCase().replace(/[\u2013\u2014]/g,"-").replace(/[^\w\s\-./]/g,"").replace(/\s+/g," ").trim();
+    const strip = (s) => String(s||"").replace(/^\s*(?:chapter\s+)?(?:\d+(?:\.\d+)*|[ivxlcdm]+)[.):\-\s]+/i,"").trim();
+    document.querySelectorAll("#chatArea .a4-page").forEach(pageEl => {
+      if (pageEl.closest('.chat-msg[data-kind="toc"]')) return;
+      const pageNum = (pageEl.querySelector(".page-number")?.textContent || "").trim();
+      pageEl.querySelectorAll("h1, h2, h3").forEach(h => {
+        const t = (h.textContent || "").trim();
+        if (!t || !pageNum) return;
+        const keys = [t, norm(t), strip(t), norm(strip(t))];
+        keys.forEach(k => { if (k && liveMap[k] === undefined) liveMap[k] = pageNum; });
+        // End-matter canonical keys (unnumbered only)
+        const n = norm(t);
+        if (!/^\d+(?:\.\d+)+\b/.test(n)) {
+          if (/^(conclusion|conclusions)\b/.test(n) && liveMap["conclusion"] === undefined) liveMap["conclusion"] = pageNum;
+          if (/^(recommendation|recommendations)\b/.test(n) && liveMap["recommendations"] === undefined) liveMap["recommendations"] = pageNum;
+          if (/^(references?)\b/.test(n) && liveMap["references"] === undefined) liveMap["references"] = pageNum;
+          if (/^(bibliography)\b/.test(n) && liveMap["bibliography"] === undefined) liveMap["bibliography"] = pageNum;
+          if (/^(works cited)\b/.test(n) && liveMap["works cited"] === undefined) liveMap["works cited"] = pageNum;
+          if (/^(appendices|appendix)\b/.test(n) && liveMap["appendices"] === undefined) liveMap["appendices"] = pageNum;
+        }
+      });
+    });
+    const applyLive = (entry) => {
+      const keys = [entry.label, norm(entry.label), strip(entry.label), norm(strip(entry.label))];
+      // end-matter canons
+      const n = norm(entry.label);
+      if (/^(conclusion|conclusions)\b/.test(n) && !/^\d/.test(n)) keys.push("conclusion");
+      if (/^(recommendation|recommendations)\b/.test(n) && !/^\d/.test(n)) keys.push("recommendations");
+      if (/^(references?)\b/.test(n) && !/^\d/.test(n)) keys.push("references");
+      if (/^(bibliography)\b/.test(n)) keys.push("bibliography");
+      if (/^(works cited)\b/.test(n)) keys.push("works cited");
+      if (/^(appendices|appendix)\b/.test(n)) keys.push("appendices");
+      for (const k of keys) {
+        if (k && liveMap[k] !== undefined) { entry.page = liveMap[k]; return; }
+      }
+    };
+    body.forEach(applyLive);
+    end.forEach(applyLive);
+  } catch (e) { /* body pages may not be mounted yet */ }
+
   // Insert figure rows immediately after the "List of Figures" prelim title so the
   // LOF is arranged like List of Tables / chapters (one entry per row with page #).
   const ordered = [];
@@ -2830,7 +2932,11 @@ function getPreliminaryPageInfo(){
     if (/certification/.test(text)) assign("certification / approval");
     if (/declaration/.test(text)) assign("declaration");
     if (/dedication/.test(text)) assign("dedication");
-    if (/acknowledg/.test(text)) assign("acknowledgements");
+    if (/acknowledg/.test(text)) {
+      assign("acknowledgements");
+      assign("acknowledgment");
+      assign("acknowledgement");
+    }
     if (/abstract/.test(text)) assign("abstract");
     if (/list of tables/.test(text)) assign("list of tables");
     if (/list of figures/.test(text)) assign("list of figures");
@@ -2905,7 +3011,9 @@ function createA4Pages(htmlContent,totalWords,options={}){
   const kind=options.kind||"normal", startPage=Number(options.startPage||1);
   let pageBodies, totalPages;
   if (kind === "toc") {
-    const rowsHtml = formatTOCHTML(htmlContent, {showHeading: false});
+    // Always normalize TOC text first so "1.1 Title ..... 3" stays a line, not an <h3>
+    const normalized = tocTextToHTML(htmlContent);
+    const rowsHtml = formatTOCHTML(normalized, {showHeading: false});
     pageBodies = packTocPages(rowsHtml);
     const mainCount = pageBodies.mainCount || pageBodies.length;
     if (mainCount < pageBodies.length) {
@@ -4326,17 +4434,18 @@ async function startPaperWithCodes(codes,userPrompt){
 function updateDisplayedTableOfContents(tocText){
   if(!tocText)return;
   tocGenerated=true;
+  // Keep raw as plain text (or rich HTML marker). Rendering path uses tocTextToHTML.
   const existing=document.querySelector('#chatArea .chat-msg[data-kind="toc"]');
   if(existing){
-    existing.dataset.raw=tocText;
     existing.dataset.raw = tocText;
     existing.dataset.kind = "toc";
     existing.dataset.title = existing.dataset.title || "Table of Contents";
-    rerenderWorkflowSection(existing, tocText.startsWith("[[TEMPAPER_RICH_HTML]]") ? tocText : tocText, {title: "Table of Contents", kind: "toc", startPage: 1});
-
+    rerenderWorkflowSection(existing, tocText, {title: "Table of Contents", kind: "toc", startPage: 1});
+    try { syncAllTocPagesFromRenderedDocument(); } catch (_) {}
     return;
   }
   addWorkflowSection({title:"Table of Contents",result:tocText,project_id:activePaperProjectId,toc_code:activeTocCode,kind:"toc"});
+  try { syncAllTocPagesFromRenderedDocument(); } catch (_) {}
 }
 
 function workflowActionsHTML(kind){
@@ -4514,7 +4623,8 @@ function rerenderWorkflowSection(container, raw, opts={}){
   const words = content_plain_text_for_count(content).split(/\s+/).filter(Boolean).length;
   const heading = `<div data-section-heading style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(title)}</div>`;
   const actions = `<div class="workflow-output-actions">${workflowActionsHTML(kind)}</div>`;
-  container.innerHTML = heading + createA4Pages(workflowContentHTML(content), words, {kind, startPage}) + actions;
+  const pageHtmlSource = (kind === "toc") ? content : workflowContentHTML(content);
+  container.innerHTML = heading + createA4Pages(pageHtmlSource, words, {kind, startPage}) + actions;
   container.dataset.pageCount = String(paginateContent(workflowContentHTML(content)).length || 1);
   // Figures must be re-bound after every innerHTML replace
   container.querySelectorAll(".tp-figure").forEach(fig => { delete fig.dataset.bound; });
@@ -4522,6 +4632,12 @@ function rerenderWorkflowSection(container, raw, opts={}){
   bindFigureInteractions(container);
   latestResultText = content;
   if(typeof toggleCopyButton === "function") toggleCopyButton(content);
+  if (kind !== "toc") {
+    try { syncAllTocPagesFromRenderedDocument(); } catch (_) {}
+  } else {
+    // TOC itself was re-rendered — re-apply live page numbers onto the new rows
+    try { syncAllTocPagesFromRenderedDocument(); } catch (_) {}
+  }
 }
 
 function addWorkflowStatus(message){
@@ -4554,7 +4670,8 @@ function addWorkflowSection(data,isInitial=false){
   const start=kind==="preliminary"?1:workflowArabicPage;
   const isToc=kind==="toc";
   const actions=workflowActionsHTML(kind);
-  container.innerHTML=`<div data-section-heading style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(data.title||"Generated section")}</div>${createA4Pages(workflowContentHTML(content),words,{kind,startPage:start})}<div class="workflow-output-actions">${actions}</div>`;
+  const pageHtmlSource = (kind === "toc") ? content : workflowContentHTML(content);
+  container.innerHTML=`<div data-section-heading style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(data.title||"Generated section")}</div>${createA4Pages(pageHtmlSource,words,{kind,startPage:start})}<div class="workflow-output-actions">${actions}</div>`;
   Object.assign(container.dataset,{title:data.title||"Generated section",raw:content,kind,projectId:String(data.project_id||activePaperProjectId||""),tocCode:data.toc_code||activeTocCode||"",pageStart:kind==="preliminary"?"i":String(start)});
   if(!isToc)container.dataset.orderNo=String(data.order_no??0);
   ensureWorkflowDelegation();
@@ -4569,6 +4686,10 @@ function addWorkflowSection(data,isInitial=false){
   activeSectionOrder=Math.max(activeSectionOrder,Number(data.order_no||0));
   latestResultText=content;toggleCopyButton(content);
   refreshWorkflowActionAvailability();
+  // Keep on-screen TOC page numbers aligned with the pages just rendered
+  if (kind !== "toc") {
+    try { syncAllTocPagesFromRenderedDocument(); } catch (_) {}
+  }
 }
 
 function showSectionEditor(container){
@@ -4608,6 +4729,145 @@ async function commitWorkflowEdit(container,value,button){
     addWorkflowStatus(d.message||"Changes saved successfully.");
   }catch(err){alert(err.message||"Could not save the edit.");}
   finally{button.disabled=false;button.textContent="Commit Edit";}
+}
+
+
+/** Authoritative TOC page sync from the rendered A4 pages.
+ *  Walks every .a4-page in document order, maps every heading (and first-line
+ *  section titles) to the page-number badge on that page, then writes those
+ *  values into every .toc-row .toc-page so chapters, sub-sections, and each
+ *  end-matter block (Conclusion / Recommendations / References / Appendices)
+ *  get their own correct starting page.
+ */
+function syncAllTocPagesFromRenderedDocument() {
+  const tocCard = document.querySelector('#chatArea .chat-msg[data-kind="toc"]');
+  if (!tocCard) return;
+
+  const normalize = (s) => String(s || "")
+    .toLowerCase()
+    .replace(/[\u2013\u2014]/g, "-")
+    .replace(/[^\w\s\-./]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const stripNum = (s) => String(s || "")
+    .replace(/^\s*(?:chapter\s+)?(?:\d+(?:\.\d+)*|[ivxlcdm]+)[.):\-\s]+/i, "")
+    .trim();
+
+  // Canonical end-matter keys (unnumbered top-level only)
+  const END_KEYS = [
+    { re: /^(conclusion|conclusions)\b/, canon: "conclusion" },
+    { re: /^(recommendation|recommendations)\b/, canon: "recommendations" },
+    { re: /^(references?)\b/, canon: "references" },
+    { re: /^(bibliography)\b/, canon: "bibliography" },
+    { re: /^(works cited)\b/, canon: "works cited" },
+    { re: /^(appendices|appendix)\b/, canon: "appendices" },
+    { re: /^(summary)\b/, canon: "summary" }
+  ];
+
+  const canonEnd = (label) => {
+    const n = normalize(label);
+    // Numbered chapter subsections must NOT be treated as end-matter
+    if (/^\d+(?:\.\d+)+\b/.test(n)) return null;
+    for (const e of END_KEYS) {
+      if (e.re.test(n)) return e.canon;
+    }
+    return null;
+  };
+
+  const live = Object.create(null); // label → page string
+  const put = (label, page) => {
+    if (!label || page === undefined || page === null || page === "") return;
+    const p = String(page).trim();
+    const keys = [label, normalize(label), stripNum(label), normalize(stripNum(label))];
+    for (const k of keys) {
+      if (!k) continue;
+      // Keep the earliest page for each key (first occurrence wins)
+      if (live[k] === undefined) live[k] = p;
+    }
+    const c = canonEnd(label);
+    if (c && live[c] === undefined) {
+      live[c] = p;
+      live[normalize(c)] = p;
+    }
+  };
+
+  // 1) Scan every rendered body/prelim page (skip TOC card)
+  const pages = [...document.querySelectorAll("#chatArea .a4-page")];
+  pages.forEach((pageEl) => {
+    if (pageEl.closest('.chat-msg[data-kind="toc"]')) return;
+    const pageNum = (pageEl.querySelector(".page-number")?.textContent || "").trim();
+    if (!pageNum && pageNum !== "0") {
+      // Cover page may be blank — still process headings with empty page
+    }
+    // Explicit headings
+    pageEl.querySelectorAll("h1, h2, h3").forEach((h) => {
+      const t = (h.textContent || "").trim();
+      if (t) put(t, pageNum);
+    });
+    // Fallback: first non-empty block of the page if it looks like a section title
+    // (handles cases where end-matter was rendered as a plain <p><strong>…</strong></p>)
+    const content = pageEl.querySelector(".a4-content") || pageEl;
+    const firstBlock = [...content.children].find((n) => {
+      const t = (n.textContent || "").trim();
+      return t && t.length < 120;
+    });
+    if (firstBlock) {
+      const t = (firstBlock.textContent || "").trim();
+      // Only treat as title if it's short and matches a known end-matter or chapter pattern
+      if (/^(chapter\s+\d+|conclusion|recommendations?|references?|bibliography|works cited|appendices|appendix|summary)\b/i.test(t)) {
+        put(t, pageNum);
+      }
+    }
+  });
+
+  // 2) Also map section card titles → first page of that card
+  document.querySelectorAll("#chatArea .chat-msg[data-order-no]").forEach((card) => {
+    if (card.dataset.kind === "toc") return;
+    const title = (card.dataset.title || "").trim();
+    if (!title) return;
+    const first = card.querySelector(".a4-page .page-number");
+    const pageNum = first ? (first.textContent || "").trim() : "";
+    if (pageNum) put(title, pageNum);
+  });
+
+  // 3) Write into every TOC row
+  let updated = 0;
+  tocCard.querySelectorAll(".toc-row").forEach((row) => {
+    const labelEl = row.querySelector(".toc-label");
+    const pageEl = row.querySelector(".toc-page");
+    if (!labelEl || !pageEl) return;
+    const label = (labelEl.textContent || "").trim();
+    if (!label) return;
+
+    // Skip LOF figure rows that already have a figure-specific page
+    // (they are handled by collectAllFigures / refreshListOfFigures)
+
+    const candidates = [
+      label,
+      normalize(label),
+      stripNum(label),
+      normalize(stripNum(label)),
+      canonEnd(label)
+    ];
+    let page = "";
+    for (const c of candidates) {
+      if (c && live[c] !== undefined && live[c] !== "") {
+        page = live[c];
+        break;
+      }
+    }
+    // Last resort for end-matter: try each END_KEYS canon against the label
+    if (!page) {
+      const c = canonEnd(label);
+      if (c && live[c]) page = live[c];
+    }
+    if (page !== "") {
+      pageEl.textContent = page;
+      updated++;
+    }
+  });
+  return updated;
 }
 
 async function updateCurrentTOC(button, container) {
@@ -4781,76 +5041,8 @@ async function updateCurrentTOC(button, container) {
     updateDisplayedTableOfContents(tocText);
     try { await refreshListOfFigures(); } catch (_) {}
 
-    // ===== Client-side exact page numbers from rendered DOM =====
-    // Scan every .a4-page in #chatArea (document order) and map headings → page number
-    const livePageMap = {};
-    const putLive = (label, page) => {
-      if (!label || page === undefined || page === null) return;
-      const p = String(page).trim();
-      livePageMap[label] = p;
-      livePageMap[normalizeLabel(label)] = p;
-      const stripped = stripNumber(label);
-      if (stripped && stripped !== label) {
-        livePageMap[stripped] = p;
-        livePageMap[normalizeLabel(stripped)] = p;
-      }
-      const canon = matchEndMatter(label);
-      if (canon) {
-        // Prefer the earliest occurrence for end-matter
-        if (livePageMap[canon] === undefined) livePageMap[canon] = p;
-        livePageMap[normalizeLabel(canon)] = livePageMap[canon];
-      }
-    };
-
-    document.querySelectorAll("#chatArea .a4-page").forEach(pageEl => {
-      // Skip TOC pages themselves
-      if (pageEl.closest('.chat-msg[data-kind="toc"]')) return;
-      const pageNum = (pageEl.querySelector(".page-number")?.textContent || "").trim();
-      pageEl.querySelectorAll("h1, h2, h3").forEach(h => {
-        const heading = (h.textContent || "").trim();
-        if (heading) putLive(heading, pageNum);
-      });
-      // Also map the section card title to the first page of that section
-      const card = pageEl.closest(".chat-msg[data-order-no]");
-      if (card && card.dataset.title) {
-        const firstPageOfCard = card.querySelector(".a4-page .page-number");
-        // Only set section title from its first page
-        if (pageEl === card.querySelector(".a4-page")) {
-          putLive(card.dataset.title, pageNum);
-        }
-      }
-    });
-
-    // Write matched page numbers directly into .toc-row .toc-page nodes
-    const tocCard = document.querySelector('#chatArea .chat-msg[data-kind="toc"]');
-    if (tocCard) {
-      tocCard.querySelectorAll(".toc-row").forEach(row => {
-        const labelEl = row.querySelector(".toc-label");
-        const pageEl = row.querySelector(".toc-page");
-        if (!labelEl || !pageEl) return;
-        const label = (labelEl.textContent || "").trim();
-        if (!label) return;
-        const candidates = [
-          label,
-          normalizeLabel(label),
-          stripNumber(label),
-          normalizeLabel(stripNumber(label))
-        ];
-        let page = "";
-        for (const c of candidates) {
-          if (c && livePageMap[c] !== undefined && livePageMap[c] !== "") {
-            page = livePageMap[c];
-            break;
-          }
-        }
-        // End-matter fallback via canonical match
-        if (!page) {
-          const canon = matchEndMatter(label);
-          if (canon && livePageMap[canon] !== undefined) page = livePageMap[canon];
-        }
-        if (page !== "") pageEl.textContent = page;
-      });
-    }
+    // Authoritative client-side page numbers from rendered A4 pages
+    try { syncAllTocPagesFromRenderedDocument(); } catch (e) { console.warn("TOC page sync failed", e); }
   } finally {
     button.disabled = false;
     button.textContent = "↻ Update TOC";
@@ -6107,6 +6299,7 @@ async function refreshListOfFigures() {
   const newRaw = "[[TEMPAPER_RICH_HTML]]" + tmp.innerHTML;
   tocCard.dataset.raw = newRaw;
   rerenderWorkflowSection(tocCard, newRaw, {title: tocCard.dataset.title || "Table of Contents", kind: "toc", startPage: 1});
+  try { syncAllTocPagesFromRenderedDocument(); } catch (_) {}
 }
 
 
