@@ -4555,16 +4555,18 @@ async function updateCurrentTOC(button,container){
       [...mergedRoot.querySelectorAll(":scope > .a4-page")].forEach((page, pageIndex)=>{
         if(page.classList.contains("toc-page")) return;
         const shown=(page.querySelector(".page-number")?.textContent||"").trim();
-        if(!shown) return;
-        // The merged page carries the identity of the section it came from.
-        // Use the first page of that section as its TOC start, even when the
-        // generated content does not repeat the section title as an H1/H2.
+        // Every merged page carries its source section identity. Register the
+        // section start from that metadata first; this applies identically to
+        // chapters, Conclusion, Recommendations, References and Appendices.
         const sectionTitle=(page.dataset.sectionTitle||"").trim();
         const sectionPageIndex=Number(page.dataset.sectionPageIndex||0);
-        if(sectionTitle && sectionPageIndex===0){
-          map[sectionTitle]={page_start:shown,page_count:Number(page.dataset.sectionPageCount||1),kind:isEndMatterLabel(sectionTitle)?"end-matter":"chapter",source:"merged-section-start",page_index:pageIndex};
+        if(sectionTitle && sectionPageIndex===0 && shown){
+          map[sectionTitle]={page_start:shown,page_count:Number(page.dataset.sectionPageCount||1),kind:"chapter",source:"merged-section-start",page_index:pageIndex};
           sectionStartKeys.add(sectionTitle.toLocaleLowerCase());
         }
+        // Pages without a printed page number cannot contribute heading or
+        // figure entries, but their section identity has still been checked.
+        if(!shown) return;
         const headings=[...page.querySelectorAll("h1,h2,h3")];
         headings.forEach(h=>{
           const heading=(h.textContent||"").replace(/\s+/g," ").trim();
@@ -4593,7 +4595,6 @@ async function updateCurrentTOC(button,container){
         const title=(el.dataset.title||"").trim();
         const kind=el.dataset.kind||"chapter";
         const isPre=kind==="preliminary" && !isEndMatterLabel(title);
-        const isEnd=isEndMatterLabel(title);
         const pages=[...el.querySelectorAll('.pages-container > .a4-page')];
         // pageCount is recorded when the card is rendered. Retain it as a
         // fallback if a rerender/editor leaves the page nodes temporarily absent.
@@ -4613,7 +4614,7 @@ async function updateCurrentTOC(button,container){
         }
         const sectionStart=arabicCursor;
         const sectionLabel=title||`Section ${orderNo}`;
-        map[sectionLabel]={order_no:orderNo,page_start:String(sectionStart),page_count:sectionPageCount,kind:isEnd?"end-matter":"chapter"};
+        map[sectionLabel]={order_no:orderNo,page_start:String(sectionStart),page_count:sectionPageCount,kind:"chapter"};
         sectionStartKeys.add(sectionLabel.toLocaleLowerCase());
         pages.forEach(page=>{
           const pageNumber=String(arabicCursor++);
