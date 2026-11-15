@@ -4546,6 +4546,7 @@ async function updateCurrentTOC(button,container){
   button.disabled=true;button.textContent="Updating…";
   try{
     const map={};
+    const sectionStartKeys=new Set();
     const mergedRoot=document.getElementById("mergedPagesRoot");
     if(mergedRoot){
       // IMPORTANT: after merge, the merged A4 pages are the authoritative layout.
@@ -4555,18 +4556,29 @@ async function updateCurrentTOC(button,container){
         if(page.classList.contains("toc-page")) return;
         const shown=(page.querySelector(".page-number")?.textContent||"").trim();
         if(!shown) return;
+        // The merged page carries the identity of the section it came from.
+        // Use the first page of that section as its TOC start, even when the
+        // generated content does not repeat the section title as an H1/H2.
+        const sectionTitle=(page.dataset.sectionTitle||"").trim();
+        const sectionPageIndex=Number(page.dataset.sectionPageIndex||0);
+        if(sectionTitle && sectionPageIndex===0){
+          map[sectionTitle]={page_start:shown,page_count:Number(page.dataset.sectionPageCount||1),kind:isEndMatterLabel(sectionTitle)?"end-matter":"chapter",source:"merged-section-start",page_index:pageIndex};
+          sectionStartKeys.add(sectionTitle.toLocaleLowerCase());
+        }
         const headings=[...page.querySelectorAll("h1,h2,h3")];
         headings.forEach(h=>{
           const heading=(h.textContent||"").replace(/\s+/g," ").trim();
           if(!heading || heading.length>160) return;
           const isEnd=isEndMatterLabel(heading);
-          map[heading]={page_start:shown,page_count:1,kind:isEnd?"end-matter":"chapter",source:"merged-page",page_index:pageIndex};
+          if(!sectionStartKeys.has(heading.toLocaleLowerCase()))
+            map[heading]={page_start:shown,page_count:1,kind:isEnd?"end-matter":"chapter",source:"merged-page",page_index:pageIndex};
         });
         // Some older generated sections contain their title as a plain paragraph.
         page.querySelectorAll("p,strong").forEach(node=>{
           const heading=(node.textContent||"").replace(/\s+/g," ").trim();
           if(!/^(conclusion|conclusions|summary|recommendations?|references?|bibliography|works cited|appendices|appendix)$/i.test(heading)) return;
-          map[heading]={page_start:shown,page_count:1,kind:"end-matter",source:"merged-page",page_index:pageIndex};
+          if(!sectionStartKeys.has(heading.toLocaleLowerCase()))
+            map[heading]={page_start:shown,page_count:1,kind:"end-matter",source:"merged-page",page_index:pageIndex};
         });
       });
     }else{
@@ -4583,9 +4595,13 @@ async function updateCurrentTOC(button,container){
         const isPre=kind==="preliminary" && !isEndMatterLabel(title);
         const isEnd=isEndMatterLabel(title);
         const pages=[...el.querySelectorAll('.pages-container > .a4-page')];
+        // pageCount is recorded when the card is rendered. Retain it as a
+        // fallback if a rerender/editor leaves the page nodes temporarily absent.
+        const recordedPageCount=Math.max(1,Number(el.dataset.pageCount||0));
+        const sectionPageCount=pages.length||recordedPageCount;
         const orderNo=Number(el.dataset.orderNo||0);
         if(isPre){
-          map[title||`Section ${orderNo}`]={order_no:orderNo,page_start:"i",page_count:pages.length||1,kind:"preliminary"};
+          map[title||`Section ${orderNo}`]={order_no:orderNo,page_start:"i",page_count:sectionPageCount,kind:"preliminary"};
           pages.forEach((page,pi)=>{
             const hStart=pi===0?"":romanNumber(pi+1);
             page.querySelectorAll('h1,h2,h3').forEach(h=>{
@@ -4596,20 +4612,29 @@ async function updateCurrentTOC(button,container){
           return;
         }
         const sectionStart=arabicCursor;
-        map[title||`Section ${orderNo}`]={order_no:orderNo,page_start:String(sectionStart),page_count:pages.length||1,kind:isEnd?"end-matter":"chapter"};
+        const sectionLabel=title||`Section ${orderNo}`;
+        map[sectionLabel]={order_no:orderNo,page_start:String(sectionStart),page_count:sectionPageCount,kind:isEnd?"end-matter":"chapter"};
+        sectionStartKeys.add(sectionLabel.toLocaleLowerCase());
         pages.forEach(page=>{
           const pageNumber=String(arabicCursor++);
           page.querySelectorAll('h1,h2,h3').forEach(h=>{
             const heading=(h.textContent||"").replace(/\s+/g," ").trim();
             if(!heading||heading.length>160)return;
-            map[heading]={order_no:orderNo,page_start:pageNumber,page_count:1,kind:isEndMatterLabel(heading)?"end-matter":"chapter"};
+            if(!sectionStartKeys.has(heading.toLocaleLowerCase()))
+              map[heading]={order_no:orderNo,page_start:pageNumber,page_count:1,kind:isEndMatterLabel(heading)?"end-matter":"chapter"};
           });
           page.querySelectorAll('p,strong').forEach(node=>{
             const heading=(node.textContent||"").replace(/\s+/g," ").trim();
             if(!/^(conclusion|conclusions|summary|recommendations?|references?|bibliography|works cited|appendices|appendix)$/i.test(heading))return;
-            map[heading]={order_no:orderNo,page_start:pageNumber,page_count:1,kind:"end-matter"};
+            if(!sectionStartKeys.has(heading.toLocaleLowerCase()))
+              map[heading]={order_no:orderNo,page_start:pageNumber,page_count:1,kind:"end-matter"};
           });
         });
+        if(!pages.length){
+          // Without rendered page nodes, still reserve this section's recorded
+          // number of pages so every following section gets a distinct start.
+          arabicCursor += sectionPageCount;
+        }
       });
     }
     // Include current figures so LOF page numbers stay aligned
@@ -4711,8 +4736,13 @@ function renderMergedPaper(value){
   let arabicPage=1,romanPage=1;
   cards.forEach(card=>{
     const kind=card.dataset.kind;
+    const sectionTitle=String(card.dataset.title||"").trim();
+    const sectionPageCount=card.querySelectorAll(".pages-container > .a4-page").length||Number(card.dataset.pageCount||1)||1;
     [...card.querySelectorAll(".pages-container > .a4-page")].forEach((source,index)=>{
       const page=source.cloneNode(true);page.classList.add("merged-page");
+      page.dataset.sectionTitle=sectionTitle;
+      page.dataset.sectionPageIndex=String(index);
+      page.dataset.sectionPageCount=String(sectionPageCount);
       page.querySelectorAll(".page-number").forEach(n=>{
         if(kind==="preliminary"){
           n.textContent=index===0?"":romanNumber(index);
