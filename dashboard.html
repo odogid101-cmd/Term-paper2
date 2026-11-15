@@ -4570,28 +4570,44 @@ async function updateCurrentTOC(button,container){
         });
       });
     }else{
-      // Before merge, retain the section-card fallback. The definitive sync is
-      // automatically repeated after the complete merged layout is rendered.
-      document.querySelectorAll('#chatArea .chat-msg[data-order-no]').forEach(el=>{
-        if(el.dataset.kind==="toc")return;
-        const title=el.dataset.title||"";
-        const isPre=el.dataset.kind==="preliminary" && !isEndMatterLabel(title);
+      // Before merge, derive Arabic pagination from the ordered section cards,
+      // not cached pageStart values. A late final section (usually Appendices)
+      // can expose stale workflowArabicPage/pageStart state; recalculating the
+      // running page cursor prevents all end-matter rows inheriting one number.
+      let arabicCursor=1;
+      const cards=[...document.querySelectorAll('#chatArea .chat-msg[data-order-no]')]
+        .filter(el=>el.dataset.kind!=="toc");
+      cards.forEach(el=>{
+        const title=(el.dataset.title||"").trim();
+        const kind=el.dataset.kind||"chapter";
+        const isPre=kind==="preliminary" && !isEndMatterLabel(title);
         const isEnd=isEndMatterLabel(title);
-        const start=Number(el.dataset.pageStart||1);
-        const pages=[...el.querySelectorAll('.a4-page')];
-        const pageStart = isPre ? "i" : String(start);
-        map[title||`Section ${el.dataset.orderNo}`]={order_no:Number(el.dataset.orderNo),page_start:pageStart,page_count:Number(el.dataset.pageCount||pages.length||1),kind:isEnd?"end-matter":(isPre?"preliminary":"chapter")};
-        pages.forEach((page,pi)=>{
-          const shown=(page.querySelector('.page-number')?.textContent||"").trim();
-          const hStart=isPre?(pi===0?"":(shown||romanNumber(pi))):(shown||String(start+pi));
+        const pages=[...el.querySelectorAll('.pages-container > .a4-page')];
+        const orderNo=Number(el.dataset.orderNo||0);
+        if(isPre){
+          map[title||`Section ${orderNo}`]={order_no:orderNo,page_start:"i",page_count:pages.length||1,kind:"preliminary"};
+          pages.forEach((page,pi)=>{
+            const hStart=pi===0?"":romanNumber(pi+1);
+            page.querySelectorAll('h1,h2,h3').forEach(h=>{
+              const heading=(h.textContent||"").replace(/\s+/g," ").trim();
+              if(heading)map[heading]={order_no:orderNo,page_start:hStart,page_count:1,kind:"preliminary"};
+            });
+          });
+          return;
+        }
+        const sectionStart=arabicCursor;
+        map[title||`Section ${orderNo}`]={order_no:orderNo,page_start:String(sectionStart),page_count:pages.length||1,kind:isEnd?"end-matter":"chapter"};
+        pages.forEach(page=>{
+          const pageNumber=String(arabicCursor++);
           page.querySelectorAll('h1,h2,h3').forEach(h=>{
-            const heading=(h.textContent||"").trim();if(!heading)return;
-            map[heading]={order_no:Number(el.dataset.orderNo),page_start:hStart,page_count:1,kind:isEndMatterLabel(heading)?"end-matter":(isPre?"preliminary":"chapter")};
+            const heading=(h.textContent||"").replace(/\s+/g," ").trim();
+            if(!heading||heading.length>160)return;
+            map[heading]={order_no:orderNo,page_start:pageNumber,page_count:1,kind:isEndMatterLabel(heading)?"end-matter":"chapter"};
           });
           page.querySelectorAll('p,strong').forEach(node=>{
-            const bare=(node.textContent||"").trim();
-            if(!/^(conclusion|conclusions|summary|recommendations?|references?|bibliography|works cited|appendices|appendix)$/i.test(bare))return;
-            map[bare]={order_no:Number(el.dataset.orderNo),page_start:hStart,page_count:1,kind:"end-matter"};
+            const heading=(node.textContent||"").replace(/\s+/g," ").trim();
+            if(!/^(conclusion|conclusions|summary|recommendations?|references?|bibliography|works cited|appendices|appendix)$/i.test(heading))return;
+            map[heading]={order_no:orderNo,page_start:pageNumber,page_count:1,kind:"end-matter"};
           });
         });
       });
