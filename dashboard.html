@@ -4546,38 +4546,56 @@ async function updateCurrentTOC(button,container){
   button.disabled=true;button.textContent="Updating…";
   try{
     const map={};
-    document.querySelectorAll('#chatArea .chat-msg[data-order-no]').forEach(el=>{
-      if(el.dataset.kind==="toc")return;
-      const title=el.dataset.title||"";
-      const isPre=el.dataset.kind==="preliminary" && !isEndMatterLabel(title);
-      const isEnd=isEndMatterLabel(title);
-      const start=Number(el.dataset.pageStart||1);
-      const pages=[...el.querySelectorAll('.a4-page')];
-      // Preliminaries use Roman; chapters and end-matter (Conclusion, References, …) use Arabic
-      const pageStart = isPre ? "i" : String(start);
-      map[title||`Section ${el.dataset.orderNo}`]={order_no:Number(el.dataset.orderNo),page_start:pageStart,page_count:Number(el.dataset.pageCount||pages.length||1),kind:isEnd?"end-matter":(isPre?"preliminary":"chapter")};
-      pages.forEach((page,pi)=>{
-        // Prefer the visible page number so reflows / merges stay accurate
-        const shown = (page.querySelector('.page-number')?.textContent || "").trim();
-        const hStart = isPre
-          ? (pi === 0 ? "" : (shown || romanNumber(pi)))
-          : (shown || String(start + pi));
-        page.querySelectorAll('h1,h2,h3').forEach(h=>{
-          const heading=(h.textContent||"").trim();if(!heading)return;
-          const kind = isEndMatterLabel(heading) ? "end-matter" : (isPre ? "preliminary" : "chapter");
-          map[heading]={order_no:Number(el.dataset.orderNo),page_start:hStart,page_count:1,kind};
+    const mergedRoot=document.getElementById("mergedPagesRoot");
+    if(mergedRoot){
+      // IMPORTANT: after merge, the merged A4 pages are the authoritative layout.
+      // Never calculate TOC entries from the pre-merge section cards: their page
+      // starts can differ from the final continuous document.
+      [...mergedRoot.querySelectorAll(":scope > .a4-page")].forEach((page, pageIndex)=>{
+        if(page.classList.contains("toc-page")) return;
+        const shown=(page.querySelector(".page-number")?.textContent||"").trim();
+        if(!shown) return;
+        const headings=[...page.querySelectorAll("h1,h2,h3")];
+        headings.forEach(h=>{
+          const heading=(h.textContent||"").replace(/\s+/g," ").trim();
+          if(!heading || heading.length>160) return;
+          const isEnd=isEndMatterLabel(heading);
+          map[heading]={page_start:shown,page_count:1,kind:isEnd?"end-matter":"chapter",source:"merged-page",page_index:pageIndex};
         });
-        // Catch bare end-matter labels that were left as paragraphs/strong (pre-fix content)
-        page.querySelectorAll('p, strong').forEach(node=>{
-          const t = (node.textContent || "").trim();
-          if (!t || t.length > 90) return;
-          const bare = t.replace(/^\*\*|\*\*$/g, "").trim();
-          if (!/^(conclusion|conclusions|summary|recommendations?|references?|bibliography|works cited|appendices|appendix)$/i.test(bare)) return;
-          // Prefer the more specific (per-page) mapping over a section-level start
-          map[bare] = {order_no:Number(el.dataset.orderNo),page_start:hStart,page_count:1,kind:"end-matter"};
+        // Some older generated sections contain their title as a plain paragraph.
+        page.querySelectorAll("p,strong").forEach(node=>{
+          const heading=(node.textContent||"").replace(/\s+/g," ").trim();
+          if(!/^(conclusion|conclusions|summary|recommendations?|references?|bibliography|works cited|appendices|appendix)$/i.test(heading)) return;
+          map[heading]={page_start:shown,page_count:1,kind:"end-matter",source:"merged-page",page_index:pageIndex};
         });
       });
-    });
+    }else{
+      // Before merge, retain the section-card fallback. The definitive sync is
+      // automatically repeated after the complete merged layout is rendered.
+      document.querySelectorAll('#chatArea .chat-msg[data-order-no]').forEach(el=>{
+        if(el.dataset.kind==="toc")return;
+        const title=el.dataset.title||"";
+        const isPre=el.dataset.kind==="preliminary" && !isEndMatterLabel(title);
+        const isEnd=isEndMatterLabel(title);
+        const start=Number(el.dataset.pageStart||1);
+        const pages=[...el.querySelectorAll('.a4-page')];
+        const pageStart = isPre ? "i" : String(start);
+        map[title||`Section ${el.dataset.orderNo}`]={order_no:Number(el.dataset.orderNo),page_start:pageStart,page_count:Number(el.dataset.pageCount||pages.length||1),kind:isEnd?"end-matter":(isPre?"preliminary":"chapter")};
+        pages.forEach((page,pi)=>{
+          const shown=(page.querySelector('.page-number')?.textContent||"").trim();
+          const hStart=isPre?(pi===0?"":(shown||romanNumber(pi))):(shown||String(start+pi));
+          page.querySelectorAll('h1,h2,h3').forEach(h=>{
+            const heading=(h.textContent||"").trim();if(!heading)return;
+            map[heading]={order_no:Number(el.dataset.orderNo),page_start:hStart,page_count:1,kind:isEndMatterLabel(heading)?"end-matter":(isPre?"preliminary":"chapter")};
+          });
+          page.querySelectorAll('p,strong').forEach(node=>{
+            const bare=(node.textContent||"").trim();
+            if(!/^(conclusion|conclusions|summary|recommendations?|references?|bibliography|works cited|appendices|appendix)$/i.test(bare))return;
+            map[bare]={order_no:Number(el.dataset.orderNo),page_start:hStart,page_count:1,kind:"end-matter"};
+          });
+        });
+      });
+    }
     // Include current figures so LOF page numbers stay aligned
     const figs = collectAllFigures();
     figs.forEach(f => {
@@ -4622,6 +4640,11 @@ async function updateCurrentTOC(button,container){
       tocText = cleaned.join("\n");
     }
     updateDisplayedTableOfContents(tocText);
+    const mergedOutput=document.getElementById("mergedPaperOutput");
+    if(mergedOutput){
+      const mergedRaw=mergedOutput.dataset.mergedContent||"";
+      renderMergedPaper(mergedRaw);
+    }
     try { await refreshListOfFigures(); } catch (_) {}
   }finally{button.disabled=false;button.textContent="↻ Update TOC";}
 }
@@ -4646,6 +4669,16 @@ async function mergeCurrentPaper(){
     document.querySelectorAll('#chatArea [data-action="resend"]').forEach(b=>b.disabled=true);
     addWorkflowStatus(d.message||"Paper merged. Inline Groq refinement is now disabled.");
     renderMergedPaper(d.merged_content);
+    const tocCard=document.querySelector('#chatArea .chat-msg[data-kind="toc"]');
+    const tocButton=tocCard?.querySelector('[data-action="update-toc"]');
+    if(tocCard&&tocButton){
+      try{
+        await updateCurrentTOC(tocButton,tocCard);
+        addWorkflowStatus("TOC page numbers synchronized from the final merged A4 pages.");
+      }catch(syncError){
+        addWorkflowStatus("Paper merged, but automatic TOC synchronization needs attention: "+(syncError.message||"unknown error"));
+      }
+    }
   }catch(err){button.disabled=false;button.textContent="Merge Complete Paper";alert(err.message||"Merge failed.");}
 }
 
@@ -4653,7 +4686,7 @@ function renderMergedPaper(value){
   // Reuse the saved section cards as the source of truth: do not flatten the
   // paper into one HTML stream and paginate it again.
   const old=document.getElementById("mergedPaperOutput");if(old)old.remove();
-  const wrap=document.createElement("div");wrap.className="chat-msg";wrap.id="mergedPaperOutput";
+  const wrap=document.createElement("div");wrap.className="chat-msg";wrap.id="mergedPaperOutput";wrap.dataset.mergedContent=String(value||"");
   const title=document.createElement("div");title.className="merged-paper-heading";
   title.textContent="Complete Merged Term Paper";wrap.appendChild(title);
   const pages=document.createElement("div");pages.className="merged-pages";pages.id="mergedPagesRoot";
