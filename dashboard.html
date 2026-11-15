@@ -4317,13 +4317,44 @@ async function startPaperWithCodes(codes,userPrompt){
   if(savedSections.length)saveChatSession();
 }
 
+function expandJammedTocText(tocText){
+  /** Expand stored lines like "References ...... 11 Appendices ...... 15 Conclusion ...... 8" into one title per line. */
+  if(!tocText || String(tocText).startsWith("[[TEMPAPER_RICH_HTML]]")) return tocText;
+  const endRe = /(conclusions?|recommendations?|references?|bibliography|works\s+cited|appendices|appendix|summary)(?:\s*(?:\.{2,}|…+)\s*([ivxlcdm\d]+))?/gi;
+  const canon = (t) => {
+    const low = String(t||"").toLowerCase().replace(/\s+/g," ").trim();
+    if(low.startsWith("conclusion")) return "Conclusion";
+    if(low.startsWith("recommendation")) return "Recommendations";
+    if(low === "references") return "References";
+    if(low === "bibliography") return "Bibliography";
+    if(low === "works cited") return "Works Cited";
+    if(low.startsWith("append")) return "Appendices";
+    if(low === "summary") return "Summary";
+    return t;
+  };
+  return String(tocText).split(/\n/).map(line => {
+    const hits = [];
+    let m;
+    const re = new RegExp(endRe.source, "gi");
+    while((m = re.exec(line)) !== null){
+      hits.push({title: canon(m[1]), page: (m[2]||"").trim()});
+    }
+    const distinct = [];
+    hits.forEach(h => { if(!distinct.find(d => d.title === h.title)) distinct.push(h); });
+    if(distinct.length >= 2){
+      return distinct.map(h => h.page ? `${h.title}  ........  ${h.page}` : h.title).join("\n");
+    }
+    return line;
+  }).join("\n");
+}
+
 function updateDisplayedTableOfContents(tocText){
   if(!tocText)return;
+  tocText = expandJammedTocText(tocText);
   tocGenerated=true;
   const existing=document.querySelector('#chatArea .chat-msg[data-kind="toc"]');
   if(existing){
     existing.dataset.raw=tocText;
-    existing.dataset.raw = tocText;
     existing.dataset.kind = "toc";
     existing.dataset.title = existing.dataset.title || "Table of Contents";
     rerenderWorkflowSection(existing, tocText.startsWith("[[TEMPAPER_RICH_HTML]]") ? tocText : tocText, {title: "Table of Contents", kind: "toc", startPage: 1});
@@ -4568,7 +4599,14 @@ function addWorkflowSection(data,isInitial=false){
 function showSectionEditor(container){
   if(container.querySelector(".workflow-editor"))return;
   const editor=document.createElement("div");editor.className="workflow-editor";
-  const area=document.createElement("textarea");area.value=container.dataset.raw||"";area.setAttribute("aria-label","Edit academic section");
+  const area=document.createElement("textarea");
+  let rawValue = container.dataset.raw || "";
+  // TOC editor: always expand jammed end-matter lines so the user sees one title per line.
+  if (container.dataset.kind === "toc") {
+    rawValue = expandJammedTocText(rawValue);
+  }
+  area.value = rawValue;
+  area.setAttribute("aria-label","Edit academic section");
   const actions=document.createElement("div");actions.className="editor-actions";
   const cancel=document.createElement("button");cancel.type="button";cancel.textContent="Cancel";cancel.onclick=()=>editor.remove();
   const commit=document.createElement("button");commit.type="button";commit.className="primary";commit.textContent="Commit Edit";commit.onclick=()=>commitWorkflowEdit(container,area.value,commit);
