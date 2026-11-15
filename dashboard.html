@@ -2547,9 +2547,46 @@ function isPreliminaryLabel(label){
     || /\b(certification|declaration|dedication|acknowledg(e)?ments?|abstract)\b/.test(t);
 }
 function isEndMatterLabel(label){
-  const t = String(label||"").trim().toLowerCase();
-  return /^(conclusion|conclusions|summary|recommendations?|references?|bibliography|works cited|appendices|appendix)\b/.test(t)
-    || /\b(conclusion|references?|bibliography|works cited|recommendations?)\b/.test(t);
+  // Whole-title match only. Do NOT match the word "conclusion" inside a longer chapter heading.
+  const t = String(label||"").trim().toLowerCase()
+    .replace(/\s*(?:\.{2,}|…+)\s*[ivxlcdm\d]+\s*/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return /^(conclusions?|summary|recommendations?|references?|bibliography|works cited|appendices|appendix)(?:\s+and\s+recommendations?)?$/.test(t);
+}
+function isStrictEndMatterTitle(label){
+  const t = String(label||"").trim().toLowerCase()
+    .replace(/\s*(?:\.{2,}|…+)\s*[ivxlcdm\d]+\s*/gi, " ")
+    .replace(/^\d+(?:\.\d+)*[.)]?\s+/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return /^(conclusions?|summary|recommendations?|references?|bibliography|works cited|appendices|appendix)$/.test(t);
+}
+function splitJammedEndMatterLabel(label){
+  const cleaned = String(label||"")
+    .replace(/\s*(?:\.{2,}|…+)\s*[ivxlcdm\d]+\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (/^conclusions?\s+and\s+recommendations?$/i.test(cleaned)) {
+    return ["Conclusion", "Recommendations"];
+  }
+  const found = [];
+  const re = /\b(conclusions?|recommendations?|references?|bibliography|works\s+cited|appendices|appendix|summary)\b/gi;
+  let m;
+  while ((m = re.exec(cleaned)) !== null) {
+    const low = m[1].toLowerCase().replace(/\s+/g, " ");
+    let canon = m[1];
+    if (low.startsWith("conclusion")) canon = "Conclusion";
+    else if (low.startsWith("recommendation")) canon = "Recommendations";
+    else if (low === "references") canon = "References";
+    else if (low === "bibliography") canon = "Bibliography";
+    else if (low === "works cited") canon = "Works Cited";
+    else if (low.startsWith("append")) canon = "Appendices";
+    else if (low === "summary") canon = "Summary";
+    if (!found.includes(canon)) found.push(canon);
+  }
+  if (found.length >= 2) return found;
+  return cleaned ? [cleaned] : [];
 }
 function prelimOrder(label){
   const t = String(label||"").trim().toLowerCase();
@@ -2614,11 +2651,23 @@ function parseTocLine(line){
   if (leadingRoman && isPreliminaryLabel(leadingRoman[2])) {
     return { label: leadingRoman[2].trim(), page: leadingRoman[1].toLowerCase() };
   }
-  const match = line.match(/^(.*?)(?:\s*\.{2,}|\s{2,}|\t+)([ivxlcdm]+|\d+)\s*$/i);
-  if (match) { label = match[1].replace(/[\s.]+$/,"").trim(); page = match[2].trim(); }
-  else {
-    const tail = line.match(/^(.*?)\s+([ivxlcdm]+|\d+)\s*$/i);
-    if (tail && tail[1].length > 3) { label = tail[1].replace(/[\s.]+$/,"").trim(); page = tail[2].trim(); }
+  // Prefer the last leader+page on the line so a polluted
+  // "Conclusion ...... 17 Recommendations ...... 18" still yields page 18
+  // while the label is left for splitJammedEndMatterLabel to expand.
+  const allLeaders = [...String(line).matchAll(/(?:\.{2,}|…+)\s*([ivxlcdm]+|\d+)\b/gi)];
+  if (allLeaders.length) {
+    page = allLeaders[allLeaders.length - 1][1].trim();
+    label = String(line)
+      .replace(/\s*(?:\.{2,}|…+)\s*[ivxlcdm\d]+\b/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  } else {
+    const match = line.match(/^(.*?)(?:\s*\.{2,}|\s{2,}|\t+)([ivxlcdm]+|\d+)\s*$/i);
+    if (match) { label = match[1].replace(/[\s.]+$/,"").trim(); page = match[2].trim(); }
+    else {
+      const tail = line.match(/^(.*?)\s+([ivxlcdm]+|\d+)\s*$/i);
+      if (tail && tail[1].length > 3) { label = tail[1].replace(/[\s.]+$/,"").trim(); page = tail[2].trim(); }
+    }
   }
   return {label: label.replace(/[\s.]+$/,"").trim(), page};
 }
@@ -2663,22 +2712,36 @@ function formatTOCHTML(bodyHtml, options){
   const push = (entry) => {
     let label = String(entry.label||"").trim();
     if (!label) return;
-    const bare = label.replace(/^\d+(?:\.\d+)*\.?\s+/, "");
-    // "Conclusion and Recommendations" → two end-matter rows (leave pages blank so live sync can assign distinct pages)
+    // Repair jammed rows like "Conclusion ...... 17 Recommendations" into separate end-matter entries.
+    const jammed = splitJammedEndMatterLabel(label);
+    if (jammed.length >= 2) {
+      jammed.forEach((piece, idx) => {
+        // Only the last piece keeps a page if the original row had one page column value.
+        const page = (idx === jammed.length - 1) ? (entry.page || "") : "";
+        push({ label: piece, page });
+      });
+      return;
+    }
+    const bare = label
+      .replace(/\s*(?:\.{2,}|…+)\s*[ivxlcdm\d]+\b/gi, "")
+      .replace(/^\d+(?:\.\d+)*\.?\s+/, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    // "Conclusion and Recommendations" → two end-matter rows
     if (/^conclusion\s+and\s+recommendations?$/i.test(bare)) {
       push({label:"Conclusion", page:""});
       push({label:"Recommendations", page:""});
       return;
     }
-    // Strip leading chapter-style numbers from pure end-matter labels
-    if (isEndMatterLabel(bare)) label = bare;
+    // Strip leading chapter-style numbers and leftover leaders from pure end-matter labels
+    if (isEndMatterLabel(bare) || isStrictEndMatterTitle(bare)) label = bare;
     const key = label.toLowerCase();
     if (seen.has(key)) return;
     seen.add(key);
     const final = {label, page:entry.page||""};
     if (isFigureLabel(label)) figures.push(final);
     else if (isPreliminaryLabel(label)) prelim.push(final);
-    else if (isEndMatterLabel(label)) end.push(final);
+    else if (isEndMatterLabel(label) || isStrictEndMatterTitle(label)) end.push(final);
     else body.push(final);
   };
   // Prefer already-structured TOC rows (from List of Figures refresh)
@@ -4561,8 +4624,24 @@ async function updateCurrentTOC(button,container){
         const sectionTitle=(page.dataset.sectionTitle||"").trim();
         const sectionPageIndex=Number(page.dataset.sectionPageIndex||0);
         if(sectionTitle && sectionPageIndex===0 && shown){
-          map[sectionTitle]={page_start:shown,page_count:Number(page.dataset.sectionPageCount||1),kind:"chapter",source:"merged-section-start",page_index:pageIndex};
+          const endKind = isStrictEndMatterTitle(sectionTitle) || isEndMatterLabel(sectionTitle);
+          map[sectionTitle]={
+            page_start:shown,
+            page_count:Number(page.dataset.sectionPageCount||1),
+            kind: endKind ? "end-matter" : "chapter",
+            source:"merged-section-start",
+            page_index:pageIndex
+          };
           sectionStartKeys.add(sectionTitle.toLocaleLowerCase());
+          // Also register canonical end-matter aliases so TOC lines match reliably.
+          if (endKind) {
+            splitJammedEndMatterLabel(sectionTitle).forEach(alias => {
+              if (!map[alias]) {
+                map[alias]={page_start:shown,page_count:Number(page.dataset.sectionPageCount||1),kind:"end-matter",source:"merged-section-start",page_index:pageIndex};
+              }
+              sectionStartKeys.add(alias.toLocaleLowerCase());
+            });
+          }
         }
         // Pages without a printed page number cannot contribute heading or
         // figure entries, but their section identity has still been checked.
@@ -4571,30 +4650,35 @@ async function updateCurrentTOC(button,container){
         headings.forEach(h=>{
           const heading=(h.textContent||"").replace(/\s+/g," ").trim();
           if(!heading || heading.length>160) return;
-          const isEnd=isEndMatterLabel(heading);
-          if(!sectionStartKeys.has(heading.toLocaleLowerCase()))
+          // Never let in-body headings overwrite a section-start already recorded.
+          if(sectionStartKeys.has(heading.toLocaleLowerCase())) return;
+          const isEnd=isStrictEndMatterTitle(heading);
+          // Only record strict end-matter titles or normal chapter/subheadings —
+          // skip long prose that merely contains the word "conclusion".
+          if(isEnd || !isEndMatterLabel(heading)) {
             map[heading]={page_start:shown,page_count:1,kind:isEnd?"end-matter":"chapter",source:"merged-page",page_index:pageIndex};
+          }
         });
         // Some older generated sections contain their title as a plain paragraph.
         page.querySelectorAll("p,strong").forEach(node=>{
           const heading=(node.textContent||"").replace(/\s+/g," ").trim();
-          if(!/^(conclusion|conclusions|summary|recommendations?|references?|bibliography|works cited|appendices|appendix)$/i.test(heading)) return;
-          if(!sectionStartKeys.has(heading.toLocaleLowerCase()))
-            map[heading]={page_start:shown,page_count:1,kind:"end-matter",source:"merged-page",page_index:pageIndex};
+          if(!isStrictEndMatterTitle(heading)) return;
+          if(sectionStartKeys.has(heading.toLocaleLowerCase())) return;
+          map[heading]={page_start:shown,page_count:1,kind:"end-matter",source:"merged-page",page_index:pageIndex};
         });
       });
     }else{
-      // Before merge, derive Arabic pagination from the ordered section cards,
-      // not cached pageStart values. A late final section (usually Appendices)
-      // can expose stale workflowArabicPage/pageStart state; recalculating the
-      // running page cursor prevents all end-matter rows inheriting one number.
+      // Before merge, derive Arabic pagination from section cards sorted by order_no
+      // (never raw DOM order). Recalculating the running page cursor prevents all
+      // end-matter rows inheriting one number after Appendices is generated.
       let arabicCursor=1;
       const cards=[...document.querySelectorAll('#chatArea .chat-msg[data-order-no]')]
-        .filter(el=>el.dataset.kind!=="toc");
+        .filter(el=>el.dataset.kind!=="toc")
+        .sort((a,b)=>Number(a.dataset.orderNo||0)-Number(b.dataset.orderNo||0));
       cards.forEach(el=>{
         const title=(el.dataset.title||"").trim();
         const kind=el.dataset.kind||"chapter";
-        const isPre=kind==="preliminary" && !isEndMatterLabel(title);
+        const isPre=kind==="preliminary" && !isStrictEndMatterTitle(title) && !isEndMatterLabel(title);
         const pages=[...el.querySelectorAll('.pages-container > .a4-page')];
         // pageCount is recorded when the card is rendered. Retain it as a
         // fallback if a rerender/editor leaves the page nodes temporarily absent.
@@ -4602,7 +4686,7 @@ async function updateCurrentTOC(button,container){
         const sectionPageCount=pages.length||recordedPageCount;
         const orderNo=Number(el.dataset.orderNo||0);
         if(isPre){
-          map[title||`Section ${orderNo}`]={order_no:orderNo,page_start:"i",page_count:sectionPageCount,kind:"preliminary"};
+          map[title||`Section ${orderNo}`]={order_no:orderNo,page_start:"i",page_count:sectionPageCount,kind:"preliminary",source:"section-start"};
           pages.forEach((page,pi)=>{
             const hStart=pi===0?"":romanNumber(pi+1);
             page.querySelectorAll('h1,h2,h3').forEach(h=>{
@@ -4614,21 +4698,42 @@ async function updateCurrentTOC(button,container){
         }
         const sectionStart=arabicCursor;
         const sectionLabel=title||`Section ${orderNo}`;
-        map[sectionLabel]={order_no:orderNo,page_start:String(sectionStart),page_count:sectionPageCount,kind:"chapter"};
+        const endKind = isStrictEndMatterTitle(sectionLabel) || isEndMatterLabel(sectionLabel);
+        map[sectionLabel]={
+          order_no:orderNo,
+          page_start:String(sectionStart),
+          page_count:sectionPageCount,
+          kind: endKind ? "end-matter" : "chapter",
+          source:"section-start"
+        };
         sectionStartKeys.add(sectionLabel.toLocaleLowerCase());
+        // Canonical aliases so TOC lines "Conclusion" / "References" always resolve.
+        if (endKind) {
+          splitJammedEndMatterLabel(sectionLabel).forEach(alias => {
+            if (!map[alias]) {
+              map[alias]={order_no:orderNo,page_start:String(sectionStart),page_count:sectionPageCount,kind:"end-matter",source:"section-start"};
+            }
+            sectionStartKeys.add(alias.toLocaleLowerCase());
+          });
+        }
         pages.forEach(page=>{
           const pageNumber=String(arabicCursor++);
           page.querySelectorAll('h1,h2,h3').forEach(h=>{
             const heading=(h.textContent||"").replace(/\s+/g," ").trim();
             if(!heading||heading.length>160)return;
-            if(!sectionStartKeys.has(heading.toLocaleLowerCase()))
-              map[heading]={order_no:orderNo,page_start:pageNumber,page_count:1,kind:isEndMatterLabel(heading)?"end-matter":"chapter"};
+            if(sectionStartKeys.has(heading.toLocaleLowerCase())) return;
+            const isEnd=isStrictEndMatterTitle(heading);
+            // Subheadings always recorded; loose end-matter words inside prose are ignored.
+            if(isEnd || !isEndMatterLabel(heading)) {
+              map[heading]={order_no:orderNo,page_start:pageNumber,page_count:1,kind:isEnd?"end-matter":"chapter"};
+            }
           });
           page.querySelectorAll('p,strong').forEach(node=>{
             const heading=(node.textContent||"").replace(/\s+/g," ").trim();
-            if(!/^(conclusion|conclusions|summary|recommendations?|references?|bibliography|works cited|appendices|appendix)$/i.test(heading))return;
-            if(!sectionStartKeys.has(heading.toLocaleLowerCase()))
-              map[heading]={order_no:orderNo,page_start:pageNumber,page_count:1,kind:"end-matter"};
+            if(!isStrictEndMatterTitle(heading))return;
+            if(sectionStartKeys.has(heading.toLocaleLowerCase()))return;
+            // Do not overwrite a section-start page with a later in-body occurrence.
+            if(!map[heading]) map[heading]={order_no:orderNo,page_start:pageNumber,page_count:1,kind:"end-matter"};
           });
         });
         if(!pages.length){
