@@ -2341,6 +2341,15 @@ function markdownToHTML(markdown) {
     if (/^chapter\s+(?:\d+|[ivxlcdm]+|one|two|three|four|five|six|seven|eight|nine|ten)\b/i.test(line)) {
       flushParagraph(); flushList(); out.push(`<h1>${inline(line.replace(/^\*\*|\*\*$/g, ""))}</h1>`); continue;
     }
+    // Promote bare / bold end-matter titles to h2 so TOC page sync can assign distinct pages
+    {
+      const bareEnd = line.replace(/^\*\*|\*\*$/g, "").trim();
+      if (/^(conclusion|conclusions|summary|recommendations?|references?|bibliography|works cited|appendices|appendix)(?:\s+and\s+recommendations?)?$/i.test(bareEnd)) {
+        flushParagraph(); flushList();
+        out.push(`<h2>${inline(bareEnd)}</h2>`);
+        continue;
+      }
+    }
     if (/^[A-Za-zΑ-ω][A-Za-z0-9Α-ω₀-₉]*\s*=\s*.{2,120}$/.test(line) && !/[.?!]$/.test(line) && line.length < 140) {
       flushParagraph(); flushList();
       out.push(`<p style="text-align:center;font-family:Merriweather,Georgia,serif">${inline(line)}</p>`);
@@ -2655,10 +2664,10 @@ function formatTOCHTML(bodyHtml, options){
     let label = String(entry.label||"").trim();
     if (!label) return;
     const bare = label.replace(/^\d+(?:\.\d+)*\.?\s+/, "");
-    // "Conclusion and Recommendations" (with or without a number) → two end-matter rows
+    // "Conclusion and Recommendations" → two end-matter rows (leave pages blank so live sync can assign distinct pages)
     if (/^conclusion\s+and\s+recommendations?$/i.test(bare)) {
-      push({label:"Conclusion", page:entry.page});
-      push({label:"Recommendations", page:entry.page});
+      push({label:"Conclusion", page:""});
+      push({label:"Recommendations", page:""});
       return;
     }
     // Strip leading chapter-style numbers from pure end-matter labels
@@ -4547,11 +4556,27 @@ async function updateCurrentTOC(button,container){
       // Preliminaries use Roman; chapters and end-matter (Conclusion, References, …) use Arabic
       const pageStart = isPre ? "i" : String(start);
       map[title||`Section ${el.dataset.orderNo}`]={order_no:Number(el.dataset.orderNo),page_start:pageStart,page_count:Number(el.dataset.pageCount||pages.length||1),kind:isEnd?"end-matter":(isPre?"preliminary":"chapter")};
-      pages.forEach((page,pi)=>page.querySelectorAll('h1,h2,h3').forEach(h=>{
-        const heading=(h.textContent||"").trim();if(!heading)return;
-        const hStart = isPre ? (pi===0 ? "" : romanNumber(pi)) : String(start+pi);
-        map[heading]={order_no:Number(el.dataset.orderNo),page_start:hStart,page_count:1,kind:isEnd?"end-matter":(isPre?"preliminary":"chapter")};
-      }));
+      pages.forEach((page,pi)=>{
+        // Prefer the visible page number so reflows / merges stay accurate
+        const shown = (page.querySelector('.page-number')?.textContent || "").trim();
+        const hStart = isPre
+          ? (pi === 0 ? "" : (shown || romanNumber(pi)))
+          : (shown || String(start + pi));
+        page.querySelectorAll('h1,h2,h3').forEach(h=>{
+          const heading=(h.textContent||"").trim();if(!heading)return;
+          const kind = isEndMatterLabel(heading) ? "end-matter" : (isPre ? "preliminary" : "chapter");
+          map[heading]={order_no:Number(el.dataset.orderNo),page_start:hStart,page_count:1,kind};
+        });
+        // Catch bare end-matter labels that were left as paragraphs/strong (pre-fix content)
+        page.querySelectorAll('p, strong').forEach(node=>{
+          const t = (node.textContent || "").trim();
+          if (!t || t.length > 90) return;
+          const bare = t.replace(/^\*\*|\*\*$/g, "").trim();
+          if (!/^(conclusion|conclusions|summary|recommendations?|references?|bibliography|works cited|appendices|appendix)$/i.test(bare)) return;
+          // Prefer the more specific (per-page) mapping over a section-level start
+          map[bare] = {order_no:Number(el.dataset.orderNo),page_start:hStart,page_count:1,kind:"end-matter"};
+        });
+      });
     });
     // Include current figures so LOF page numbers stay aligned
     const figs = collectAllFigures();
