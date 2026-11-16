@@ -4317,9 +4317,46 @@ async function startPaperWithCodes(codes,userPrompt){
   if(savedSections.length)saveChatSession();
 }
 
+function tocRawToPlainText(tocText){
+  /** Always recover clean plain-text TOC lines from plain, HTML, or RICH_HTML storage. */
+  let raw = String(tocText || "");
+  if (!raw.trim()) return "";
+  const marker = "[[TEMPAPER_RICH_HTML]]";
+  if (raw.startsWith(marker) || /<\/?(?:h[1-6]|p|div|span|br|ul|ol|li)\b/i.test(raw)) {
+    const html = raw.startsWith(marker) ? raw.slice(marker.length) : raw;
+    const tmp = document.createElement("div");
+    tmp.innerHTML = html;
+    // Prefer structured toc-row labels if present
+    const rows = [...tmp.querySelectorAll(".toc-row")];
+    if (rows.length) {
+      return rows.map(row => {
+        const label = (row.querySelector(".toc-label")?.textContent || row.textContent || "").replace(/\s+/g, " ").trim();
+        const page = (row.querySelector(".toc-page")?.textContent || "").trim();
+        if (!label) return "";
+        return page ? `${label}  ........  ${page}` : label;
+      }).filter(Boolean).join("\n");
+    }
+    // Block elements → one line each
+    const blocks = [...tmp.querySelectorAll("h1,h2,h3,h4,p,li,div.toc-label")];
+    if (blocks.length) {
+      const lines = [];
+      blocks.forEach(el => {
+        if (el.closest && el.closest(".toc-row")) return; // already handled if mixed
+        const t = (el.textContent || "").replace(/\s+/g, " ").trim();
+        if (!t || /^table of contents$/i.test(t)) return;
+        lines.push(t);
+      });
+      if (lines.length) return lines.join("\n");
+    }
+    return (tmp.textContent || "").replace(/\r/g, "").split(/\n+/).map(s => s.replace(/\s+/g, " ").trim()).filter(Boolean).join("\n");
+  }
+  return raw.replace(/\r/g, "");
+}
+
 function expandJammedTocText(tocText){
-  /** Expand stored lines like "References ...... 11 Appendices ...... 15 Conclusion ...... 8" into one title per line. */
-  if(!tocText || String(tocText).startsWith("[[TEMPAPER_RICH_HTML]]")) return tocText;
+  /** Expand stored lines like "Conclusion ...... 9 Recommendations ...... 11" into one title per line. */
+  const plain = tocRawToPlainText(tocText);
+  if (!plain) return "";
   const endRe = /(conclusions?|recommendations?|references?|bibliography|works\s+cited|appendices|appendix|summary)(?:\s*(?:\.{2,}|…+)\s*([ivxlcdm\d]+))?/gi;
   const canon = (t) => {
     const low = String(t||"").toLowerCase().replace(/\s+/g," ").trim();
@@ -4332,7 +4369,7 @@ function expandJammedTocText(tocText){
     if(low === "summary") return "Summary";
     return t;
   };
-  return String(tocText).split(/\n/).map(line => {
+  return plain.split(/\n/).map(line => {
     const hits = [];
     let m;
     const re = new RegExp(endRe.source, "gi");
@@ -4342,6 +4379,7 @@ function expandJammedTocText(tocText){
     const distinct = [];
     hits.forEach(h => { if(!distinct.find(d => d.title === h.title)) distinct.push(h); });
     if(distinct.length >= 2){
+      // Preserve relative order of first occurrence of each title
       return distinct.map(h => h.page ? `${h.title}  ........  ${h.page}` : h.title).join("\n");
     }
     return line;
@@ -4350,6 +4388,7 @@ function expandJammedTocText(tocText){
 
 function updateDisplayedTableOfContents(tocText){
   if(!tocText)return;
+  // Always store and render TOC as plain one-title-per-line text (never RICH_HTML).
   tocText = expandJammedTocText(tocText);
   tocGenerated=true;
   const existing=document.querySelector('#chatArea .chat-msg[data-kind="toc"]');
@@ -4357,8 +4396,7 @@ function updateDisplayedTableOfContents(tocText){
     existing.dataset.raw=tocText;
     existing.dataset.kind = "toc";
     existing.dataset.title = existing.dataset.title || "Table of Contents";
-    rerenderWorkflowSection(existing, tocText.startsWith("[[TEMPAPER_RICH_HTML]]") ? tocText : tocText, {title: "Table of Contents", kind: "toc", startPage: 1});
-
+    rerenderWorkflowSection(existing, tocText, {title: "Table of Contents", kind: "toc", startPage: 1});
     return;
   }
   addWorkflowSection({title:"Table of Contents",result:tocText,project_id:activePaperProjectId,toc_code:activeTocCode,kind:"toc"});
@@ -4601,7 +4639,7 @@ function showSectionEditor(container){
   const editor=document.createElement("div");editor.className="workflow-editor";
   const area=document.createElement("textarea");
   let rawValue = container.dataset.raw || "";
-  // TOC editor: always expand jammed end-matter lines so the user sees one title per line.
+  // TOC editor: strip HTML pollution and expand jammed end-matter into one title per line.
   if (container.dataset.kind === "toc") {
     rawValue = expandJammedTocText(rawValue);
   }
@@ -4620,12 +4658,14 @@ async function commitWorkflowEdit(container,value,button){
   button.disabled=true;button.textContent="Saving…";
   try{
     const action=kind==="toc"?"edit_toc":"edit";
-    const payload={user_id:userId,project_id:projectId,action,order_no:orderNo,content:value,inline_enabled:kind!=="toc" && !activePaperMerged && container.dataset.inlineEnabled==="true"};
+    // TOC commits must stay plain text — never send RICH_HTML or DOM markup to the server.
+    const contentToSave = kind === "toc" ? expandJammedTocText(value) : value;
+    const payload={user_id:userId,project_id:projectId,action,order_no:orderNo,content:contentToSave,inline_enabled:kind!=="toc" && !activePaperMerged && container.dataset.inlineEnabled==="true"};
     const d=await workflowJSON("/pull-next",payload,"Could not save the edit.");
-    const saved=d.result||value;
+    const saved=d.result||contentToSave;
     if(kind==="toc"){
       activeTocCode=activeTocCode||d.toc_code;
-      container.dataset.raw=saved;container.querySelector(".workflow-editor")?.remove();
+      container.querySelector(".workflow-editor")?.remove();
       updateDisplayedTableOfContents(saved);
     }else{
       container.querySelector(".workflow-editor")?.remove();
@@ -5109,6 +5149,10 @@ function buildFigureHTML(url, label, caption, widthPct = 70, mainLabel = "", aut
 
 /** Rebuild dataset.raw from the live DOM so moved/resized figures are kept. */
 function syncSectionRawFromDOM(container) {
+  // Never convert the Table of Contents into RICH_HTML — it must stay plain lines.
+  if (container && container.dataset && container.dataset.kind === "toc") {
+    return expandJammedTocText(container.dataset.raw || "");
+  }
   const pages = container.querySelectorAll(".a4-content");
   if (!pages.length) return container.dataset.raw || "";
   pages.forEach(p => {
@@ -5678,33 +5722,39 @@ async function refreshListOfFigures() {
   const figs = collectAllFigures();
   const tocCard = document.querySelector('#chatArea .chat-msg[data-kind="toc"]');
   if (!tocCard) return;
-  let raw = tocCard.dataset.raw || "";
-  // Strip any previous LOF block from stored raw
-  let html = raw.startsWith("[[TEMPAPER_RICH_HTML]]")
-    ? raw.slice("[[TEMPAPER_RICH_HTML]]".length)
-    : markdownToHTML(cleanPaperText(raw));
-  const tmp = document.createElement("div");
-  tmp.innerHTML = html;
-  // Remove existing LOF heading + following toc-lines until next h2
-  const headings = [...tmp.querySelectorAll("h2")];
-  headings.forEach(h => {
-    if (/list of figures/i.test(h.textContent || "")) {
-      let n = h.nextSibling;
-      h.remove();
-      while (n) {
-        const next = n.nextSibling;
-        if (n.nodeType === 1 && (n.tagName === "H2" || n.tagName === "H1")) break;
-        n.remove();
-        n = next;
+  // TOC storage must remain plain text. Work on expanded plain lines, never RICH_HTML.
+  let plain = expandJammedTocText(tocCard.dataset.raw || "");
+  const lines = plain.split(/\n/);
+  const cleaned = [];
+  let skip = false;
+  for (const line of lines) {
+    const t = line.trim();
+    if (/^list of figures\b/i.test(t)) { skip = true; continue; }
+    if (skip) {
+      if (/^(list of tables|list of abbreviations|chapter\b|conclusion|recommendations?|references?|appendix|appendices|certification|declaration|dedication|acknowledg|abstract)\b/i.test(t)) {
+        skip = false;
+      } else if (/^Fig\.?\s*\d/i.test(t) || /^Figure\s*\d/i.test(t) || /\.{2,}/.test(t)) {
+        continue;
+      } else if (t === "") {
+        continue;
+      } else {
+        skip = false;
       }
     }
-  });
-  if (figs.length) {
-    const lofWrap = document.createElement("div");
-    lofWrap.innerHTML = buildListOfFiguresHTML(figs);
-    tmp.appendChild(lofWrap);
+    if (!skip) cleaned.push(line);
   }
-  const newRaw = "[[TEMPAPER_RICH_HTML]]" + tmp.innerHTML;
+  const lofPlain = buildListOfFiguresPlain(figs);
+  if (lofPlain) {
+    let insertAt = cleaned.findIndex(l => /^chapter\s+/i.test(l.trim()));
+    if (insertAt < 0) insertAt = cleaned.length;
+    const ab = cleaned.findIndex(l => /^list of (tables|abbreviations)\b/i.test(l.trim()));
+    if (ab >= 0) {
+      insertAt = ab + 1;
+      while (insertAt < cleaned.length && cleaned[insertAt].trim() && !/^(list of|chapter\s+)/i.test(cleaned[insertAt].trim())) insertAt++;
+    }
+    cleaned.splice(insertAt, 0, "", ...lofPlain.split("\n"), "");
+  }
+  const newRaw = cleaned.join("\n").replace(/\n{3,}/g, "\n\n").trim();
   tocCard.dataset.raw = newRaw;
   rerenderWorkflowSection(tocCard, newRaw, {title: tocCard.dataset.title || "Table of Contents", kind: "toc", startPage: 1});
 }
