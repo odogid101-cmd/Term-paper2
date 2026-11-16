@@ -5192,113 +5192,309 @@ function renderMergedPaper(value){
 }
 
 function getMergedExportTitle(){
-  const topic=(document.querySelector(".prompt-toc-header h2")?.textContent||"").trim();
-  const fromHistory=(Array.isArray(activeChatHistory)?activeChatHistory.find(h=>h&&h.workflow&&h.isPaper):null);
-  const base=topic||(fromHistory&&fromHistory.prompt?String(fromHistory.prompt).replace(/^Pull Next:\s*/i,""):"")||"Complete_Term_Paper";
-  return String(base).replace(/[\\/:*?"<>|]+/g,"_").replace(/\s+/g,"_").slice(0,80)||"Complete_Term_Paper";
+  // Prefer the saved term-paper topic, never prompt/TOC codes.
+  let base = String(activePaperTitle || "").trim();
+  if (!base || /^(prompt|toc)\b/i.test(base) || /^[A-Z0-9]{5}(\s+[A-Z0-9]{5})?$/.test(base)) {
+    const heading = (document.querySelector("#mergedPaperOutput .merged-paper-heading")?.textContent || "").trim();
+    if (heading && !/^complete merged/i.test(heading)) base = heading;
+  }
+  if (!base) {
+    const fromHistory = (Array.isArray(activeChatHistory) ? activeChatHistory.find(h => h && h.workflow && (h.title || h.prompt)) : null);
+    if (fromHistory) {
+      base = String(fromHistory.title || fromHistory.prompt || "").replace(/^Pull Next:\s*/i, "").trim();
+    }
+  }
+  if (!base || /prompt\s*:|toc\s*:/i.test(base) || /^[A-Z0-9_]{5,20}$/.test(base.replace(/\s+/g, "_"))) {
+    base = "Complete Term Paper";
+  }
+  return String(base)
+    .replace(/[\\/:*?"<>|]+/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\s/g, "_")
+    .slice(0, 100) || "Complete_Term_Paper";
 }
 
-/** Build a clean clone of the merged pages for export (strip UI chrome). */
-function buildMergedExportRoot(){
-  const source=document.getElementById("mergedPagesRoot");
-  if(!source)throw new Error("Merged pages not found. Generate and merge the paper first.");
-  const clone=source.cloneNode(true);
-  clone.querySelectorAll(".tp-figure-handles, .tp-handle").forEach(n=>n.remove());
-  clone.querySelectorAll(".tp-figure.selected").forEach(f=>f.classList.remove("selected"));
-  clone.querySelectorAll(".tp-image-placeholder").forEach(n=>n.remove());
-  clone.querySelectorAll("img").forEach(img=>{if(img.src)img.setAttribute("src",img.src);});
-  const wrapper=document.createElement("div");
-  wrapper.id="merged-export-root";
-  wrapper.style.cssText="background:#fff;color:#1e293b;font-family:Merriweather,Georgia,serif;";
-  wrapper.appendChild(clone);
-  return wrapper;
+/** Word/PDF-safe page break marker. */
+function exportPageBreakHTML(){
+  return '<div class="export-pagebreak" style="page-break-after:always;break-after:page;height:0;margin:0;padding:0;line-height:0;font-size:0;">&nbsp;</div>';
+}
+
+/**
+ * Convert a live .toc-row into a 2-column table so Word keeps the title and
+ * page number on the same line without gluing them together.
+ */
+function exportTocRowsAsTable(container){
+  const rows = [...container.querySelectorAll(".toc-row")];
+  if (!rows.length) return null;
+  const table = document.createElement("table");
+  table.setAttribute("class", "export-toc-table");
+  table.setAttribute("style", "width:100%;border-collapse:collapse;margin:6pt 0 12pt;table-layout:fixed;");
+  rows.forEach(row => {
+    let label = (row.querySelector(".toc-label")?.textContent || row.textContent || "").replace(/\s+/g, " ").trim();
+    label = label.replace(/^#+\s*/, "").replace(/^\*\*\s*|\s*\*\*$/g, "");
+    const page = (row.querySelector(".toc-page")?.textContent || "").replace(/\s+/g, " ").trim();
+    if (!label) return;
+    const tr = document.createElement("tr");
+    const tdL = document.createElement("td");
+    const tdP = document.createElement("td");
+    tdL.setAttribute("style", "text-align:left;padding:2pt 8pt 2pt 0;border:none;width:85%;vertical-align:baseline;");
+    tdP.setAttribute("style", "text-align:right;padding:2pt 0;border:none;width:15%;vertical-align:baseline;white-space:nowrap;");
+    tdL.textContent = label;
+    tdP.textContent = page;
+    tr.appendChild(tdL);
+    tr.appendChild(tdP);
+    table.appendChild(tr);
+  });
+  return table;
+}
+
+/**
+ * Build a clean linear document from merged A4 pages.
+ * - One major section per page break (cover, prelims, TOC, each chapter, end matter)
+ * - TOC rows become real tables (title | page) for Word
+ * - Editor chrome removed
+ */
+function buildMergedExportDocument(){
+  const source = document.getElementById("mergedPagesRoot");
+  if (!source) throw new Error("Merged pages not found. Generate and merge the paper first.");
+
+  const doc = document.createElement("div");
+  doc.id = "merged-export-root";
+  doc.setAttribute("style", "background:#ffffff;color:#1e293b;font-family:Georgia,'Times New Roman',serif;font-size:12pt;line-height:1.7;");
+
+  const pages = [...source.querySelectorAll(":scope > .a4-page, :scope > .merged-page")];
+  if (!pages.length) throw new Error("No merged pages found to export.");
+
+  // Group consecutive pages that belong to the same section so a chapter that
+  // spans several A4 screens still stays one continuous block, then break
+  // before the *next* section starts.
+  const groups = [];
+  pages.forEach(page => {
+    const sectionTitle = String(page.dataset.sectionTitle || "").trim();
+    const isToc = page.classList.contains("toc-page") || !!(page.querySelector(".toc-row, .toc-lines"));
+    const key = isToc ? "__TOC__" : (sectionTitle || ("page-" + groups.length));
+    const last = groups[groups.length - 1];
+    if (last && last.key === key) last.pages.push(page);
+    else groups.push({ key, title: sectionTitle, isToc, pages: [page] });
+  });
+
+  groups.forEach((group, gIdx) => {
+    const section = document.createElement("section");
+    section.className = "export-section";
+    section.setAttribute("data-section", group.title || group.key);
+    // Always start a new section on a new page (except the very first).
+    if (gIdx > 0) {
+      section.insertAdjacentHTML("beforeend", exportPageBreakHTML());
+    }
+
+    group.pages.forEach(page => {
+      const content = page.querySelector(".a4-content") || page;
+      const clone = content.cloneNode(true);
+
+      // Strip editor UI
+      clone.querySelectorAll(".tp-figure-handles, .tp-handle, .page-number, .a4-footer, .tp-image-placeholder, .document-stats").forEach(n => n.remove());
+      clone.querySelectorAll(".tp-figure.selected").forEach(f => f.classList.remove("selected"));
+
+      // TOC: replace flex rows with a proper 2-col table Word understands
+      const tocHost = clone.querySelector(".toc-lines") || (clone.querySelector(".toc-row") ? clone : null);
+      if (tocHost && tocHost.querySelector(".toc-row")) {
+        const table = exportTocRowsAsTable(tocHost);
+        if (table) {
+          // Keep any heading before the rows
+          const heading = clone.querySelector("h1, h2");
+          tocHost.querySelectorAll(".toc-row").forEach(r => r.remove());
+          // Remove empty leftover wrappers
+          if (tocHost.classList.contains("toc-lines") || tocHost.querySelector(".toc-lines")) {
+            const lines = tocHost.classList.contains("toc-lines") ? tocHost : tocHost.querySelector(".toc-lines");
+            if (lines) lines.replaceWith(table);
+            else tocHost.appendChild(table);
+          } else {
+            tocHost.appendChild(table);
+          }
+          // Ensure a TOC title exists
+          if (!heading) {
+            const h = document.createElement("h2");
+            h.textContent = "TABLE OF CONTENTS";
+            h.setAttribute("style", "text-align:left;font-weight:800;margin:0 0 12pt;");
+            table.parentNode.insertBefore(h, table);
+          }
+        }
+      }
+
+      // Strip leftover markdown hashes from any text nodes / headings
+      clone.querySelectorAll("h1,h2,h3,h4,p,span,div").forEach(el => {
+        if (el.childNodes.length === 1 && el.childNodes[0].nodeType === 3) {
+          el.textContent = el.textContent.replace(/^#+\s+/, "").replace(/^\*\*\s*|\s*\*\*$/g, "");
+        }
+      });
+
+      clone.querySelectorAll("img").forEach(img => {
+        const src = img.getAttribute("src");
+        if (src) img.setAttribute("src", src);
+        img.setAttribute("style", "max-width:100%;height:auto;display:block;margin:8pt auto;");
+      });
+      clone.querySelectorAll(".tp-figure").forEach(fig => {
+        fig.setAttribute("style", "text-align:center;margin:14pt auto;page-break-inside:avoid;");
+      });
+      clone.querySelectorAll("table:not(.export-toc-table)").forEach(t => {
+        t.setAttribute("style", "border-collapse:collapse;width:100%;margin:12pt 0;");
+        t.querySelectorAll("th,td").forEach(cell => {
+          cell.setAttribute("style", "border:1px solid #94a3b8;padding:6pt 8pt;text-align:left;vertical-align:top;");
+        });
+      });
+
+      section.appendChild(clone);
+    });
+
+    doc.appendChild(section);
+  });
+
+  const text = (doc.textContent || "").replace(/\s+/g, " ").trim();
+  if (text.length < 40) {
+    throw new Error("Export content looks empty. Open the merged paper on screen, then try Download again.");
+  }
+  return doc;
 }
 
 async function downloadMergedAsPDF(){
-  const btn=document.getElementById("downloadMergedPdfBtn");
-  if(!btn)return;
-  if(typeof html2pdf==="undefined"){
+  const btn = document.getElementById("downloadMergedPdfBtn");
+  if (!btn) return;
+  if (typeof html2pdf === "undefined") {
     alert("PDF library not loaded. Check your internet connection and refresh the page.");
     return;
   }
-  const originalLabel=btn.innerHTML;
-  btn.disabled=true;
-  btn.textContent="Preparing PDF…";
-  let root=null;
-  try{
-    root=buildMergedExportRoot();
-    root.style.position="fixed";
-    root.style.left="-9999px";
-    root.style.top="0";
-    root.style.width="794px";
+  const originalLabel = btn.innerHTML;
+  btn.disabled = true;
+  btn.textContent = "Preparing PDF…";
+  let root = null;
+  try {
+    root = buildMergedExportDocument();
+    // Visible-but-transparent in the viewport so html2canvas measures real layout.
+    root.style.position = "fixed";
+    root.style.left = "0";
+    root.style.top = "0";
+    root.style.width = "210mm";
+    root.style.maxWidth = "794px";
+    root.style.padding = "18mm 16mm";
+    root.style.boxSizing = "border-box";
+    root.style.opacity = "0.02";
+    root.style.pointerEvents = "none";
+    root.style.zIndex = "2147483646";
     document.body.appendChild(root);
-    const filename=getMergedExportTitle()+".pdf";
-    const opt={
-      margin:[10,10,12,10],
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    // Force layout read
+    void root.offsetHeight;
+    const filename = getMergedExportTitle() + ".pdf";
+    const opt = {
+      margin: [12, 12, 14, 12],
       filename,
-      image:{type:"jpeg",quality:0.92},
-      html2canvas:{scale:2,useCORS:true,allowTaint:true,logging:false,backgroundColor:"#ffffff"},
-      jsPDF:{unit:"mm",format:"a4",orientation:"portrait"},
-      pagebreak:{mode:["css","legacy"],avoid:[".tp-figure","h1","h2","h3","table"]}
+      image: { type: "jpeg", quality: 0.95 },
+      html2canvas: {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+        backgroundColor: "#ffffff",
+        windowWidth: 794,
+        scrollX: 0,
+        scrollY: 0
+      },
+      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+      pagebreak: {
+        mode: ["css", "legacy"],
+        before: ".export-pagebreak",
+        avoid: [".tp-figure", "h1", "h2", "h3", "table", "tr"]
+      }
     };
     await html2pdf().set(opt).from(root).save();
-  }catch(err){
+  } catch (err) {
     console.error(err);
-    alert("Could not generate PDF: "+(err.message||"Unknown error"));
-  }finally{
-    if(root&&root.parentNode)root.remove();
-    btn.disabled=false;
-    btn.innerHTML=originalLabel;
+    alert("Could not generate PDF: " + (err.message || "Unknown error"));
+  } finally {
+    if (root && root.parentNode) root.remove();
+    btn.disabled = false;
+    btn.innerHTML = originalLabel;
   }
 }
 
 async function downloadMergedAsDocx(){
-  const btn=document.getElementById("downloadMergedDocxBtn");
-  if(!btn)return;
-  if(typeof htmlDocx==="undefined"||typeof saveAs==="undefined"){
+  const btn = document.getElementById("downloadMergedDocxBtn");
+  if (!btn) return;
+  if (typeof htmlDocx === "undefined" || typeof saveAs === "undefined") {
     alert("Word export library not loaded. Check your internet connection and refresh the page.");
     return;
   }
-  const originalLabel=btn.innerHTML;
-  btn.disabled=true;
-  btn.textContent="Preparing Word…";
-  try{
-    const root=buildMergedExportRoot();
-    const pagesHtml=root.innerHTML;
-    const fullHtml=`<!DOCTYPE html>
-<html>
+  const originalLabel = btn.innerHTML;
+  btn.disabled = true;
+  btn.textContent = "Preparing Word…";
+  try {
+    const root = buildMergedExportDocument();
+    // Join sections with explicit Word page-break markers
+    const bodyHtml = [...root.querySelectorAll(".export-section")]
+      .map((sec, i) => {
+        const breakBefore = i > 0
+          ? '<br clear="all" style="page-break-before:always;mso-break-type:section-break" />'
+          : "";
+        // Remove the helper pagebreak div (Word uses the <br> above)
+        sec.querySelectorAll(".export-pagebreak").forEach(n => n.remove());
+        return breakBefore + sec.innerHTML;
+      })
+      .join("");
+    const title = getMergedExportTitle().replace(/_/g, " ");
+    const fullHtml = `<!DOCTYPE html>
+<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:w="urn:schemas-microsoft-com:office:word"
+      xmlns="http://www.w3.org/TR/REC-html40">
 <head>
 <meta charset="utf-8">
-<title>${getMergedExportTitle()}</title>
+<title>${title}</title>
+<!--[if gte mso 9]>
+<xml>
+  <w:WordDocument>
+    <w:View>Print</w:View>
+    <w:Zoom>100</w:Zoom>
+    <w:DoNotOptimizeForBrowser/>
+  </w:WordDocument>
+</xml>
+<![endif]-->
 <style>
-  body{font-family:Georgia,'Times New Roman',serif;font-size:12pt;line-height:1.6;color:#1e293b;}
-  h1{font-size:18pt;text-align:center;margin:18pt 0 12pt;}
-  h2{font-size:14pt;margin:14pt 0 8pt;}
-  h3{font-size:12pt;margin:12pt 0 6pt;}
-  p{margin:0 0 10pt;text-align:justify;}
-  .tp-figure{text-align:center;margin:14pt auto;page-break-inside:avoid;}
-  .tp-figure img{max-width:100%;height:auto;}
-  .fig-caption{font-size:10pt;font-weight:600;margin-top:6pt;}
-  table{border-collapse:collapse;width:100%;margin:12pt 0;}
-  th,td{border:1px solid #cbd5e1;padding:6pt 8pt;}
-  th{background:#f1f5f9;}
-  .page-number{display:none;}
-  .a4-page{margin-bottom:18pt;}
+  @page { size: A4; margin: 25.4mm; }
+  body {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 12pt;
+    line-height: 1.7;
+    color: #1e293b;
+  }
+  h1 { font-size: 18pt; text-align: center; margin: 18pt 0 12pt; font-family: Arial, sans-serif; page-break-after: avoid; }
+  h2 { font-size: 14pt; margin: 14pt 0 8pt; font-family: Arial, sans-serif; page-break-after: avoid; }
+  h3 { font-size: 12pt; margin: 12pt 0 6pt; font-family: Arial, sans-serif; page-break-after: avoid; }
+  p { margin: 0 0 10pt; text-align: justify; }
+  ul, ol { margin: 0 0 10pt 18pt; }
+  li { margin: 0 0 4pt; }
+  .tp-figure { text-align: center; margin: 14pt auto; page-break-inside: avoid; }
+  img { max-width: 100%; height: auto; }
+  .fig-caption, .fig-main-label { font-size: 10pt; font-weight: 600; margin-top: 6pt; display: block; text-align: center; }
+  table { border-collapse: collapse; width: 100%; margin: 12pt 0; }
+  th, td { border: 1px solid #94a3b8; padding: 6pt 8pt; text-align: left; vertical-align: top; }
+  th { background: #f1f5f9; font-weight: 700; }
+  table.export-toc-table td { border: none !important; padding: 2pt 8pt 2pt 0; }
+  table.export-toc-table td:last-child { text-align: right; white-space: nowrap; width: 15%; }
 </style>
 </head>
-<body>${pagesHtml}</body>
+<body>${bodyHtml}</body>
 </html>`;
-    const blob=htmlDocx.asBlob(fullHtml,{
-      orientation:"portrait",
-      margins:{top:720,right:720,bottom:720,left:720}
+    const blob = htmlDocx.asBlob(fullHtml, {
+      orientation: "portrait",
+      margins: { top: 1440, right: 1440, bottom: 1440, left: 1440 } // 1 inch
     });
-    saveAs(blob,getMergedExportTitle()+".docx");
-  }catch(err){
+    saveAs(blob, getMergedExportTitle() + ".docx");
+  } catch (err) {
     console.error(err);
-    alert("Could not generate Word file: "+(err.message||"Unknown error"));
-  }finally{
-    btn.disabled=false;
-    btn.innerHTML=originalLabel;
+    alert("Could not generate Word file: " + (err.message || "Unknown error"));
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalLabel;
   }
 }
 
@@ -5891,6 +6087,9 @@ document.addEventListener("click", (e) => {
 function collectAllFigures() {
   const figs = [];
   document.querySelectorAll("#chatArea .chat-msg .tp-figure").forEach(fig => {
+    // Skip empty AI placeholders that have not received an image yet
+    if (fig.classList.contains("tp-image-placeholder") || fig.dataset.autoPlaceholder === "1") return;
+    if (!fig.querySelector("img[src]")) return;
     const card = fig.closest(".chat-msg");
     const pageEl = fig.closest(".a4-page");
     const pageNum = pageEl ? (pageEl.querySelector(".page-number")?.textContent || "").trim() : "";
@@ -5899,23 +6098,58 @@ function collectAllFigures() {
     caption = caption.replace(/^Fig\.?\s*[\d.]+\s*:?\s*/i, "").trim();
     figs.push({ label, caption, page: pageNum, orderNo: Number(card?.dataset.orderNo || 0) });
   });
-  // stable order by chapter/order then label
   figs.sort((a, b) => (a.orderNo - b.orderNo) || a.label.localeCompare(b.label));
   return figs;
 }
 
-function buildListOfFiguresHTML(figs) {
-  if (!figs.length) return "";
-  // One figure per row — never concatenate labels on a single line
-  const rows = figs.map(f => {
-    const left = escapeHTML(`${f.label}${f.caption ? ": " + f.caption : ""}`);
-    const page = escapeHTML(String(f.page || "").trim());
-    return `<div class="toc-row"><span class="toc-label">${left}</span><span class="toc-leader"></span><span class="toc-page">${page}</span></div>`;
-  }).join("");
-  return `<h2>List of Figures</h2><div class="toc-lines">${rows}</div>`;
+/** Collect academic tables that have an explicit Table N / caption nearby. */
+function collectAllTables() {
+  const tables = [];
+  const seen = new Set();
+  document.querySelectorAll("#chatArea .chat-msg .tp-table-wrap, #chatArea .chat-msg table.tp-table").forEach(node => {
+    const wrap = node.classList.contains("tp-table-wrap") ? node : node.closest(".tp-table-wrap") || node;
+    const table = wrap.matches("table") ? wrap : wrap.querySelector("table");
+    if (!table) return;
+    const card = wrap.closest(".chat-msg");
+    const pageEl = wrap.closest(".a4-page");
+    const pageNum = pageEl ? (pageEl.querySelector(".page-number")?.textContent || "").trim() : "";
+    // Prefer explicit "Table 2.1: Caption" in a preceding/following paragraph or caption element
+    let label = "";
+    let caption = "";
+    const prev = wrap.previousElementSibling;
+    const next = wrap.nextElementSibling;
+    const candidates = [prev, next, wrap.querySelector(".table-caption"), wrap.querySelector("caption")]
+      .filter(Boolean)
+      .map(el => (el.textContent || "").replace(/\s+/g, " ").trim());
+    for (const text of candidates) {
+      const m = text.match(/^(?:Table|Tbl\.?)\s*([\d.]+)\s*[:.\-–—]?\s*(.*)$/i);
+      if (m) {
+        label = `Table ${m[1]}`;
+        caption = (m[2] || "").trim();
+        break;
+      }
+    }
+    if (!label) {
+      // Fallback: numbered table by chapter order if the chapter card is known
+      const chap = getChapterNumberFromTitle(card?.dataset?.title || "") || Number(card?.dataset?.orderNo || 0) || 0;
+      if (!chap) return; // skip uncaptioned tables rather than inventing TOC noise
+      const key = String(chap);
+      // sequential index within this chapter among already collected
+      const idx = tables.filter(t => t.label.startsWith(`Table ${chap}.`)).length + 1;
+      label = `Table ${chap}.${idx}`;
+      // Use first header cell text as a soft caption when available
+      const th = table.querySelector("thead th, tr th");
+      caption = th ? (th.textContent || "").replace(/\s+/g, " ").trim().slice(0, 80) : "";
+    }
+    const dedupe = (label + "|" + caption).toLowerCase();
+    if (seen.has(dedupe)) return;
+    seen.add(dedupe);
+    tables.push({ label, caption, page: pageNum, orderNo: Number(card?.dataset.orderNo || 0) });
+  });
+  tables.sort((a, b) => (a.orderNo - b.orderNo) || a.label.localeCompare(b.label));
+  return tables;
 }
 
-/** Plain-text LOF lines for embedding into the saved TOC text. */
 function buildListOfFiguresPlain(figs) {
   if (!figs.length) return "";
   const lines = figs.map(f => {
@@ -5926,22 +6160,37 @@ function buildListOfFiguresPlain(figs) {
   return ["List of Figures", ...lines].join("\n");
 }
 
+function buildListOfTablesPlain(tables) {
+  if (!tables.length) return "";
+  const lines = tables.map(t => {
+    const left = `${t.label}${t.caption ? ": " + t.caption : ""}`;
+    const page = String(t.page || "").trim();
+    return page ? `${left}  ........  ${page}` : left;
+  });
+  return ["List of Tables", ...lines].join("\n");
+}
+
+/**
+ * Refresh List of Figures and List of Tables inside the saved TOC card
+ * whenever images/tables are present in the workspace.
+ */
 async function refreshListOfFigures() {
   const figs = collectAllFigures();
+  const tables = collectAllTables();
   const tocCard = document.querySelector('#chatArea .chat-msg[data-kind="toc"]');
   if (!tocCard) return;
-  // TOC storage must remain plain text. Work on expanded plain lines, never RICH_HTML.
+
   let plain = expandJammedTocText(tocCard.dataset.raw || "");
   const lines = plain.split(/\n/);
   const cleaned = [];
   let skip = false;
   for (const line of lines) {
     const t = line.trim();
-    if (/^list of figures\b/i.test(t)) { skip = true; continue; }
+    if (/^list of (figures|tables)\b/i.test(t)) { skip = true; continue; }
     if (skip) {
-      if (/^(list of tables|list of abbreviations|chapter\b|conclusion|recommendations?|references?|appendix|appendices|certification|declaration|dedication|acknowledg|abstract)\b/i.test(t)) {
+      if (/^(list of (figures|tables|abbreviations)|chapter\b|conclusion|recommendations?|references?|appendix|appendices|certification|declaration|dedication|acknowledg|abstract)\b/i.test(t)) {
         skip = false;
-      } else if (/^Fig\.?\s*\d/i.test(t) || /^Figure\s*\d/i.test(t) || /\.{2,}/.test(t)) {
+      } else if (/^(?:Fig\.?|Figure|Table|Tbl\.?)\s*\d/i.test(t) || /\.{2,}/.test(t)) {
         continue;
       } else if (t === "") {
         continue;
@@ -5951,17 +6200,25 @@ async function refreshListOfFigures() {
     }
     if (!skip) cleaned.push(line);
   }
+
+  const blocks = [];
+  const lotPlain = buildListOfTablesPlain(tables);
   const lofPlain = buildListOfFiguresPlain(figs);
-  if (lofPlain) {
+  if (lotPlain) blocks.push(...lotPlain.split("\n"), "");
+  if (lofPlain) blocks.push(...lofPlain.split("\n"), "");
+
+  if (blocks.length) {
+    // Insert before the first chapter entry (after preliminary lists when present)
     let insertAt = cleaned.findIndex(l => /^chapter\s+/i.test(l.trim()));
     if (insertAt < 0) insertAt = cleaned.length;
-    const ab = cleaned.findIndex(l => /^list of (tables|abbreviations)\b/i.test(l.trim()));
+    const ab = cleaned.findIndex(l => /^list of abbreviations\b/i.test(l.trim()));
     if (ab >= 0) {
       insertAt = ab + 1;
       while (insertAt < cleaned.length && cleaned[insertAt].trim() && !/^(list of|chapter\s+)/i.test(cleaned[insertAt].trim())) insertAt++;
     }
-    cleaned.splice(insertAt, 0, "", ...lofPlain.split("\n"), "");
+    cleaned.splice(insertAt, 0, "", ...blocks);
   }
+
   const newRaw = cleaned.join("\n").replace(/\n{3,}/g, "\n\n").trim();
   tocCard.dataset.raw = newRaw;
   rerenderWorkflowSection(tocCard, newRaw, {title: tocCard.dataset.title || "Table of Contents", kind: "toc", startPage: 1});
