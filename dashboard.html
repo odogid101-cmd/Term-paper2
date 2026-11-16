@@ -2643,33 +2643,54 @@ function splitKnownItems(raw, patterns){
   }
   return found;
 }
+function stripTocMarkdownNoise(label){
+  // Groq sometimes returns TOC drafts as markdown headings (## Chapter 1...).
+  // Those must not appear as a second, page-less TOC block.
+  return String(label || "")
+    .replace(/^\s*#{1,6}\s+/, "")
+    .replace(/^\s*\*\*\s*/, "")
+    .replace(/\s*\*\*\s*$/, "")
+    .replace(/^\s*[`*_]+|[`*_]+\s*$/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+function normalizeTocDedupeKey(label){
+  return stripTocMarkdownNoise(label)
+    .replace(/\s*(?:\.{2,}|…+)\s*[ivxlcdm\d]+\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
 function parseTocLine(line){
-  let page = "", label = line;
+  let page = "", label = String(line || "");
+  // Drop markdown heading markers before any other parsing so "## Chapter 1"
+  // and "Chapter 1  ........  1" collapse to the same entry.
+  label = stripTocMarkdownNoise(label);
   // Preliminary-page TOCs commonly prefix entries with Roman numerals (i. Abstract).
   // Move that numeral into the page-number column instead of displaying it as part of the title.
-  const leadingRoman = line.match(/^\s*([ivxlcdm]+)[.)]\s+(.+)$/i);
+  const leadingRoman = label.match(/^\s*([ivxlcdm]+)[.)]\s+(.+)$/i);
   if (leadingRoman && isPreliminaryLabel(leadingRoman[2])) {
-    return { label: leadingRoman[2].trim(), page: leadingRoman[1].toLowerCase() };
+    return { label: stripTocMarkdownNoise(leadingRoman[2]), page: leadingRoman[1].toLowerCase() };
   }
   // Prefer the last leader+page on the line so a polluted
   // "Conclusion ...... 17 Recommendations ...... 18" still yields page 18
   // while the label is left for splitJammedEndMatterLabel to expand.
-  const allLeaders = [...String(line).matchAll(/(?:\.{2,}|…+)\s*([ivxlcdm]+|\d+)\b/gi)];
+  const allLeaders = [...String(label).matchAll(/(?:\.{2,}|…+)\s*([ivxlcdm]+|\d+)\b/gi)];
   if (allLeaders.length) {
     page = allLeaders[allLeaders.length - 1][1].trim();
-    label = String(line)
+    label = String(label)
       .replace(/\s*(?:\.{2,}|…+)\s*[ivxlcdm\d]+\b/gi, " ")
       .replace(/\s+/g, " ")
       .trim();
   } else {
-    const match = line.match(/^(.*?)(?:\s*\.{2,}|\s{2,}|\t+)([ivxlcdm]+|\d+)\s*$/i);
+    const match = label.match(/^(.*?)(?:\s*\.{2,}|\s{2,}|\t+)([ivxlcdm]+|\d+)\s*$/i);
     if (match) { label = match[1].replace(/[\s.]+$/,"").trim(); page = match[2].trim(); }
     else {
-      const tail = line.match(/^(.*?)\s+([ivxlcdm]+|\d+)\s*$/i);
+      const tail = label.match(/^(.*?)\s+([ivxlcdm]+|\d+)\s*$/i);
       if (tail && tail[1].length > 3) { label = tail[1].replace(/[\s.]+$/,"").trim(); page = tail[2].trim(); }
     }
   }
-  return {label: label.replace(/[\s.]+$/,"").trim(), page};
+  return {label: stripTocMarkdownNoise(label.replace(/[\s.]+$/,"").trim()), page};
 }
 /** Split a jammed LOF string (multiple Fig./Figure entries on one line) into separate entries. */
 function splitFigureEntries(line){
@@ -2707,9 +2728,9 @@ function isFigureLabel(label){
 function formatTOCHTMLFromPlain(plainText, options){
   const showHeading = !options || options.showHeading !== false;
   const prelim = [], body = [], end = [], figures = [];
-  const seen = new Set();
+  const seen = new Map(); // key -> entry object (so we can upgrade a page-less row)
   const push = (entry) => {
-    let label = String(entry.label||"").trim();
+    let label = stripTocMarkdownNoise(entry.label || "");
     if (!label) return;
     const jammed = splitJammedEndMatterLabel(label);
     if (jammed.length >= 2) {
@@ -2734,10 +2755,21 @@ function formatTOCHTMLFromPlain(plainText, options){
       return;
     }
     if (isEndMatterLabel(bare) || isStrictEndMatterTitle(bare)) label = bare;
-    const key = label.toLowerCase();
-    if (seen.has(key)) return;
-    seen.add(key);
-    const final = {label, page: entry.page || ""};
+    const key = normalizeTocDedupeKey(label);
+    if (!key) return;
+    const page = entry.page || "";
+    if (seen.has(key)) {
+      // Same title already present: keep/upgrade the one that has a page number.
+      const existing = seen.get(key);
+      if (!existing.page && page) existing.page = page;
+      // Prefer the cleaner non-markdown label when both exist.
+      if (label && !/^#/.test(label) && existing.label !== label && label.length <= existing.label.length) {
+        existing.label = label;
+      }
+      return;
+    }
+    const final = {label, page};
+    seen.set(key, final);
     if (isFigureLabel(label)) figures.push(final);
     else if (isPreliminaryLabel(label)) prelim.push(final);
     else if (isEndMatterLabel(label) || isStrictEndMatterTitle(label)) end.push(final);
@@ -2774,6 +2806,11 @@ function formatTOCHTMLFromPlain(plainText, options){
     return a.label.localeCompare(b.label);
   });
 
+  // Canonical academic end-matter order (Conclusion → Recommendations → References → Appendices)
+  // regardless of the order the AI / stored TOC listed them.
+  end.sort((a, b) => endMatterOrder(a.label) - endMatterOrder(b.label));
+  prelim.sort((a, b) => prelimOrder(a.label) - prelimOrder(b.label));
+
   const ordered = [];
   let figuresInserted = false;
   for (const entry of prelim) {
@@ -2807,9 +2844,9 @@ function formatTOCHTML(bodyHtml, options){
   const temp = document.createElement("div");
   temp.innerHTML = bodyHtml;
   const prelim = [], body = [], end = [], figures = [];
-  const seen = new Set();
+  const seen = new Map();
   const push = (entry) => {
-    let label = String(entry.label||"").trim();
+    let label = stripTocMarkdownNoise(entry.label || "");
     if (!label) return;
     // Repair jammed rows — keep each title's own page from expandJammedTocText.
     const jammed = splitJammedEndMatterLabel(label);
@@ -2836,10 +2873,16 @@ function formatTOCHTML(bodyHtml, options){
     }
     // Strip leading chapter-style numbers and leftover leaders from pure end-matter labels
     if (isEndMatterLabel(bare) || isStrictEndMatterTitle(bare)) label = bare;
-    const key = label.toLowerCase();
-    if (seen.has(key)) return;
-    seen.add(key);
-    const final = {label, page:entry.page||""};
+    const key = normalizeTocDedupeKey(label);
+    if (!key) return;
+    const page = entry.page || "";
+    if (seen.has(key)) {
+      const existing = seen.get(key);
+      if (!existing.page && page) existing.page = page;
+      return;
+    }
+    const final = {label, page};
+    seen.set(key, final);
     if (isFigureLabel(label)) figures.push(final);
     else if (isPreliminaryLabel(label)) prelim.push(final);
     else if (isEndMatterLabel(label) || isStrictEndMatterTitle(label)) end.push(final);
