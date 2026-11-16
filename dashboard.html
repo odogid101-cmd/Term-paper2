@@ -2703,7 +2703,106 @@ function splitFigureEntries(line){
 function isFigureLabel(label){
   return /^(?:Fig\.?|Figure)\s*[\d.]+/i.test(String(label || "").trim());
 }
+/** Build TOC rows from the same plain-text source Edit uses (one title per line, optional ...... page). */
+function formatTOCHTMLFromPlain(plainText, options){
+  const showHeading = !options || options.showHeading !== false;
+  const prelim = [], body = [], end = [], figures = [];
+  const seen = new Set();
+  const push = (entry) => {
+    let label = String(entry.label||"").trim();
+    if (!label) return;
+    const jammed = splitJammedEndMatterLabel(label);
+    if (jammed.length >= 2) {
+      // Prefer expandJammedTocText so each title keeps its own page from the line.
+      const expanded = expandJammedTocText(
+        entry.page ? `${label}  ........  ${entry.page}` : label
+      );
+      expanded.split(/\n/).forEach(line => {
+        const parsed = parseTocLine(line.trim());
+        if (parsed.label) push({ label: parsed.label, page: parsed.page || "" });
+      });
+      return;
+    }
+    const bare = label
+      .replace(/\s*(?:\.{2,}|…+)\s*[ivxlcdm\d]+\b/gi, "")
+      .replace(/^\d+(?:\.\d+)*\.?\s+/, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (/^conclusion\s+and\s+recommendations?$/i.test(bare)) {
+      push({label:"Conclusion", page:""});
+      push({label:"Recommendations", page:""});
+      return;
+    }
+    if (isEndMatterLabel(bare) || isStrictEndMatterTitle(bare)) label = bare;
+    const key = label.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    const final = {label, page: entry.page || ""};
+    if (isFigureLabel(label)) figures.push(final);
+    else if (isPreliminaryLabel(label)) prelim.push(final);
+    else if (isEndMatterLabel(label) || isStrictEndMatterTitle(label)) end.push(final);
+    else body.push(final);
+  };
+
+  expandJammedTocText(plainText || "").split(/\n/).forEach(line => {
+    const t = line.trim();
+    if (!t || /^table of contents$/i.test(t)) return;
+    const parsed = parseTocLine(t);
+    if (parsed.label) push({ label: parsed.label, page: parsed.page || "" });
+  });
+
+  // Fill preliminary pages from live prelim cards when missing (does not touch end-matter).
+  try {
+    const info = getPreliminaryPageInfo();
+    prelim.forEach(entry => {
+      const key = entry.label.toLowerCase();
+      const alt = key.replace(/\s*\/\s*approval/, "").replace(/s$/, "");
+      const actualPage = info.map[key] ?? info.map[alt] ?? info.map[key.replace(/\s*\/.*$/, "")];
+      if (actualPage != null) entry.page = actualPage;
+      else if (!entry.page) entry.page = "";
+    });
+  } catch (e) { /* prelim may not be mounted */ }
+
+  figures.sort((a,b) => {
+    const ma = String(a.label).match(/(\d+)\.(\d+)/);
+    const mb = String(b.label).match(/(\d+)\.(\d+)/);
+    if (ma && mb) {
+      const ca = parseInt(ma[1],10), cb = parseInt(mb[1],10);
+      if (ca !== cb) return ca - cb;
+      return parseInt(ma[2],10) - parseInt(mb[2],10);
+    }
+    return a.label.localeCompare(b.label);
+  });
+
+  const ordered = [];
+  let figuresInserted = false;
+  for (const entry of prelim) {
+    ordered.push(entry);
+    if (!figuresInserted && /^list of figures$/i.test(entry.label)) {
+      ordered.push(...figures);
+      figuresInserted = true;
+    }
+  }
+  if (!figuresInserted && figures.length) {
+    ordered.push({ label: "List of Figures", page: "" });
+    ordered.push(...figures);
+  }
+  ordered.push(...body, ...end);
+  const rows = [];
+  if (showHeading) rows.push({heading:true, label:"TABLE OF CONTENTS", page:""});
+  rows.push(...ordered);
+  return rows.map(r => r.heading
+    ? `<h2 style="font-weight:800;text-align:left;margin:0 0 20px">${escapeHTML(r.label)}</h2>`
+    : `<div class="toc-row"><span class="toc-label">${escapeHTML(r.label)}</span><span class="toc-leader"></span><span class="toc-page">${escapeHTML(r.page)}</span></div>`
+  ).join("");
+}
+
 function formatTOCHTML(bodyHtml, options){
+  // Prefer the plain-text path (same source as Edit) whenever we can recover lines.
+  const plain = expandJammedTocText(tocRawToPlainText(bodyHtml));
+  if (plain && plain.split(/\n/).filter(l => l.trim()).length >= 1) {
+    return formatTOCHTMLFromPlain(plain, options);
+  }
   const showHeading = !options || options.showHeading !== false;
   const temp = document.createElement("div");
   temp.innerHTML = bodyHtml;
@@ -2712,13 +2811,15 @@ function formatTOCHTML(bodyHtml, options){
   const push = (entry) => {
     let label = String(entry.label||"").trim();
     if (!label) return;
-    // Repair jammed rows like "Conclusion ...... 17 Recommendations" into separate end-matter entries.
+    // Repair jammed rows — keep each title's own page from expandJammedTocText.
     const jammed = splitJammedEndMatterLabel(label);
     if (jammed.length >= 2) {
-      jammed.forEach((piece, idx) => {
-        // Only the last piece keeps a page if the original row had one page column value.
-        const page = (idx === jammed.length - 1) ? (entry.page || "") : "";
-        push({ label: piece, page });
+      const expanded = expandJammedTocText(
+        entry.page ? `${label}  ........  ${entry.page}` : label
+      );
+      expanded.split(/\n/).forEach(line => {
+        const parsed = parseTocLine(line.trim());
+        if (parsed.label) push({ label: parsed.label, page: parsed.page || "" });
       });
       return;
     }
@@ -2915,7 +3016,12 @@ function createA4Pages(htmlContent,totalWords,options={}){
   const kind=options.kind||"normal", startPage=Number(options.startPage||1);
   let pageBodies, totalPages;
   if (kind === "toc") {
-    const rowsHtml = formatTOCHTML(htmlContent, {showHeading: false});
+    // Single source of truth with Edit: plain TOC lines (Title ...... page).
+    // Do not invent end-matter pages here — use the numbers written on each line.
+    const plainSource = options.plainToc != null
+      ? String(options.plainToc)
+      : tocRawToPlainText(htmlContent);
+    const rowsHtml = formatTOCHTMLFromPlain(expandJammedTocText(plainSource), {showHeading: false});
     pageBodies = packTocPages(rowsHtml);
     totalPages = pageBodies.length || 1;
   } else {
@@ -4386,6 +4492,48 @@ function expandJammedTocText(tocText){
   }).join("\n");
 }
 
+/** Merge freshly synced page numbers into the existing TOC line order (Edit source of truth for arrangement). */
+function mergeTocPageUpdates(previousPlain, updatedPlain){
+  const prev = expandJammedTocText(previousPlain || "");
+  const next = expandJammedTocText(updatedPlain || "");
+  if (!next.trim()) return prev;
+  if (!prev.trim()) return next;
+
+  const pageByKey = new Map();
+  next.split(/\n/).forEach(line => {
+    const p = parseTocLine(line.trim());
+    if (!p.label) return;
+    const key = p.label.toLowerCase().replace(/\s+/g, " ").trim();
+    if (p.page) pageByKey.set(key, p.page);
+  });
+
+  const used = new Set();
+  const merged = prev.split(/\n/).map(line => {
+    const t = line.trim();
+    if (!t) return line;
+    const p = parseTocLine(t);
+    if (!p.label) return line;
+    const key = p.label.toLowerCase().replace(/\s+/g, " ").trim();
+    used.add(key);
+    const newPage = pageByKey.get(key);
+    if (newPage) return `${p.label}  ........  ${newPage}`;
+    // Keep previous page if any
+    return p.page ? `${p.label}  ........  ${p.page}` : p.label;
+  });
+
+  // Append any new titles from the update that were not in the previous arrangement
+  next.split(/\n/).forEach(line => {
+    const p = parseTocLine(line.trim());
+    if (!p.label) return;
+    const key = p.label.toLowerCase().replace(/\s+/g, " ").trim();
+    if (used.has(key)) return;
+    used.add(key);
+    merged.push(p.page ? `${p.label}  ........  ${p.page}` : p.label);
+  });
+
+  return merged.join("\n");
+}
+
 function updateDisplayedTableOfContents(tocText){
   if(!tocText)return;
   // Always store and render TOC as plain one-title-per-line text (never RICH_HTML).
@@ -4568,17 +4716,27 @@ function bindWorkflowButtons(container){
 
 /** Rebuild a section card from raw HTML with a FRESH action bar (never clone outerHTML). */
 function rerenderWorkflowSection(container, raw, opts={}){
-  const content = String(raw != null ? raw : (container.dataset.raw || ""));
-  container.dataset.raw = content;
+  let content = String(raw != null ? raw : (container.dataset.raw || ""));
   const kind = opts.kind || container.dataset.kind || "chapter";
+  // TOC: always store/display the same plain lines Edit uses.
+  if (kind === "toc") {
+    content = expandJammedTocText(content);
+  }
+  container.dataset.raw = content;
   const title = opts.title || container.dataset.title || "Section";
   container.dataset.title = title;
   const startPage = Number(opts.startPage != null ? opts.startPage : (container.dataset.pageStart || 1));
   const words = content_plain_text_for_count(content).split(/\s+/).filter(Boolean).length;
   const heading = `<div data-section-heading style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(title)}</div>`;
   const actions = `<div class="workflow-output-actions">${workflowActionsHTML(kind)}</div>`;
-  container.innerHTML = heading + createA4Pages(workflowContentHTML(content), words, {kind, startPage}) + actions;
-  container.dataset.pageCount = String(paginateContent(workflowContentHTML(content)).length || 1);
+  const pageOpts = {kind, startPage};
+  if (kind === "toc") pageOpts.plainToc = content;
+  container.innerHTML = heading + createA4Pages(workflowContentHTML(content), words, pageOpts) + actions;
+  container.dataset.pageCount = String(
+    kind === "toc"
+      ? (packTocPages(formatTOCHTMLFromPlain(content, {showHeading:false})).length || 1)
+      : (paginateContent(workflowContentHTML(content)).length || 1)
+  );
   // Figures must be re-bound after every innerHTML replace
   container.querySelectorAll(".tp-figure").forEach(fig => { delete fig.dataset.bound; });
   bindWorkflowButtons(container);
@@ -4711,14 +4869,16 @@ async function updateCurrentTOC(button,container){
             page_index:pageIndex
           };
           sectionStartKeys.add(sectionTitle.toLocaleLowerCase());
-          // Also register canonical end-matter aliases so TOC lines match reliably.
+          // Register only THIS section's canonical end-matter name (never map other end-matter titles to the same page).
           if (endKind) {
-            splitJammedEndMatterLabel(sectionTitle).forEach(alias => {
+            const aliases = splitJammedEndMatterLabel(sectionTitle);
+            if (aliases.length === 1) {
+              const alias = aliases[0];
               if (!map[alias]) {
                 map[alias]={page_start:shown,page_count:Number(page.dataset.sectionPageCount||1),kind:"end-matter",source:"merged-section-start",page_index:pageIndex};
               }
               sectionStartKeys.add(alias.toLocaleLowerCase());
-            });
+            }
           }
         }
         // Pages without a printed page number cannot contribute heading or
@@ -4785,14 +4945,16 @@ async function updateCurrentTOC(button,container){
           source:"section-start"
         };
         sectionStartKeys.add(sectionLabel.toLocaleLowerCase());
-        // Canonical aliases so TOC lines "Conclusion" / "References" always resolve.
+        // Only this section's own canonical name — never assign other end-matter titles the same start page.
         if (endKind) {
-          splitJammedEndMatterLabel(sectionLabel).forEach(alias => {
+          const aliases = splitJammedEndMatterLabel(sectionLabel);
+          if (aliases.length === 1) {
+            const alias = aliases[0];
             if (!map[alias]) {
               map[alias]={order_no:orderNo,page_start:String(sectionStart),page_count:sectionPageCount,kind:"end-matter",source:"section-start"};
             }
             sectionStartKeys.add(alias.toLocaleLowerCase());
-          });
+          }
         }
         pages.forEach(page=>{
           const pageNumber=String(arabicCursor++);
@@ -4830,9 +4992,12 @@ async function updateCurrentTOC(button,container){
       const full = f.caption ? `${f.label}: ${f.caption}` : f.label;
       if (full && !map[full]) map[full] = { page_start: f.page || "", page_count: 1, kind: "figure" };
     });
+    // Remember the arrangement Edit uses (plain lines) before applying server page updates.
+    const previousPlain = expandJammedTocText(container.dataset.raw || "");
     const d=await workflowJSON("/sync-toc-pages",{user_id:userId,toc_code:activeTocCode,page_map:map},"Could not update table of contents.");
     if(!d.toc)throw new Error("The server did not return an updated table of contents.");
-    let tocText = d.toc;
+    // Keep the same line order as Edit; only refresh page numbers that the live map found.
+    let tocText = mergeTocPageUpdates(previousPlain, d.toc);
     const lofPlain = buildListOfFiguresPlain(figs);
     if (lofPlain) {
       const lines = tocText.split(/\n/);
@@ -4842,7 +5007,7 @@ async function updateCurrentTOC(button,container){
         const t = line.trim();
         if (/^list of figures\b/i.test(t)) { skip = true; continue; }
         if (skip) {
-          if (/^(list of tables|list of abbreviations|chapter\b|conclusion|references|appendix|certification|declaration|dedication|acknowledg|abstract)\b/i.test(t)) {
+          if (/^(list of tables|list of abbreviations|chapter\b|conclusion|recommendations?|references?|appendix|appendices|certification|declaration|dedication|acknowledg|abstract)\b/i.test(t)) {
             skip = false;
           } else if (/^Fig\.?\s*\d/i.test(t) || /^Figure\s*\d/i.test(t) || /\.{2,}/.test(t)) {
             continue;
