@@ -2001,7 +2001,9 @@ body { background-color: var(--bg); color: var(--text); }
 
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-<script src="https://unpkg.com/html-docx-js@0.3.1/dist/html-docx.js"></script>
+<script src="https://unpkg.com/docx@9/dist/index.iife.js"></script>
+<script src="https://unpkg.com/docx@9/dist/math.umd.cjs"></script>
+<script src="https://unpkg.com/docx@9/dist/html.umd.cjs"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 </head>
 <body>
@@ -5544,17 +5546,44 @@ function buildMergedExportDocument(){
   });
   if (!uniquePages.length) throw new Error("No merged pages found to export.");
 
-  // Group consecutive pages that belong to the same section so a chapter that
-  // spans several A4 screens still stays one continuous block, then break
-  // before the *next* section starts.
-  const groups = [];
-  uniquePages.forEach(page => {
+  // Force a clean academic page-break structure:
+  // - Every preliminary block (Cover, Certification, Declaration, Dedication,
+  //   Acknowledgements, Abstract, List of Figures/Tables/Abbreviations) starts
+  //   on its own page.
+  // - TOC starts on its own page.
+  // - Every Chapter starts on a new page.
+  // - Conclusion, Recommendations, References, Appendices each start on a new page.
+  // Pages that truly belong to the same long chapter stay together.
+  const FORCE_BREAK_RE = /^(cover\s*page|certification|approval|declaration|dedication|acknowledgements?|abstract|table\s*of\s*contents|list\s*of\s*(figures|tables|abbreviations)|chapter\b|conclusion|recommendations?|references?|bibliography|appendix|appendices)\b/i;
+
+  function normalizeSectionKey(page) {
     const sectionTitle = String(page.dataset.sectionTitle || "").trim();
     const isToc = page.classList.contains("toc-page") || !!(page.querySelector(".toc-row, .toc-lines"));
-    const key = isToc ? "__TOC__" : (sectionTitle || ("page-" + groups.length));
+    if (isToc) return { key: "__TOC__", title: "Table of Contents", isToc: true, forceBreak: true };
+
+    // Look at the first strong heading inside the page for better detection
+    const headingEl = page.querySelector("h1, h2, h3, .cover-title");
+    const heading = (headingEl ? headingEl.textContent : sectionTitle || "").replace(/\s+/g, " ").trim();
+    const forceBreak = FORCE_BREAK_RE.test(heading) || FORCE_BREAK_RE.test(sectionTitle);
+
+    // Use the heading (or section title) as the group key when it is a major section
+    const key = forceBreak
+      ? (heading || sectionTitle || ("force-" + Math.random().toString(36).slice(2, 8)))
+      : (sectionTitle || heading || ("page-continues"));
+
+    return { key, title: sectionTitle || heading, isToc: false, forceBreak };
+  }
+
+  const groups = [];
+  uniquePages.forEach(page => {
+    const meta = normalizeSectionKey(page);
     const last = groups[groups.length - 1];
-    if (last && last.key === key) last.pages.push(page);
-    else groups.push({ key, title: sectionTitle, isToc, pages: [page] });
+    // Start a new group when the key changes OR when the current page is a forced major section
+    if (last && last.key === meta.key && !meta.forceBreak) {
+      last.pages.push(page);
+    } else {
+      groups.push({ key: meta.key, title: meta.title, isToc: meta.isToc, pages: [page] });
+    }
   });
 
   groups.forEach((group, gIdx) => {
@@ -5685,64 +5714,74 @@ async function downloadMergedAsPDF(includeMonkeyScout = false){
   btn.disabled = true;
   btn.textContent = "Preparing PDF…";
   let root = null;
+  let mask = null;
   try {
     root = buildMergedExportDocument();
-    // Fully opaque, off-screen — opacity tricks often produce blank PDFs
-    root.style.position = "fixed";
+    const probe = (root.textContent || "").replace(/\s+/g, " ").trim();
+    if (probe.length < 40) throw new Error("The paper content is empty. Generate and merge your sections before downloading.");
+
+    // html2canvas must measure a real, in-viewport element. The previous
+    // translateX(-10000px) approach could produce a blank canvas on mobile.
+    root.style.position = "absolute";
     root.style.left = "0";
     root.style.top = "0";
-    root.style.width = "794px";
-    root.style.maxWidth = "794px";
-    root.style.padding = "24px 28px";
+    root.style.width = "602px";
+    root.style.maxWidth = "602px";
+    root.style.margin = "0";
+    root.style.padding = "0";
     root.style.boxSizing = "border-box";
     root.style.background = "#ffffff";
     root.style.color = "#1e293b";
     root.style.opacity = "1";
+    root.style.visibility = "visible";
     root.style.pointerEvents = "none";
+    root.style.transform = "none";
     root.style.zIndex = "2147483646";
-    root.style.transform = "translateX(-10000px)"; // off-screen but still "rendered"
     document.body.appendChild(root);
-    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-    void root.offsetHeight;
-    // Guard against empty export
-    const probe = (root.textContent || "").replace(/\s+/g, " ").trim();
-    if (probe.length < 40) {
-      throw new Error("Export content is empty. Open your sections on screen (or Merge the paper), then try again.");
-    }
+
+    // Keep the temporary capture document out of the user's way while it is
+    // rendered. html2canvas captures `root` only, not this sibling mask.
+    mask = document.createElement("div");
+    mask.setAttribute("aria-live", "polite");
+    mask.textContent = "Preparing your PDF…";
+    mask.style.cssText = "position:fixed;inset:0;z-index:2147483647;background:#fff;color:#334155;display:flex;align-items:center;justify-content:center;font:600 14px Arial,sans-serif;";
+    document.body.appendChild(mask);
+
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    // Wait for export images to settle so they are included in the PDF.
+    const imgs = [...root.querySelectorAll("img")];
+    await Promise.all(imgs.map(img => {
+      if (img.complete) return Promise.resolve();
+      return new Promise(resolve => {
+        img.onload = resolve;
+        img.onerror = resolve;
+        setTimeout(resolve, 5000);
+      });
+    }));
+
     const filename = getMergedExportTitle() + ".pdf";
     const opt = {
-      margin: [12, 12, 22, 12],
+      margin: [25.4, 25.4, 25.4, 25.4],
       filename,
       image: { type: "jpeg", quality: 0.98 },
       html2canvas: {
         scale: 2,
         useCORS: true,
-        allowTaint: true,
+        allowTaint: false,
         logging: false,
         backgroundColor: "#ffffff",
         windowWidth: 794,
         scrollX: 0,
-        scrollY: 0,
-        onclone: function (doc) {
-          const el = doc.getElementById("merged-export-root");
-          if (el) {
-            el.style.transform = "none";
-            el.style.left = "0";
-            el.style.opacity = "1";
-            el.style.position = "static";
-          }
-        }
+        scrollY: 0
       },
       jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-      pagebreak: {
-        mode: ["css", "legacy"],
-        before: ".export-pagebreak",
-        avoid: [".tp-figure", "h1", "h2", "h3", "table", "tr"]
-      }
+      pagebreak: { mode: ["css", "legacy"], before: ".export-pagebreak", avoid: [".tp-figure", "h1", "h2", "h3", "table", "tr"] }
     };
+
     const worker = html2pdf().set(opt).from(root).toPdf();
     const pdf = await worker.get("pdf");
     const totalPages = pdf.internal.getNumberOfPages();
+    if (!totalPages || totalPages < 1) throw new Error("The PDF renderer did not create any pages.");
     for (let pageNo = 1; pageNo <= totalPages; pageNo++) {
       pdf.setPage(pageNo);
       pdf.setFont("times", "normal");
@@ -5759,6 +5798,7 @@ async function downloadMergedAsPDF(includeMonkeyScout = false){
     alert("Could not generate PDF: " + (err.message || "Unknown error"));
   } finally {
     if (root && root.parentNode) root.remove();
+    if (mask && mask.parentNode) mask.remove();
     btn.disabled = false;
     btn.innerHTML = originalLabel;
   }
@@ -5767,8 +5807,8 @@ async function downloadMergedAsPDF(includeMonkeyScout = false){
 async function downloadMergedAsDocx(includeMonkeyScout = false){
   const btn = document.getElementById("downloadMergedDocxBtn");
   if (!btn) return;
-  if (typeof htmlDocx === "undefined" || typeof saveAs === "undefined") {
-    alert("Word export library not loaded. Check your internet connection and refresh the page.");
+  if (!window.docx || !window.docxHtml || !window.docxHtml.htmlToContent || typeof saveAs === "undefined") {
+    alert("The Word export library did not load. Check your internet connection and refresh the page.");
     return;
   }
   const originalLabel = btn.innerHTML;
@@ -5776,78 +5816,131 @@ async function downloadMergedAsDocx(includeMonkeyScout = false){
   btn.textContent = "Preparing Word…";
   try {
     const root = buildMergedExportDocument();
-    // Join sections with explicit Word page-break markers
-    let sections = [...root.querySelectorAll(".export-section")];
-    if (!sections.length) {
-      // Root may be a flat export — wrap whole content
-      sections = [root];
-    }
-    const bodyHtml = sections
-      .map((sec, i) => {
-        const breakBefore = i > 0
-          ? '<br clear="all" style="page-break-before:always;mso-break-type:section-break" />'
-          : "";
-        sec.querySelectorAll(".export-pagebreak").forEach(n => n.remove());
-        return breakBefore + sec.innerHTML;
-      })
-      .join("");
-    const plainProbe = bodyHtml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-    if (plainProbe.length < 40) {
-      throw new Error("Word export content is empty. Keep the paper sections visible on screen, then download again.");
-    }
-    const title = getMergedExportTitle().replace(/_/g, " ");
-    const fullHtml = `<!DOCTYPE html>
-<html xmlns:o="urn:schemas-microsoft-com:office:office"
-      xmlns:w="urn:schemas-microsoft-com:office:word"
-      xmlns="http://www.w3.org/TR/REC-html40">
-<head>
-<meta charset="utf-8">
-<title>${title}</title>
-<!--[if gte mso 9]>
-<xml>
-  <w:WordDocument>
-    <w:View>Print</w:View>
-    <w:Zoom>100</w:Zoom>
-    <w:DoNotOptimizeForBrowser/>
-  </w:WordDocument>
-</xml>
-<![endif]-->
-<style>
-  @page Section1 { size: 21cm 29.7cm; margin: 25.4mm; mso-footer: f1; }
-  div.Section1 { page: Section1; }
-  @page { size: 21cm 29.7cm; margin: 25.4mm; }
-  div#f1 { mso-element:footer; }
-  p.MsoFooter { margin:0; font-family:'Times New Roman',Times,serif; font-size:9pt; }
-  body {
-    font-family: 'Times New Roman', Times, serif;
-    font-size: 12pt;
-    line-height: 1;
-    color: #1e293b;
-  }
-  h1 { font-size: 16pt; text-align: center; margin: 18pt 0 12pt; font-family: 'Times New Roman', Times, serif; font-weight: bold; page-break-after: avoid; }
-  h2 { font-size: 14pt; margin: 14pt 0 8pt; font-family: 'Times New Roman', Times, serif; font-weight: bold; page-break-after: avoid; }
-  h3 { font-size: 12pt; margin: 12pt 0 6pt; font-family: 'Times New Roman', Times, serif; font-weight: bold; page-break-after: avoid; }
-  p { margin: 0 0 10pt; text-align: justify; line-height: 1; font-size:12pt; }
-  ul, ol { margin: 0 0 10pt 18pt; line-height: 1; font-size:12pt; }
-  li { margin: 0 0 4pt; line-height: 1; font-size:12pt; }
-  .tp-figure { text-align: center; margin: 14pt auto; page-break-inside: avoid; }
-  img { max-width: 100%; height: auto; }
-  .fig-caption, .fig-main-label { font-size: 10pt; font-weight: 600; margin-top: 6pt; display: block; text-align: center; font-family: 'Times New Roman', Times, serif; }
-  table { border-collapse: collapse; width: 100%; margin: 12pt 0; font-family: 'Times New Roman', Times, serif; font-size: 12pt; line-height: 1; }
-  th, td { border: 1px solid #334155; padding: 6pt 8pt; text-align: left; vertical-align: top; }
-  th { background: #f1f5f9; font-weight: 700; }
-  table.export-toc-table td { border: none !important; padding: 2pt 8pt 2pt 0; }
-  table.export-toc-table td:last-child { text-align: right; white-space: nowrap; width: 15%; }
-</style>
-</head>
-<body><div class="Section1">${bodyHtml}</div>
-<div id="f1"><table width="100%" cellpadding="0" cellspacing="0" style="width:100%;border:0;border-collapse:collapse;margin:0;font-family:'Times New Roman',Times,serif;font-size:9pt;"><tr><td style="border:0;padding:0;text-align:left;">${includeMonkeyScout ? 'monkey scout' : ''}</td><td style="border:0;padding:0;text-align:right;"> <span style="mso-element:field-begin"></span> PAGE <span style="mso-element:field-separator"></span>1<span style="mso-element:field-end"></span></td></tr></table></div>
-</body>
-</html>`;
-    const blob = htmlDocx.asBlob(fullHtml, {
-      orientation: "portrait",
-      margins: { top: 1440, right: 1440, bottom: 1440, left: 1440 } // 1 inch
+    const sections = [...root.querySelectorAll(":scope > .export-section")];
+    const sourceSections = sections.length ? sections : [root];
+    const plainProbe = (root.textContent || "").replace(/\s+/g, " ").trim();
+    if (plainProbe.length < 40) throw new Error("Word export content is empty. Generate and merge your sections, then try again.");
+
+    // Convert remote images to data URLs. A real DOCX must contain its image
+    // bytes; leaving a web URL in the document would create broken pictures.
+    const toDataUrl = blob => new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
     });
+    for (const img of root.querySelectorAll("img")) {
+      const src = img.getAttribute("src") || "";
+      if (!src || src.startsWith("data:")) continue;
+      try {
+        const response = await fetch(src, { mode: "cors", credentials: "omit" });
+        if (!response.ok) throw new Error("Image request failed");
+        img.setAttribute("src", await toDataUrl(await response.blob()));
+      } catch (imageError) {
+        console.warn("A figure could not be embedded in the Word file:", src, imageError);
+        // Preserve the figure caption/label even if its host blocks CORS.
+        const alt = img.getAttribute("alt") || "Figure image unavailable during export";
+        img.replaceWith(document.createTextNode("[" + alt + "]"));
+      }
+    }
+
+    const css = `
+      body { font-family: "Times New Roman"; font-size: 12pt; color: #1e293b; }
+      p, li, td, th, div { font-family: "Times New Roman"; font-size: 12pt; line-height: 1; }
+      p { margin-top: 0; margin-bottom: 8pt; text-align: justify; }
+      h1 { font-family: "Times New Roman"; font-size: 16pt; font-weight: bold; text-align: center; margin-top: 18pt; margin-bottom: 12pt; }
+      h2 { font-family: "Times New Roman"; font-size: 14pt; font-weight: bold; margin-top: 14pt; margin-bottom: 8pt; }
+      h3 { font-family: "Times New Roman"; font-size: 12pt; font-weight: bold; margin-top: 12pt; margin-bottom: 6pt; }
+      table { border-collapse: collapse; width: 100%; margin-top: 8pt; margin-bottom: 8pt; }
+      th, td { border: 1px solid #334155; padding: 5pt 6pt; vertical-align: top; }
+      .export-toc-table td { border: none; padding: 2pt 8pt 2pt 0; }
+      .export-toc-table td:last-child { text-align: right; }
+      img { max-width: 100%; height: auto; }
+      .tp-figure { text-align: center; margin: 12pt auto; }
+      .fig-caption, .fig-main-label { font-size: 10pt; text-align: center; }
+    `;
+
+    const children = [];
+    sourceSections.forEach((section, index) => {
+      if (index > 0) children.push(new docx.Paragraph({ children: [new docx.PageBreak()] }));
+      const clean = section.cloneNode(true);
+      clean.querySelectorAll(".export-pagebreak, .tp-figure-handles, .tp-handle, .page-number, .a4-footer, .document-stats").forEach(node => node.remove());
+      const html = clean.innerHTML;
+      const converted = docxHtml.htmlToContent(html, {
+        stylesheet: css,
+        maxImageWidth: 540,
+        onWarning: warning => console.warn("Word conversion note:", warning)
+      });
+      if (converted && converted.length) children.push(...converted);
+    });
+    if (!children.length) throw new Error("The Word converter could not read the paper content.");
+
+    const footer = new docx.Footer({
+      children: [new docx.Paragraph({
+        tabStops: [{ type: docx.TabStopType.RIGHT, position: 9000 }],
+        children: [
+          ...(includeMonkeyScout ? [new docx.TextRun({ text: "monkey scout", font: "Times New Roman", size: 18 })] : []),
+          new docx.Tab(),
+          docx.PageNumber.CURRENT
+        ],
+        spacing: { before: 0, after: 0, line: 240 }
+      })]
+    });
+
+    const document = new docx.Document({
+      creator: "Monkey Scout",
+      title: getMergedExportTitle().replace(/_/g, " "),
+      description: "Academic document exported from Monkey Scout",
+      styles: {
+        default: {
+          document: {
+            run: { font: "Times New Roman", size: 24 },
+            paragraph: { spacing: { line: 240, lineRule: "auto", after: 120 } }
+          }
+        },
+        paragraphStyles: [
+          {
+            id: "Heading1",
+            name: "Heading 1",
+            basedOn: "Normal",
+            next: "Normal",
+            quickFormat: true,
+            run: { font: "Times New Roman", size: 32, bold: true },
+            paragraph: { spacing: { before: 240, after: 200, line: 240, lineRule: "auto" }, alignment: "center" }
+          },
+          {
+            id: "Heading2",
+            name: "Heading 2",
+            basedOn: "Normal",
+            next: "Normal",
+            quickFormat: true,
+            run: { font: "Times New Roman", size: 28, bold: true },
+            paragraph: { spacing: { before: 240, after: 160, line: 240, lineRule: "auto" } }
+          },
+          {
+            id: "Heading3",
+            name: "Heading 3",
+            basedOn: "Normal",
+            next: "Normal",
+            quickFormat: true,
+            run: { font: "Times New Roman", size: 24, bold: true },
+            paragraph: { spacing: { before: 200, after: 120, line: 240, lineRule: "auto" } }
+          }
+        ]
+      },
+      sections: [{
+        properties: {
+          page: {
+            size: { width: 11906, height: 16838 },
+            margin: { top: 1440, right: 1440, bottom: 1440, left: 1440, footer: 540 }
+          }
+        },
+        footers: { default: footer },
+        children
+      }]
+    });
+    const blob = await docx.Packer.toBlob(document);
+    if (!blob || blob.size < 1000) throw new Error("The Word file was not generated correctly.");
     saveAs(blob, getMergedExportTitle() + ".docx");
   } catch (err) {
     console.error(err);
@@ -5857,7 +5950,6 @@ async function downloadMergedAsDocx(includeMonkeyScout = false){
     btn.innerHTML = originalLabel;
   }
 }
-
 
 
 /* ========== IMAGE / FIGURE SUPPORT ========== */
