@@ -5546,40 +5546,39 @@ function buildMergedExportDocument(){
   });
   if (!uniquePages.length) throw new Error("No merged pages found to export.");
 
-  // Force a clean academic page-break structure:
-  // - Every preliminary block (Cover, Certification, Declaration, Dedication,
-  //   Acknowledgements, Abstract, List of Figures/Tables/Abbreviations) starts
-  //   on its own page.
-  // - TOC starts on its own page.
-  // - Every Chapter starts on a new page.
-  // - Conclusion, Recommendations, References, Appendices each start on a new page.
-  // Pages that truly belong to the same long chapter stay together.
-  const FORCE_BREAK_RE = /^(cover\s*page|certification|approval|declaration|dedication|acknowledgements?|abstract|table\s*of\s*contents|list\s*of\s*(figures|tables|abbreviations)|chapter\b|conclusion|recommendations?|references?|bibliography|appendix|appendices)\b/i;
+  // Academic page structure (clean, not aggressive):
+  // - Group pages that belong to the same logical section.
+  // - Start a NEW page only when the section type changes
+  //   (e.g. Cover → Certification → Abstract → Chapter 1 → Chapter 2 → Conclusion...).
+  // - Do NOT force a page break inside a long chapter that simply continues.
+  // - This prevents the huge empty regions you saw.
+  const MAJOR_SECTION_RE = /^(cover\s*page|certification|approval|declaration|dedication|acknowledgements?|abstract|table\s*of\s*contents|list\s*of\s*(figures|tables|abbreviations)|chapter\s*\d+|chapter\s+[ivxlcdm]+|conclusion|recommendations?|references?|bibliography|appendix|appendices)\b/i;
 
-  function normalizeSectionKey(page) {
+  function getSectionMeta(page) {
     const sectionTitle = String(page.dataset.sectionTitle || "").trim();
     const isToc = page.classList.contains("toc-page") || !!(page.querySelector(".toc-row, .toc-lines"));
-    if (isToc) return { key: "__TOC__", title: "Table of Contents", isToc: true, forceBreak: true };
+    if (isToc) return { key: "__TOC__", title: "Table of Contents", isToc: true };
 
-    // Look at the first strong heading inside the page for better detection
     const headingEl = page.querySelector("h1, h2, h3, .cover-title");
-    const heading = (headingEl ? headingEl.textContent : sectionTitle || "").replace(/\s+/g, " ").trim();
-    const forceBreak = FORCE_BREAK_RE.test(heading) || FORCE_BREAK_RE.test(sectionTitle);
+    const heading = (headingEl ? headingEl.textContent : "").replace(/\s+/g, " ").trim();
+    const candidate = heading || sectionTitle || "";
 
-    // Use the heading (or section title) as the group key when it is a major section
-    const key = forceBreak
-      ? (heading || sectionTitle || ("force-" + Math.random().toString(36).slice(2, 8)))
-      : (sectionTitle || heading || ("page-continues"));
-
-    return { key, title: sectionTitle || heading, isToc: false, forceBreak };
+    // Prefer the first major heading as the section identity
+    if (MAJOR_SECTION_RE.test(candidate)) {
+      // Normalize "Chapter 1: Introduction" → "chapter-1"
+      const m = candidate.match(/^(chapter\s*\d+|chapter\s+[ivxlcdm]+|conclusion|recommendations?|references?|bibliography|appendix\s*[a-z0-9]*|cover|certification|declaration|dedication|acknowledgements?|abstract|table\s*of\s*contents|list\s*of\s*\w+)/i);
+      const key = (m ? m[1] : candidate).toLowerCase().replace(/\s+/g, "-");
+      return { key, title: candidate, isToc: false };
+    }
+    // Continuation of previous section
+    return { key: sectionTitle || "continues", title: sectionTitle || heading, isToc: false };
   }
 
   const groups = [];
   uniquePages.forEach(page => {
-    const meta = normalizeSectionKey(page);
+    const meta = getSectionMeta(page);
     const last = groups[groups.length - 1];
-    // Start a new group when the key changes OR when the current page is a forced major section
-    if (last && last.key === meta.key && !meta.forceBreak) {
+    if (last && last.key === meta.key) {
       last.pages.push(page);
     } else {
       groups.push({ key: meta.key, title: meta.title, isToc: meta.isToc, pages: [page] });
@@ -5598,6 +5597,15 @@ function buildMergedExportDocument(){
     group.pages.forEach(page => {
       const content = page.querySelector(".a4-content") || page;
       const clone = content.cloneNode(true);
+      // Remove any fixed/min heights that create huge empty regions in the export
+      clone.style.minHeight = "auto";
+      clone.style.height = "auto";
+      clone.style.padding = "0";
+      clone.style.margin = "0";
+      clone.style.boxShadow = "none";
+      clone.style.border = "none";
+      clone.style.borderRadius = "0";
+      clone.style.background = "transparent";
 
       // Strip editor UI
       clone.querySelectorAll(".tp-figure-handles, .tp-handle, .page-number, .a4-footer, .tp-image-placeholder, .document-stats").forEach(n => n.remove());
@@ -5636,13 +5644,24 @@ function buildMergedExportDocument(){
         }
       });
 
+      // Strip any leftover editor chrome (handles, selection, placeholders)
+      clone.querySelectorAll(".tp-figure-handles, .tp-handle, .page-number, .a4-footer, .tp-image-placeholder, .document-stats").forEach(n => n.remove());
+      clone.querySelectorAll(".tp-figure.selected").forEach(f => f.classList.remove("selected"));
+
       clone.querySelectorAll("img").forEach(img => {
         const src = img.getAttribute("src");
         if (src) img.setAttribute("src", src);
-        img.setAttribute("style", "max-width:100%;height:auto;display:block;margin:8pt auto;");
+        img.removeAttribute("width");
+        img.removeAttribute("height");
+        img.setAttribute("style", "max-width:92%;height:auto;display:block;margin:10pt auto 6pt auto;");
       });
       clone.querySelectorAll(".tp-figure").forEach(fig => {
-        fig.setAttribute("style", "text-align:center;margin:14pt auto;page-break-inside:avoid;");
+        // Clear breathing room so text never collides with the image
+        fig.setAttribute("style", "text-align:center;margin:18pt auto 22pt auto;page-break-inside:avoid;display:block;width:100%;max-width:100%;");
+        const cap = fig.querySelector(".fig-caption, .fig-main-label");
+        if (cap) {
+          cap.setAttribute("style", "display:block;text-align:center;font-size:10pt;font-weight:600;margin-top:6pt;margin-bottom:4pt;font-family:'Times New Roman',Times,serif;");
+        }
       });
       clone.querySelectorAll("table:not(.export-toc-table)").forEach(t => {
         t.setAttribute("style", "border-collapse:collapse;width:100%;margin:12pt 0;font-family:'Times New Roman',Times,serif;font-size:12pt;line-height:1;");
@@ -5722,11 +5741,13 @@ async function downloadMergedAsPDF(includeMonkeyScout = false){
 
     // html2canvas must measure a real, in-viewport element. The previous
     // translateX(-10000px) approach could produce a blank canvas on mobile.
-    root.style.position = "absolute";
+    // Make the export root a proper printable A4-width document
+    root.style.cssText = "";
+    root.style.position = "fixed";
     root.style.left = "0";
     root.style.top = "0";
-    root.style.width = "602px";
-    root.style.maxWidth = "602px";
+    root.style.width = "794px";          // ~A4 at 96dpi
+    root.style.maxWidth = "794px";
     root.style.margin = "0";
     root.style.padding = "0";
     root.style.boxSizing = "border-box";
@@ -5737,7 +5758,23 @@ async function downloadMergedAsPDF(includeMonkeyScout = false){
     root.style.pointerEvents = "none";
     root.style.transform = "none";
     root.style.zIndex = "2147483646";
+    root.style.overflow = "visible";
+    // Force readable typography for the canvas capture
+    root.style.fontFamily = "'Times New Roman', Times, serif";
+    root.style.fontSize = "12pt";
+    root.style.lineHeight = "1.15";
     document.body.appendChild(root);
+
+    // Ensure every section has visible text color
+    root.querySelectorAll("*").forEach(el => {
+      const cs = window.getComputedStyle(el);
+      if (cs.color === "rgba(0, 0, 0, 0)" || cs.color === "transparent") {
+        el.style.color = "#1e293b";
+      }
+      if (cs.backgroundColor === "rgba(0, 0, 0, 0)") {
+        // leave transparent
+      }
+    });
 
     // Keep the temporary capture document out of the user's way while it is
     // rendered. html2canvas captures `root` only, not this sibling mask.
@@ -5761,21 +5798,33 @@ async function downloadMergedAsPDF(includeMonkeyScout = false){
 
     const filename = getMergedExportTitle() + ".pdf";
     const opt = {
-      margin: [25.4, 25.4, 25.4, 25.4],
+      // Balanced 20 mm margins (top = bottom) so there is no huge empty region
+      margin: [20, 18, 20, 18],
       filename,
-      image: { type: "jpeg", quality: 0.98 },
+      image: { type: "jpeg", quality: 0.95 },
       html2canvas: {
         scale: 2,
         useCORS: true,
-        allowTaint: false,
+        allowTaint: true,
         logging: false,
         backgroundColor: "#ffffff",
         windowWidth: 794,
         scrollX: 0,
-        scrollY: 0
+        scrollY: 0,
+        onclone: (clonedDoc) => {
+          // Force every element in the clone to be visible and dark text
+          const rootClone = clonedDoc.getElementById("merged-export-root") || clonedDoc.body;
+          if (rootClone) {
+            rootClone.style.color = "#1e293b";
+            rootClone.style.background = "#ffffff";
+            rootClone.querySelectorAll("*").forEach(el => {
+              el.style.color = el.style.color || "#1e293b";
+            });
+          }
+        }
       },
       jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-      pagebreak: { mode: ["css", "legacy"], before: ".export-pagebreak", avoid: [".tp-figure", "h1", "h2", "h3", "table", "tr"] }
+      pagebreak: { mode: ["css", "legacy"], before: ".export-pagebreak, .export-section", avoid: [".tp-figure", "img", "h1", "h2", "h3", "table", "tr"] }
     };
 
     const worker = html2pdf().set(opt).from(root).toPdf();
@@ -5877,13 +5926,17 @@ async function downloadMergedAsDocx(includeMonkeyScout = false){
 
     const footer = new docx.Footer({
       children: [new docx.Paragraph({
-        tabStops: [{ type: docx.TabStopType.RIGHT, position: 9000 }],
+        alignment: docx.AlignmentType.CENTER,
+        border: { top: { style: docx.BorderStyle.SINGLE, size: 6, color: "CCCCCC", space: 8 } },
+        spacing: { before: 120, after: 0, line: 240 },
         children: [
-          ...(includeMonkeyScout ? [new docx.TextRun({ text: "monkey scout", font: "Times New Roman", size: 18 })] : []),
-          new docx.Tab(),
-          docx.PageNumber.CURRENT
-        ],
-        spacing: { before: 0, after: 0, line: 240 }
+          ...(includeMonkeyScout
+            ? [new docx.TextRun({ text: "monkey scout", font: "Times New Roman", size: 16, color: "666666" }),
+               new docx.TextRun({ text: "     ·     ", font: "Times New Roman", size: 16, color: "999999" })]
+            : []),
+          new docx.TextRun({ text: "Page ", font: "Times New Roman", size: 16, color: "555555" }),
+          new docx.TextRun({ children: [docx.PageNumber.CURRENT], font: "Times New Roman", size: 16, color: "555555" })
+        ]
       })]
     });
 
@@ -5932,7 +5985,8 @@ async function downloadMergedAsDocx(includeMonkeyScout = false){
         properties: {
           page: {
             size: { width: 11906, height: 16838 },
-            margin: { top: 1440, right: 1440, bottom: 1440, left: 1440, footer: 540 }
+            // Balanced margins (~0.9 inch). Footer area reserved so page numbers never collide with text
+            margin: { top: 1296, right: 1296, bottom: 1296, left: 1296, footer: 720 }
           }
         },
         footers: { default: footer },
