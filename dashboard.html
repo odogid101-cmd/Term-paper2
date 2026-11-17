@@ -2220,8 +2220,33 @@ function cleanPaperText(text){
   const lines = t.split(/\n/);
   const fixed = [];
   let i = 0;
+  let inListSection = false;
+  let listCounter = 0;
   while (i < lines.length) {
-    const m1 = lines[i].match(/^(\s*)1[.)]\s+(.+)$/);
+    const line = lines[i];
+    const trimmed = line.trim();
+    // Detect start of a recommendations-like section or any major heading that often has numbered points
+    if (/^(#{1,3}\s+)?(recommendations?|\d+\.?\s+recommendations?|conclusions?\s+and\s+recommendations?)/i.test(trimmed)) {
+      inListSection = true;
+      listCounter = 0;
+      fixed.push(line);
+      i++;
+      continue;
+    }
+    // Reset on new major heading
+    if (/^#{1,3}\s+/.test(trimmed) || /^(chapter\s+|conclusion|references|appendix)/i.test(trimmed)) {
+      inListSection = false;
+      listCounter = 0;
+    }
+    const m1 = line.match(/^(\s*)1[.)]\s+(.+)$/);
+    if (m1 && (inListSection || listCounter > 0)) {
+      listCounter++;
+      const indent = m1[1];
+      fixed.push(`${indent}${listCounter}. ${m1[2]}`);
+      i++;
+      continue;
+    }
+    // Original consecutive block renumbering for other cases
     if (m1) {
       const indent = m1[1];
       const block = [m1[2]];
@@ -2237,13 +2262,48 @@ function cleanPaperText(text){
         continue;
       }
     }
-    fixed.push(lines[i]);
+    fixed.push(line);
     i++;
   }
   return fixed.join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
 // Improved markdown -> HTML
+
+/** Renumber repeated "1." items inside Recommendations (and similar) sections in rendered HTML. */
+function renumberRecommendationLists(root) {
+  if (!root) return;
+  const headings = root.querySelectorAll("h1, h2, h3, .a4-content h2, .a4-content h3");
+  headings.forEach(h => {
+    const text = (h.textContent || "").trim().toLowerCase();
+    if (!/recommendation|recommendations/.test(text)) return;
+    let counter = 0;
+    let el = h.nextElementSibling;
+    while (el && !/^H[1-3]$/.test(el.tagName || "")) {
+      if (el.tagName === "OL" || el.tagName === "UL") {
+        el.querySelectorAll(":scope > li").forEach(li => {
+          const t = (li.textContent || "").trim();
+          if (/^1[.)]\s/.test(t) || counter > 0) {
+            counter++;
+            // Replace leading 1. with the correct number if present
+            const first = li.childNodes[0];
+            if (first && first.nodeType === 3 && /^1[.)]\s/.test(first.textContent)) {
+              first.textContent = first.textContent.replace(/^1[.)]\s/, counter + ". ");
+            }
+          }
+        });
+      } else if (el.tagName === "P" || el.tagName === "DIV") {
+        const t = (el.textContent || "").trim();
+        if (/^1[.)]\s/.test(t)) {
+          counter++;
+          el.innerHTML = el.innerHTML.replace(/^1[.)]\s/, counter + ". ");
+        }
+      }
+      el = el.nextElementSibling;
+    }
+  });
+}
+
 function markdownToHTML(markdown) {
   if (!markdown) return "";
   const lines = String(markdown).replace(/\r/g, "").split("\n");
@@ -4688,6 +4748,7 @@ function expandJammedTocText(tocText){
     return t;
   };
   return plain.split(/\n/).map(line => {
+    // First, expand jammed end-matter
     const hits = [];
     let m;
     const re = new RegExp(endRe.source, "gi");
@@ -4697,8 +4758,21 @@ function expandJammedTocText(tocText){
     const distinct = [];
     hits.forEach(h => { if(!distinct.find(d => d.title === h.title)) distinct.push(h); });
     if(distinct.length >= 2){
-      // Preserve relative order of first occurrence of each title
       return distinct.map(h => h.page ? `${h.title}  ........  ${h.page}` : h.title).join("\n");
+    }
+    // Also expand jammed preliminary titles on one line (Cover Page Certification ... Abstract)
+    const prelimRe = /(cover\s*page|certification(?:\s*\/\s*approval)?(?:\s*page)?|declaration|dedication|acknowledg(?:e)?ments?|abstract|list\s+of\s+(?:tables|figures|abbreviations|symbols)|table\s+of\s+contents)/gi;
+    const pHits = [];
+    let pm;
+    const pre = new RegExp(prelimRe.source, "gi");
+    while ((pm = pre.exec(line)) !== null) {
+      pHits.push(pm[1].replace(/\s+/g, " ").trim());
+    }
+    if (pHits.length >= 3 && line.length > 80) {
+      // Likely jammed prelims; split into separate lines (page number if present at end)
+      const pageMatch = line.match(/\s+([ivxlcdm]+|\d+)\s*$/i);
+      const page = pageMatch ? pageMatch[1] : "";
+      return pHits.map(t => page ? `${t}  ........  ${page}` : t).join("\n");
     }
     return line;
   }).join("\n");
@@ -4944,6 +5018,7 @@ function rerenderWorkflowSection(container, raw, opts={}){
   const pageOpts = {kind, startPage};
   if (kind === "toc") pageOpts.plainToc = content;
   container.innerHTML = heading + createA4Pages(workflowContentHTML(content), words, pageOpts) + actions;
+  try { renumberRecommendationLists(container); } catch (_) {}
   container.dataset.pageCount = String(
     kind === "toc"
       ? (packTocPages(formatTOCHTMLFromPlain(content, {showHeading:false})).length || 1)
@@ -5063,6 +5138,7 @@ function addWorkflowSection(data,isInitial=false){
   const isToc=kind==="toc";
   const actions=workflowActionsHTML(kind);
   container.innerHTML=`<div data-section-heading style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(data.title||"Generated section")}</div>${createA4Pages(workflowContentHTML(content),words,{kind,startPage:start})}<div class="workflow-output-actions">${actions}</div>`;
+  try { renumberRecommendationLists(container); } catch (_) {}
   Object.assign(container.dataset,{title:data.title||"Generated section",raw:content,kind,projectId:String(data.project_id||activePaperProjectId||""),tocCode:data.toc_code||activeTocCode||"",pageStart:kind==="preliminary"?"i":String(start)});
   if(!isToc)container.dataset.orderNo=String(data.order_no??0);
   ensureWorkflowDelegation();
@@ -5909,22 +5985,68 @@ async function downloadMergedAsDocx(includeMonkeyScout = false){
       .fig-caption, .fig-main-label { font-size: 10pt; text-align: center; }
     `;
 
-    const children = [];
-    sourceSections.forEach((section, index) => {
-      if (index > 0) children.push(new docx.Paragraph({ children: [new docx.PageBreak()] }));
-      const clean = section.cloneNode(true);
-      clean.querySelectorAll(".export-pagebreak, .tp-figure-handles, .tp-handle, .page-number, .a4-footer, .document-stats").forEach(node => node.remove());
-      const html = clean.innerHTML;
-      const converted = docxHtml.htmlToContent(html, {
+    // Build separate page groups for proper academic numbering:
+    // Cover (no numbers) → Preliminaries (i, ii, iii...) → Body (1, 2, 3...)
+    const allPages = [];
+    sourceSections.forEach(sec => {
+      const pagesInSec = [...sec.querySelectorAll(".a4-page, .merged-page")];
+      if (pagesInSec.length) allPages.push(...pagesInSec);
+      else allPages.push(sec); // fallback
+    });
+
+    const coverPages = [];
+    const prelimPages = [];
+    const bodyPages = [];
+    let seenBody = false;
+    allPages.forEach(page => {
+      const isCover = page.classList.contains("cover-page") || /cover/i.test(page.dataset.sectionTitle || "") || /cover/i.test((page.querySelector("h1,h2")||{}).textContent || "");
+      const isPrelim = page.classList.contains("preliminary-page") || page.classList.contains("toc-page") || page.classList.contains("cover-page");
+      if (isCover && !coverPages.length && !seenBody) {
+        coverPages.push(page);
+      } else if (!seenBody && (isPrelim || page.classList.contains("toc-page"))) {
+        prelimPages.push(page);
+      } else {
+        seenBody = true;
+        bodyPages.push(page);
+      }
+    });
+    // If no explicit cover detected, treat first page as cover
+    if (!coverPages.length && allPages.length) {
+      coverPages.push(allPages[0]);
+      if (prelimPages[0] === allPages[0]) prelimPages.shift();
+    }
+
+    function pagesToChildren(pageList) {
+      if (!pageList.length) return [];
+      const wrapper = document.createElement("div");
+      pageList.forEach((p, i) => {
+        if (i > 0) {
+          const br = document.createElement("div");
+          br.className = "export-pagebreak";
+          br.innerHTML = "&nbsp;";
+          wrapper.appendChild(br);
+        }
+        const clean = p.cloneNode(true);
+        clean.querySelectorAll(".export-pagebreak, .tp-figure-handles, .tp-handle, .page-number, .a4-footer, .document-stats, .page-number").forEach(node => node.remove());
+        wrapper.appendChild(clean);
+      });
+      const converted = docxHtml.htmlToContent(wrapper.innerHTML, {
         stylesheet: css,
         maxImageWidth: 540,
         onWarning: warning => console.warn("Word conversion note:", warning)
       });
-      if (converted && converted.length) children.push(...converted);
-    });
-    if (!children.length) throw new Error("The Word converter could not read the paper content.");
+      return converted || [];
+    }
 
-    const footer = new docx.Footer({
+    const coverChildren = pagesToChildren(coverPages);
+    const prelimChildren = pagesToChildren(prelimPages);
+    const bodyChildren = pagesToChildren(bodyPages);
+
+    if (!coverChildren.length && !prelimChildren.length && !bodyChildren.length) {
+      throw new Error("The Word converter could not read the paper content.");
+    }
+
+    const makeFooter = (showNumber = true) => new docx.Footer({
       children: [new docx.Paragraph({
         alignment: docx.AlignmentType.CENTER,
         border: { top: { style: docx.BorderStyle.SINGLE, size: 6, color: "CCCCCC", space: 8 } },
@@ -5934,11 +6056,51 @@ async function downloadMergedAsDocx(includeMonkeyScout = false){
             ? [new docx.TextRun({ text: "monkey scout", font: "Times New Roman", size: 16, color: "666666" }),
                new docx.TextRun({ text: "     ·     ", font: "Times New Roman", size: 16, color: "999999" })]
             : []),
-          new docx.TextRun({ text: "Page ", font: "Times New Roman", size: 16, color: "555555" }),
-          new docx.TextRun({ children: [docx.PageNumber.CURRENT], font: "Times New Roman", size: 16, color: "555555" })
+          ...(showNumber ? [
+            new docx.TextRun({ text: "Page ", font: "Times New Roman", size: 16, color: "555555" }),
+            new docx.TextRun({ children: [docx.PageNumber.CURRENT], font: "Times New Roman", size: 16, color: "555555" })
+          ] : [])
         ]
       })]
     });
+
+    const pageSize = {
+      size: { width: 11906, height: 16838 },
+      margin: { top: 1296, right: 1296, bottom: 1296, left: 1296, footer: 720 }
+    };
+
+    const docxSections = [];
+    if (coverChildren.length) {
+      docxSections.push({
+        properties: { page: pageSize },
+        footers: { default: makeFooter(false) }, // no page number on cover
+        children: coverChildren
+      });
+    }
+    if (prelimChildren.length) {
+      docxSections.push({
+        properties: {
+          page: {
+            ...pageSize,
+            pageNumbers: { start: 1, formatType: (docx.NumberFormat && docx.NumberFormat.LOWER_ROMAN) || "lowerRoman" }
+          }
+        },
+        footers: { default: makeFooter(true) },
+        children: prelimChildren
+      });
+    }
+    if (bodyChildren.length) {
+      docxSections.push({
+        properties: {
+          page: {
+            ...pageSize,
+            pageNumbers: { start: 1, formatType: (docx.NumberFormat && docx.NumberFormat.DECIMAL) || "decimal" }
+          }
+        },
+        footers: { default: makeFooter(true) },
+        children: bodyChildren
+      });
+    }
 
     const document = new docx.Document({
       creator: "Monkey Scout",
@@ -5981,18 +6143,9 @@ async function downloadMergedAsDocx(includeMonkeyScout = false){
           }
         ]
       },
-      sections: [{
-        properties: {
-          page: {
-            size: { width: 11906, height: 16838 },
-            // Balanced margins (~0.9 inch). Footer area reserved so page numbers never collide with text
-            margin: { top: 1296, right: 1296, bottom: 1296, left: 1296, footer: 720 }
-          }
-        },
-        footers: { default: footer },
-        children
-      }]
+      sections: docxSections
     });
+
     const blob = await docx.Packer.toBlob(document);
     if (!blob || blob.size < 1000) throw new Error("The Word file was not generated correctly.");
     saveAs(blob, getMergedExportTitle() + ".docx");
