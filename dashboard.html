@@ -2256,16 +2256,33 @@ function markdownToHTML(markdown) {
   };
   const expandJammedTableLine = (line) => {
     const t = String(line || "").trim();
-    const sepRe = /\|\s*:?-{2,}:?(?:\s*\|\s*:?-{2,}:?)+\s*\|/g;
-    if (!sepRe.test(t) && !/\|\s*-{2,}\s*\|/.test(t)) {
-      return [splitTableCells(t)];
+    // Split on markdown separator rows first (keeps the separator as its own row)
+    const sepRe = /(\|\s*:?-{2,}:?(?:\s*\|\s*:?-{2,}:?)+\s*\|)/g;
+    let parts;
+    if (sepRe.test(t) || /\|\s*-{2,}\s*\|/.test(t)) {
+      parts = t.split(/(\|\s*:?-{2,}:?(?:\s*\|\s*:?-{2,}:?)+\s*\|)/);
+    } else {
+      parts = [t];
     }
-    const chunks = t.split(/(\|\s*:?-{2,}:?(?:\s*\|\s*:?-{2,}:?)+\s*\|)/);
     const rows = [];
-    for (const chunk of chunks) {
-      const c = chunk.trim();
+    for (const part of parts) {
+      const c = String(part || "").trim();
       if (!c) continue;
-      rows.push(splitTableCells(c));
+      // Data rows sometimes jammed as: | a | b | c | | d | e | f |
+      // Split on empty-cell boundaries between consecutive pipes
+      const subParts = c.split(/\|\s*\|/).map(s => s.trim()).filter(Boolean);
+      if (subParts.length > 1) {
+        for (const sp of subParts) {
+          let chunk = sp;
+          if (!chunk.startsWith("|")) chunk = "|" + chunk;
+          if (!chunk.endsWith("|")) chunk = chunk + "|";
+          const cells = splitTableCells(chunk);
+          if (cells.length) rows.push(cells);
+        }
+      } else {
+        const cells = splitTableCells(c);
+        if (cells.length) rows.push(cells);
+      }
     }
     return rows.length ? rows : [splitTableCells(t)];
   };
@@ -2280,31 +2297,125 @@ function markdownToHTML(markdown) {
   };
   const flushTable = () => {
     if (!tableRows.length) return;
-    const cleaned = [];
-    let headerIdx = -1;
+    // Normalize: drop pure separator rows, note header, and chunk oversized rows
+    const preliminary = [];
+    let sawSeparatorAfterFirst = false;
     for (let i = 0; i < tableRows.length; i++) {
       if (isSeparatorRow(tableRows[i])) {
-        if (cleaned.length === 1) headerIdx = 0;
+        if (preliminary.length === 1) sawSeparatorAfterFirst = true;
         continue;
       }
       if (tableRows[i].every(c => !String(c).trim())) continue;
-      cleaned.push(tableRows[i]);
+      preliminary.push(tableRows[i]);
     }
+    if (!preliminary.length) { tableRows = []; return; }
+
+    // Prefer column count from the first row (header) when a separator was present
+    let colCount = preliminary[0].length;
+    if (!sawSeparatorAfterFirst) {
+      // Heuristic: pick the most common positive length among short rows
+      const counts = {};
+      preliminary.forEach(r => {
+        const n = r.filter(c => String(c).trim()).length || r.length;
+        if (n >= 2 && n <= 8) counts[n] = (counts[n] || 0) + 1;
+      });
+      const best = Object.keys(counts).map(Number).sort((a, b) => counts[b] - counts[a] || a - b)[0];
+      if (best) colCount = best;
+    }
+    colCount = Math.max(2, colCount || 2);
+
+    const cleaned = [];
+    preliminary.forEach(cells => {
+      // Split a jammed row that is a multiple of colCount into several rows
+      if (cells.length > colCount && cells.length % colCount === 0) {
+        for (let i = 0; i < cells.length; i += colCount) {
+          cleaned.push(cells.slice(i, i + colCount));
+        }
+        return;
+      }
+      // Also split when extra empty cells act as row delimiters
+      if (cells.length > colCount) {
+        const chunks = [];
+        let buf = [];
+        for (let i = 0; i < cells.length; i++) {
+          const val = cells[i];
+          if (!String(val).trim() && buf.length >= colCount) {
+            chunks.push(buf.slice(0, colCount));
+            buf = buf.slice(colCount);
+            // skip this empty delimiter cell
+            continue;
+          }
+          buf.push(val);
+          if (buf.length === colCount) {
+            chunks.push(buf);
+            buf = [];
+          }
+        }
+        if (buf.length) {
+          while (buf.length < colCount) buf.push("");
+          chunks.push(buf.slice(0, colCount));
+        }
+        if (chunks.length > 1) {
+          chunks.forEach(ch => cleaned.push(ch));
+          return;
+        }
+      }
+      cleaned.push(cells);
+    });
+
     if (!cleaned.length) { tableRows = []; return; }
-    if (headerIdx < 0 && cleaned.length >= 1) headerIdx = 0;
-    const colCount = cleaned[headerIdx] ? cleaned[headerIdx].length : Math.max(...cleaned.map(r => r.length));
+    const headerIdx = 0;
     const pad = (cells) => {
       const next = cells.slice(0, colCount);
       while (next.length < colCount) next.push("");
       return next;
     };
-    let html = '<div class="tp-table-wrap"><table class="tp-table"><thead>';
+
+    // Detect academic table label from first header cell (e.g. "Table C.1", "Table 3.2: Title")
+    let tableCaption = "";
+    let headerCells = pad(cleaned[headerIdx] || []);
+    const firstCell = String(headerCells[0] || "").trim();
+    const labelMatch = firstCell.match(/^(?:Table|Tbl\.?)\s*([\d.A-Za-z]+)(?:\s*[:.\-–—]\s*(.*))?$/i);
+    if (labelMatch && headerCells.length >= 2) {
+      // First column is the table id; remaining header cells are column titles
+      const id = labelMatch[1];
+      const restTitle = (labelMatch[2] || "").trim();
+      const extraTitles = headerCells.slice(1).map(c => String(c).trim()).filter(Boolean);
+      const captionTitle = restTitle || extraTitles.join(" / ");
+      tableCaption = `Table ${id}${captionTitle ? ": " + captionTitle : ""}`;
+      // If the first cell was only "Table C.1" and the rest are real column headers, drop id from header row
+      if (!restTitle && extraTitles.length) {
+        headerCells = headerCells.slice(1);
+        while (headerCells.length < colCount - 1) headerCells.push("");
+        // shrink colCount for data rows consistency when we dropped the id column
+        // Keep original colCount; pad data rows as before — only adjust displayed header
+      }
+    } else if (labelMatch && headerCells.length === 1) {
+      tableCaption = `Table ${labelMatch[1]}${labelMatch[2] ? ": " + labelMatch[2] : ""}`;
+    }
+
+    let html = "";
+    if (tableCaption) {
+      html += `<p class="table-caption" style="font-family:Inter,sans-serif;font-weight:700;font-size:13px;color:#0f172a;margin:14px 0 8px;text-align:left">${inline(tableCaption)}</p>`;
+    }
+    html += '<div class="tp-table-wrap"><table class="tp-table"><thead>';
     cleaned.forEach((cells, ri) => {
-      const row = pad(cells);
+      let row = pad(cells);
+      if (ri === headerIdx && tableCaption && labelMatch && !labelMatch[2] && pad(cleaned[headerIdx]).length >= 2) {
+        // Show column headers without repeating the Table id in the first th when caption already carries it
+        row = pad(cleaned[headerIdx]).slice(1);
+        while (row.length < Math.max(1, colCount - 1)) row.push("");
+      }
       if (ri === headerIdx) {
         html += "<tr>" + row.map(c => `<th>${inline(c)}</th>`).join("") + "</tr></thead><tbody>";
       } else {
-        html += "<tr>" + row.map(c => `<td>${inline(c)}</td>`).join("") + "</tr>";
+        // If we dropped the id column from the header, also drop first data cell when it is a bare row index matching table style
+        let dataRow = row;
+        if (tableCaption && labelMatch && !labelMatch[2] && pad(cleaned[headerIdx]).length >= 2 && dataRow.length === colCount) {
+          // keep all data cells — row index is useful
+          dataRow = row;
+        }
+        html += "<tr>" + dataRow.map(c => `<td>${inline(c)}</td>`).join("") + "</tr>";
       }
     });
     if (headerIdx >= 0) html += "</tbody>";
@@ -2724,10 +2835,13 @@ function splitFigureEntries(line){
 function isFigureLabel(label){
   return /^(?:Fig\.?|Figure)\s*[\d.]+/i.test(String(label || "").trim());
 }
+function isTableLabel(label){
+  return /^(?:Table|Tbl\.?)\s*[\d.A-Za-z]+/i.test(String(label || "").trim());
+}
 /** Build TOC rows from the same plain-text source Edit uses (one title per line, optional ...... page). */
 function formatTOCHTMLFromPlain(plainText, options){
   const showHeading = !options || options.showHeading !== false;
-  const prelim = [], body = [], end = [], figures = [];
+  const prelim = [], body = [], end = [], figures = [], tables = [];
   const seen = new Map(); // key -> entry object (so we can upgrade a page-less row)
   const push = (entry) => {
     let label = stripTocMarkdownNoise(entry.label || "");
@@ -2771,6 +2885,7 @@ function formatTOCHTMLFromPlain(plainText, options){
     const final = {label, page};
     seen.set(key, final);
     if (isFigureLabel(label)) figures.push(final);
+    else if (isTableLabel(label)) tables.push(final);
     else if (isPreliminaryLabel(label)) prelim.push(final);
     else if (isEndMatterLabel(label) || isStrictEndMatterTitle(label)) end.push(final);
     else body.push(final);
@@ -2811,18 +2926,36 @@ function formatTOCHTMLFromPlain(plainText, options){
   end.sort((a, b) => endMatterOrder(a.label) - endMatterOrder(b.label));
   prelim.sort((a, b) => prelimOrder(a.label) - prelimOrder(b.label));
 
+  // Sort table labels (Table 1.1, Table C.1, etc.)
+  tables.sort((a,b) => {
+    const ma = String(a.label).match(/([A-Za-z]?)\s*(\d+)(?:\.(\d+))?/);
+    const mb = String(b.label).match(/([A-Za-z]?)\s*(\d+)(?:\.(\d+))?/);
+    if (ma && mb) {
+      const ca = parseInt(ma[2],10), cb = parseInt(mb[2],10);
+      if (ca !== cb) return ca - cb;
+      return parseInt(ma[3]||"0",10) - parseInt(mb[3]||"0",10);
+    }
+    return a.label.localeCompare(b.label);
+  });
+
   const ordered = [];
   let figuresInserted = false;
+  let tablesInserted = false;
   for (const entry of prelim) {
+    // Skip bare "List of Tables/Figures" headers here; we inject them with entries
+    if (/^list of (tables|figures)$/i.test(entry.label)) continue;
     ordered.push(entry);
-    if (!figuresInserted && /^list of figures$/i.test(entry.label)) {
-      ordered.push(...figures);
-      figuresInserted = true;
-    }
   }
-  if (!figuresInserted && figures.length) {
+  // Always place List of Tables then List of Figures after other prelims (before chapters)
+  if (tables.length) {
+    ordered.push({ label: "List of Tables", page: "" });
+    ordered.push(...tables);
+    tablesInserted = true;
+  }
+  if (figures.length) {
     ordered.push({ label: "List of Figures", page: "" });
     ordered.push(...figures);
+    figuresInserted = true;
   }
   ordered.push(...body, ...end);
   const rows = [];
@@ -2884,6 +3017,7 @@ function formatTOCHTML(bodyHtml, options){
     const final = {label, page};
     seen.set(key, final);
     if (isFigureLabel(label)) figures.push(final);
+    else if (isTableLabel(label)) tables.push(final);
     else if (isPreliminaryLabel(label)) prelim.push(final);
     else if (isEndMatterLabel(label) || isStrictEndMatterTitle(label)) end.push(final);
     else body.push(final);
@@ -2963,18 +3097,36 @@ function formatTOCHTML(bodyHtml, options){
   } catch (e) { /* preliminary pages may not be mounted yet */ }
   // Insert figure rows immediately after the "List of Figures" prelim title so the
   // LOF is arranged like List of Tables / chapters (one entry per row with page #).
+  // Sort table labels (Table 1.1, Table C.1, etc.)
+  tables.sort((a,b) => {
+    const ma = String(a.label).match(/([A-Za-z]?)\s*(\d+)(?:\.(\d+))?/);
+    const mb = String(b.label).match(/([A-Za-z]?)\s*(\d+)(?:\.(\d+))?/);
+    if (ma && mb) {
+      const ca = parseInt(ma[2],10), cb = parseInt(mb[2],10);
+      if (ca !== cb) return ca - cb;
+      return parseInt(ma[3]||"0",10) - parseInt(mb[3]||"0",10);
+    }
+    return a.label.localeCompare(b.label);
+  });
+
   const ordered = [];
   let figuresInserted = false;
+  let tablesInserted = false;
   for (const entry of prelim) {
+    // Skip bare "List of Tables/Figures" headers here; we inject them with entries
+    if (/^list of (tables|figures)$/i.test(entry.label)) continue;
     ordered.push(entry);
-    if (!figuresInserted && /^list of figures$/i.test(entry.label)) {
-      ordered.push(...figures);
-      figuresInserted = true;
-    }
   }
-  if (!figuresInserted && figures.length) {
+  // Always place List of Tables then List of Figures after other prelims (before chapters)
+  if (tables.length) {
+    ordered.push({ label: "List of Tables", page: "" });
+    ordered.push(...tables);
+    tablesInserted = true;
+  }
+  if (figures.length) {
     ordered.push({ label: "List of Figures", page: "" });
     ordered.push(...figures);
+    figuresInserted = true;
   }
   ordered.push(...body, ...end);
   const rows = [];
@@ -4800,10 +4952,85 @@ function addWorkflowStatus(message){
   chatArea.appendChild(el);
 }
 
+function repairPipeTablesInHTML(html){
+  // If rich HTML still contains raw markdown pipe tables (common when AI jammed rows),
+  // convert those text nodes/paragraphs into proper <table class="tp-table"> blocks.
+  const tmp = document.createElement("div");
+  tmp.innerHTML = String(html || "");
+  const looksLikeTableLine = (t) => {
+    const s = String(t || "").trim();
+    if (!s.includes("|")) return false;
+    const pipes = (s.match(/\|/g) || []).length;
+    return pipes >= 2 && (/^\|/.test(s) || /\|\s*$/.test(s) || pipes >= 3);
+  };
+  const isSep = (t) => /^\|?\s*:?-{2,}:?(?:\s*\|\s*:?-{2,}:?)+\s*\|?$/.test(String(t || "").trim());
+
+  // Collect consecutive paragraphs / text blocks that form a markdown table
+  const blocks = [...tmp.childNodes];
+  let i = 0;
+  while (i < blocks.length) {
+    const node = blocks[i];
+    if (!node || node.nodeType !== 1) { i++; continue; }
+    // Skip existing tables
+    if (node.matches && (node.matches("table") || node.matches(".tp-table-wrap") || node.querySelector("table"))) {
+      i++; continue;
+    }
+    const text = (node.textContent || "").trim();
+    if (!looksLikeTableLine(text) && !text.split("\n").some(looksLikeTableLine)) { i++; continue; }
+
+    // Gather a run of table-looking siblings
+    const run = [node];
+    let j = i + 1;
+    while (j < blocks.length) {
+      const n2 = blocks[j];
+      if (!n2) break;
+      if (n2.nodeType === 3 && !String(n2.textContent || "").trim()) { j++; continue; }
+      if (n2.nodeType !== 1) break;
+      if (n2.matches && (n2.matches("table") || n2.matches(".tp-table-wrap"))) break;
+      const t2 = (n2.textContent || "").trim();
+      if (!t2) { run.push(n2); j++; continue; }
+      if (looksLikeTableLine(t2) || isSep(t2) || t2.split("\n").some(looksLikeTableLine)) {
+        run.push(n2); j++; continue;
+      }
+      break;
+    }
+    const combined = run.map(n => (n.textContent || "").trim()).filter(Boolean).join("\n");
+    // Re-parse through markdownToHTML so jammed rows expand correctly
+    const parsed = markdownToHTML(combined);
+    if (parsed.includes("<table")) {
+      const holder = document.createElement("div");
+      holder.innerHTML = parsed;
+      const first = run[0];
+      const parent = first.parentNode;
+      if (parent) {
+        [...holder.childNodes].forEach(ch => parent.insertBefore(ch, first));
+        run.forEach(n => n.remove());
+      }
+      // refresh blocks list after mutation
+      blocks.splice(0, blocks.length, ...tmp.childNodes);
+      i = 0;
+      continue;
+    }
+    i = j;
+  }
+  return tmp.innerHTML;
+}
+
 function workflowContentHTML(value){
   const marker="[[TEMPAPER_RICH_HTML]]";
   const raw=String(value||"");
-  return raw.startsWith(marker)?raw.slice(marker.length):markdownToHTML(cleanPaperText(raw));
+  if (raw.startsWith(marker)) {
+    const html = raw.slice(marker.length);
+    // Repair any leftover pipe-markdown tables so PDF/Word get real grids
+    if (/\|.+\|/.test(html) && !/<table[\s>]/i.test(html)) {
+      return repairPipeTablesInHTML(html);
+    }
+    if (/\|.+\|/.test(html) && /<p[^>]*>\s*\|/.test(html)) {
+      return repairPipeTablesInHTML(html);
+    }
+    return html;
+  }
+  return markdownToHTML(cleanPaperText(raw));
 }
 
 function addWorkflowSection(data,isInitial=false){
@@ -5261,7 +5488,7 @@ function buildMergedExportDocument(){
 
   const doc = document.createElement("div");
   doc.id = "merged-export-root";
-  doc.setAttribute("style", "background:#ffffff;color:#1e293b;font-family:Georgia,'Times New Roman',serif;font-size:12pt;line-height:1.7;");
+  doc.setAttribute("style", "background:#ffffff;color:#1e293b;font-family:'Times New Roman',Times,serif;font-size:12pt;line-height:1.5;");
 
   const pages = [...source.querySelectorAll(":scope > .a4-page, :scope > .merged-page")];
   if (!pages.length) throw new Error("No merged pages found to export.");
@@ -5338,10 +5565,22 @@ function buildMergedExportDocument(){
         fig.setAttribute("style", "text-align:center;margin:14pt auto;page-break-inside:avoid;");
       });
       clone.querySelectorAll("table:not(.export-toc-table)").forEach(t => {
-        t.setAttribute("style", "border-collapse:collapse;width:100%;margin:12pt 0;");
-        t.querySelectorAll("th,td").forEach(cell => {
-          cell.setAttribute("style", "border:1px solid #94a3b8;padding:6pt 8pt;text-align:left;vertical-align:top;");
+        t.setAttribute("style", "border-collapse:collapse;width:100%;margin:12pt 0;font-family:'Times New Roman',Times,serif;font-size:11pt;line-height:1.35;");
+        t.querySelectorAll("th").forEach(cell => {
+          cell.setAttribute("style", "border:1px solid #334155;padding:6pt 8pt;text-align:left;vertical-align:top;background:#f1f5f9;font-weight:700;");
         });
+        t.querySelectorAll("td").forEach(cell => {
+          cell.setAttribute("style", "border:1px solid #334155;padding:6pt 8pt;text-align:left;vertical-align:top;");
+        });
+      });
+      // Ensure body text uses Times + 1.5 spacing in PDF/Word capture
+      clone.querySelectorAll("p, li").forEach(el => {
+        const prev = el.getAttribute("style") || "";
+        el.setAttribute("style", (prev ? prev + ";" : "") + "font-family:'Times New Roman',Times,serif;line-height:1.5;");
+      });
+      clone.querySelectorAll("h1,h2,h3").forEach(el => {
+        const prev = el.getAttribute("style") || "";
+        el.setAttribute("style", (prev ? prev + ";" : "") + "font-family:'Times New Roman',Times,serif;");
       });
 
       section.appendChild(clone);
@@ -5461,22 +5700,22 @@ async function downloadMergedAsDocx(){
 <style>
   @page { size: A4; margin: 25.4mm; }
   body {
-    font-family: Georgia, 'Times New Roman', serif;
+    font-family: 'Times New Roman', Times, serif;
     font-size: 12pt;
-    line-height: 1.7;
+    line-height: 1.5;
     color: #1e293b;
   }
-  h1 { font-size: 18pt; text-align: center; margin: 18pt 0 12pt; font-family: Arial, sans-serif; page-break-after: avoid; }
-  h2 { font-size: 14pt; margin: 14pt 0 8pt; font-family: Arial, sans-serif; page-break-after: avoid; }
-  h3 { font-size: 12pt; margin: 12pt 0 6pt; font-family: Arial, sans-serif; page-break-after: avoid; }
-  p { margin: 0 0 10pt; text-align: justify; }
-  ul, ol { margin: 0 0 10pt 18pt; }
-  li { margin: 0 0 4pt; }
+  h1 { font-size: 16pt; text-align: center; margin: 18pt 0 12pt; font-family: 'Times New Roman', Times, serif; font-weight: bold; page-break-after: avoid; }
+  h2 { font-size: 14pt; margin: 14pt 0 8pt; font-family: 'Times New Roman', Times, serif; font-weight: bold; page-break-after: avoid; }
+  h3 { font-size: 12pt; margin: 12pt 0 6pt; font-family: 'Times New Roman', Times, serif; font-weight: bold; page-break-after: avoid; }
+  p { margin: 0 0 10pt; text-align: justify; line-height: 1.5; }
+  ul, ol { margin: 0 0 10pt 18pt; line-height: 1.5; }
+  li { margin: 0 0 4pt; line-height: 1.5; }
   .tp-figure { text-align: center; margin: 14pt auto; page-break-inside: avoid; }
   img { max-width: 100%; height: auto; }
-  .fig-caption, .fig-main-label { font-size: 10pt; font-weight: 600; margin-top: 6pt; display: block; text-align: center; }
-  table { border-collapse: collapse; width: 100%; margin: 12pt 0; }
-  th, td { border: 1px solid #94a3b8; padding: 6pt 8pt; text-align: left; vertical-align: top; }
+  .fig-caption, .fig-main-label { font-size: 10pt; font-weight: 600; margin-top: 6pt; display: block; text-align: center; font-family: 'Times New Roman', Times, serif; }
+  table { border-collapse: collapse; width: 100%; margin: 12pt 0; font-family: 'Times New Roman', Times, serif; font-size: 11pt; line-height: 1.35; }
+  th, td { border: 1px solid #334155; padding: 6pt 8pt; text-align: left; vertical-align: top; }
   th { background: #f1f5f9; font-weight: 700; }
   table.export-toc-table td { border: none !important; padding: 2pt 8pt 2pt 0; }
   table.export-toc-table td:last-child { text-align: right; white-space: nowrap; width: 15%; }
