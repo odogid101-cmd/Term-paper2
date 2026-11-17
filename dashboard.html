@@ -5192,6 +5192,7 @@ function renderMergedPaper(value){
 }
 
 function getMergedExportTitle(){
+  // Prefer the saved term-paper topic, never prompt/TOC codes.
   let base = String(activePaperTitle || "").trim();
   if (!base || /^(prompt|toc)\b/i.test(base) || /^[A-Z0-9]{5}(\s+[A-Z0-9]{5})?$/.test(base)) {
     const heading = (document.querySelector("#mergedPaperOutput .merged-paper-heading")?.textContent || "").trim();
@@ -5214,87 +5215,45 @@ function getMergedExportTitle(){
     .slice(0, 100) || "Complete_Term_Paper";
 }
 
+/** Word/PDF-safe page break marker. */
 function exportPageBreakHTML(){
-  // Word-friendly hard page break
-  return '<br clear="all" style="page-break-before:always;mso-break-type:section-break" />';
+  return '<div class="export-pagebreak" style="page-break-after:always;break-after:page;height:0;margin:0;padding:0;line-height:0;font-size:0;">&nbsp;</div>';
 }
 
-/** Major preliminary headings that must each start on their own page. */
-const EXPORT_PRELIM_HEADING_RE = /^(cover\s*page|title\s*page|certification(?:\s*\/\s*approval)?|declaration|dedication|acknowledg(?:e)?ments?|abstract|table of contents|list of (?:tables|figures|abbreviations|symbols)|preface|foreword)\b/i;
-
 /**
- * Build TOC as normal paragraphs (title …… page), not a table.
- * Word renders this like a classic academic TOC.
+ * Convert a live .toc-row into a 2-column table so Word keeps the title and
+ * page number on the same line without gluing them together.
  */
-function exportTocAsParagraphs(container){
+function exportTocRowsAsTable(container){
   const rows = [...container.querySelectorAll(".toc-row")];
   if (!rows.length) return null;
-  const wrap = document.createElement("div");
-  wrap.className = "export-toc";
+  const table = document.createElement("table");
+  table.setAttribute("class", "export-toc-table");
+  table.setAttribute("style", "width:100%;border-collapse:collapse;margin:6pt 0 12pt;table-layout:fixed;");
   rows.forEach(row => {
     let label = (row.querySelector(".toc-label")?.textContent || row.textContent || "").replace(/\s+/g, " ").trim();
     label = label.replace(/^#+\s*/, "").replace(/^\*\*\s*|\s*\*\*$/g, "");
     const page = (row.querySelector(".toc-page")?.textContent || "").replace(/\s+/g, " ").trim();
     if (!label) return;
-    // Skip garbage jammed lines that list many prelim titles at once
-    if (/cover\s*page.*certification|list of tables.*list of figures/i.test(label) && label.length > 60) return;
-    const p = document.createElement("p");
-    p.className = "export-toc-line";
-    // Tab between title and page; Word uses tab stops for leaders when possible
-    p.setAttribute("style",
-      "margin:0 0 6pt;line-height:1.5;font-family:'Times New Roman',Times,serif;font-size:12pt;" +
-      "tab-stops:right dotted 468pt;"
-    );
-    if (page) {
-      p.innerHTML = `${escapeHTML(label)}\t${escapeHTML(page)}`;
-    } else {
-      p.textContent = label;
-    }
-    wrap.appendChild(p);
+    const tr = document.createElement("tr");
+    const tdL = document.createElement("td");
+    const tdP = document.createElement("td");
+    tdL.setAttribute("style", "text-align:left;padding:2pt 8pt 2pt 0;border:none;width:85%;vertical-align:baseline;");
+    tdP.setAttribute("style", "text-align:right;padding:2pt 0;border:none;width:15%;vertical-align:baseline;white-space:nowrap;");
+    tdL.textContent = label;
+    tdP.textContent = page;
+    tr.appendChild(tdL);
+    tr.appendChild(tdP);
+    table.appendChild(tr);
   });
-  return wrap.childNodes.length ? wrap : null;
-}
-
-/**
- * Split a clone of mixed preliminary content so each major heading
- * (Cover, Certification, Declaration, …) becomes its own block.
- */
-function splitPrelimBlocks(clone){
-  const blocks = [];
-  let current = document.createElement("div");
-  current.className = "export-prelim-block";
-
-  const kids = [...clone.childNodes];
-  const flush = () => {
-    if ((current.textContent || "").replace(/\s+/g, "").length) {
-      blocks.push(current);
-    }
-    current = document.createElement("div");
-    current.className = "export-prelim-block";
-  };
-
-  kids.forEach(node => {
-    if (node.nodeType === 1) {
-      const tag = node.tagName;
-      const text = (node.textContent || "").replace(/\s+/g, " ").trim();
-      const isHeading = /^(H1|H2|H3|H4)$/.test(tag) ||
-        (tag === "P" && text.length < 80 && EXPORT_PRELIM_HEADING_RE.test(text));
-      if (isHeading && EXPORT_PRELIM_HEADING_RE.test(text) && (current.textContent || "").replace(/\s+/g, "").length) {
-        flush();
-      }
-    }
-    current.appendChild(node.cloneNode(true));
-  });
-  flush();
-  return blocks.length ? blocks : [clone];
+  return table;
 }
 
 /**
  * Build a clean linear document from merged A4 pages.
- * - Each preliminary part on its own page
- * - Each chapter / end-matter section on its own page
- * - TOC as normal lines (not a table)
- * - Times New Roman, academic spacing
+ * - One major section per page break (cover, prelims, TOC, each chapter, end matter)
+ * - TOC rows become real tables (title | page) for Word
+ * - Editor chrome removed
  */
 function buildMergedExportDocument(){
   const source = document.getElementById("mergedPagesRoot");
@@ -5302,143 +5261,97 @@ function buildMergedExportDocument(){
 
   const doc = document.createElement("div");
   doc.id = "merged-export-root";
-  doc.setAttribute(
-    "style",
-    "background:#ffffff;color:#000000;font-family:'Times New Roman',Times,serif;font-size:12pt;line-height:2;"
-  );
+  doc.setAttribute("style", "background:#ffffff;color:#1e293b;font-family:Georgia,'Times New Roman',serif;font-size:12pt;line-height:1.7;");
 
   const pages = [...source.querySelectorAll(":scope > .a4-page, :scope > .merged-page")];
   if (!pages.length) throw new Error("No merged pages found to export.");
 
-  // Group consecutive pages of the same body section (chapter, conclusion, …)
+  // Group consecutive pages that belong to the same section so a chapter that
+  // spans several A4 screens still stays one continuous block, then break
+  // before the *next* section starts.
   const groups = [];
   pages.forEach(page => {
     const sectionTitle = String(page.dataset.sectionTitle || "").trim();
     const isToc = page.classList.contains("toc-page") || !!(page.querySelector(".toc-row, .toc-lines"));
-    const kind = page.classList.contains("preliminary-page") ? "preliminary" :
-      (isToc ? "toc" : "body");
-    const key = isToc ? "__TOC__" : (kind === "preliminary" ? "__PRELIM__" : (sectionTitle || ("page-" + groups.length)));
+    const key = isToc ? "__TOC__" : (sectionTitle || ("page-" + groups.length));
     const last = groups[groups.length - 1];
     if (last && last.key === key) last.pages.push(page);
-    else groups.push({ key, title: sectionTitle, kind, isToc, pages: [page] });
+    else groups.push({ key, title: sectionTitle, isToc, pages: [page] });
   });
 
-  const appendStyledClone = (section, contentEl) => {
-    const clone = contentEl.cloneNode(true);
-    clone.querySelectorAll(
-      ".tp-figure-handles, .tp-handle, .page-number, .a4-footer, .tp-image-placeholder, .document-stats"
-    ).forEach(n => n.remove());
-    clone.querySelectorAll(".tp-figure.selected").forEach(f => f.classList.remove("selected"));
-
-    // TOC → normal paragraph lines
-    if (clone.querySelector(".toc-row")) {
-      const host = clone.querySelector(".toc-lines") || clone;
-      const tocBlock = exportTocAsParagraphs(clone);
-      if (tocBlock) {
-        host.querySelectorAll(".toc-row").forEach(r => r.remove());
-        const lines = host.classList?.contains("toc-lines") ? host : host.querySelector(".toc-lines");
-        if (lines) lines.replaceWith(tocBlock);
-        else host.appendChild(tocBlock);
-        if (![...clone.querySelectorAll("h1,h2")].some(h => /table of contents|contents/i.test(h.textContent || ""))) {
-          const h = document.createElement("h2");
-          h.textContent = "TABLE OF CONTENTS";
-          h.setAttribute("style", "text-align:center;font-family:'Times New Roman',Times,serif;font-size:14pt;font-weight:bold;margin:0 0 18pt;");
-          tocBlock.parentNode.insertBefore(h, tocBlock);
-        }
-      }
-    }
-
-    // Clean markdown hashes on simple text nodes
-    clone.querySelectorAll("h1,h2,h3,h4,p,span,div,li").forEach(el => {
-      if (el.childNodes.length === 1 && el.childNodes[0].nodeType === 3) {
-        el.textContent = el.textContent.replace(/^#+\s+/, "").replace(/^\*\*\s*|\s*\*\*$/g, "");
-      }
-    });
-
-    // Academic typography
-    clone.querySelectorAll("h1").forEach(h => {
-      h.setAttribute("style", "font-family:'Times New Roman',Times,serif;font-size:16pt;font-weight:bold;text-align:center;margin:0 0 18pt;line-height:1.5;page-break-after:avoid;");
-    });
-    clone.querySelectorAll("h2").forEach(h => {
-      h.setAttribute("style", "font-family:'Times New Roman',Times,serif;font-size:14pt;font-weight:bold;margin:18pt 0 10pt;line-height:1.5;page-break-after:avoid;");
-    });
-    clone.querySelectorAll("h3").forEach(h => {
-      h.setAttribute("style", "font-family:'Times New Roman',Times,serif;font-size:12pt;font-weight:bold;margin:14pt 0 8pt;line-height:1.5;page-break-after:avoid;");
-    });
-    clone.querySelectorAll("p").forEach(p => {
-      if (p.classList.contains("export-toc-line")) return;
-      p.setAttribute("style", "font-family:'Times New Roman',Times,serif;font-size:12pt;line-height:2;margin:0 0 12pt;text-align:justify;");
-    });
-    clone.querySelectorAll("li").forEach(li => {
-      li.setAttribute("style", "font-family:'Times New Roman',Times,serif;font-size:12pt;line-height:2;margin:0 0 6pt;");
-    });
-    clone.querySelectorAll("img").forEach(img => {
-      const src = img.getAttribute("src");
-      if (src) img.setAttribute("src", src);
-      img.setAttribute("style", "max-width:100%;height:auto;display:block;margin:12pt auto;");
-    });
-    clone.querySelectorAll(".tp-figure").forEach(fig => {
-      fig.setAttribute("style", "text-align:center;margin:18pt auto;page-break-inside:avoid;");
-    });
-    clone.querySelectorAll("table").forEach(t => {
-      t.setAttribute("style", "border-collapse:collapse;width:100%;margin:14pt 0;font-family:'Times New Roman',Times,serif;font-size:11pt;");
-      t.querySelectorAll("th,td").forEach(cell => {
-        cell.setAttribute("style", "border:1px solid #000;padding:6pt 8pt;text-align:left;vertical-align:top;line-height:1.5;");
-      });
-    });
-
-    section.appendChild(clone);
-  };
-
-  let sectionCount = 0;
-  const startSection = (title) => {
+  groups.forEach((group, gIdx) => {
     const section = document.createElement("section");
     section.className = "export-section";
-    section.setAttribute("data-section", title || "");
-    if (sectionCount > 0) {
-      section.insertAdjacentHTML("afterbegin", exportPageBreakHTML());
-    }
-    sectionCount += 1;
-    doc.appendChild(section);
-    return section;
-  };
-
-  groups.forEach(group => {
-    if (group.kind === "preliminary") {
-      // Merge all prelim page contents, then split by major headings
-      const merged = document.createElement("div");
-      group.pages.forEach(page => {
-        const content = page.querySelector(".a4-content") || page;
-        [...content.childNodes].forEach(n => merged.appendChild(n.cloneNode(true)));
-      });
-      const blocks = splitPrelimBlocks(merged);
-      blocks.forEach(block => {
-        const headingText = (block.querySelector("h1,h2,h3,p")?.textContent || "").replace(/\s+/g, " ").trim().slice(0, 60);
-        const sec = startSection(headingText || "Preliminary");
-        appendStyledClone(sec, block);
-      });
-      return;
+    section.setAttribute("data-section", group.title || group.key);
+    // Always start a new section on a new page (except the very first).
+    if (gIdx > 0) {
+      section.insertAdjacentHTML("beforeend", exportPageBreakHTML());
     }
 
-    if (group.isToc) {
-      const sec = startSection("Table of Contents");
-      group.pages.forEach(page => {
-        const content = page.querySelector(".a4-content") || page;
-        appendStyledClone(sec, content);
-      });
-      return;
-    }
-
-    // Body chapters / end matter — one section group per title
-    const sec = startSection(group.title || "Section");
     group.pages.forEach(page => {
       const content = page.querySelector(".a4-content") || page;
-      appendStyledClone(sec, content);
+      const clone = content.cloneNode(true);
+
+      // Strip editor UI
+      clone.querySelectorAll(".tp-figure-handles, .tp-handle, .page-number, .a4-footer, .tp-image-placeholder, .document-stats").forEach(n => n.remove());
+      clone.querySelectorAll(".tp-figure.selected").forEach(f => f.classList.remove("selected"));
+
+      // TOC: replace flex rows with a proper 2-col table Word understands
+      const tocHost = clone.querySelector(".toc-lines") || (clone.querySelector(".toc-row") ? clone : null);
+      if (tocHost && tocHost.querySelector(".toc-row")) {
+        const table = exportTocRowsAsTable(tocHost);
+        if (table) {
+          // Keep any heading before the rows
+          const heading = clone.querySelector("h1, h2");
+          tocHost.querySelectorAll(".toc-row").forEach(r => r.remove());
+          // Remove empty leftover wrappers
+          if (tocHost.classList.contains("toc-lines") || tocHost.querySelector(".toc-lines")) {
+            const lines = tocHost.classList.contains("toc-lines") ? tocHost : tocHost.querySelector(".toc-lines");
+            if (lines) lines.replaceWith(table);
+            else tocHost.appendChild(table);
+          } else {
+            tocHost.appendChild(table);
+          }
+          // Ensure a TOC title exists
+          if (!heading) {
+            const h = document.createElement("h2");
+            h.textContent = "TABLE OF CONTENTS";
+            h.setAttribute("style", "text-align:left;font-weight:800;margin:0 0 12pt;");
+            table.parentNode.insertBefore(h, table);
+          }
+        }
+      }
+
+      // Strip leftover markdown hashes from any text nodes / headings
+      clone.querySelectorAll("h1,h2,h3,h4,p,span,div").forEach(el => {
+        if (el.childNodes.length === 1 && el.childNodes[0].nodeType === 3) {
+          el.textContent = el.textContent.replace(/^#+\s+/, "").replace(/^\*\*\s*|\s*\*\*$/g, "");
+        }
+      });
+
+      clone.querySelectorAll("img").forEach(img => {
+        const src = img.getAttribute("src");
+        if (src) img.setAttribute("src", src);
+        img.setAttribute("style", "max-width:100%;height:auto;display:block;margin:8pt auto;");
+      });
+      clone.querySelectorAll(".tp-figure").forEach(fig => {
+        fig.setAttribute("style", "text-align:center;margin:14pt auto;page-break-inside:avoid;");
+      });
+      clone.querySelectorAll("table:not(.export-toc-table)").forEach(t => {
+        t.setAttribute("style", "border-collapse:collapse;width:100%;margin:12pt 0;");
+        t.querySelectorAll("th,td").forEach(cell => {
+          cell.setAttribute("style", "border:1px solid #94a3b8;padding:6pt 8pt;text-align:left;vertical-align:top;");
+        });
+      });
+
+      section.appendChild(clone);
     });
+
+    doc.appendChild(section);
   });
 
-  const plain = (doc.textContent || "").replace(/\s+/g, " ").trim();
-  if (plain.length < 40) {
+  const text = (doc.textContent || "").replace(/\s+/g, " ").trim();
+  if (text.length < 40) {
     throw new Error("Export content looks empty. Open the merged paper on screen, then try Download again.");
   }
   return doc;
@@ -5455,32 +5368,28 @@ async function downloadMergedAsPDF(){
   btn.disabled = true;
   btn.textContent = "Preparing PDF…";
   let root = null;
-  let host = null;
   try {
     root = buildMergedExportDocument();
-    // Put content in a real on-screen host so html2canvas can measure it.
-    // Opacity 0 + off-screen often produces a blank PDF.
-    host = document.createElement("div");
-    host.id = "merged-pdf-capture-host";
-    host.setAttribute("style",
-      "position:fixed;left:0;top:0;width:794px;max-width:100vw;max-height:100vh;overflow:auto;" +
-      "background:#fff;z-index:2147483646;opacity:1;pointer-events:none;"
-    );
-    root.style.width = "794px";
-    root.style.padding = "20mm 18mm";
+    // Visible-but-transparent in the viewport so html2canvas measures real layout.
+    root.style.position = "fixed";
+    root.style.left = "0";
+    root.style.top = "0";
+    root.style.width = "210mm";
+    root.style.maxWidth = "794px";
+    root.style.padding = "18mm 16mm";
     root.style.boxSizing = "border-box";
-    root.style.background = "#ffffff";
-    host.appendChild(root);
-    document.body.appendChild(host);
+    root.style.opacity = "0.02";
+    root.style.pointerEvents = "none";
+    root.style.zIndex = "2147483646";
+    document.body.appendChild(root);
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    // Force layout read
     void root.offsetHeight;
-    await new Promise(r => setTimeout(r, 120));
-
     const filename = getMergedExportTitle() + ".pdf";
     const opt = {
-      margin: [15, 15, 15, 15],
+      margin: [12, 12, 14, 12],
       filename,
-      image: { type: "jpeg", quality: 0.98 },
+      image: { type: "jpeg", quality: 0.95 },
       html2canvas: {
         scale: 2,
         useCORS: true,
@@ -5489,13 +5398,13 @@ async function downloadMergedAsPDF(){
         backgroundColor: "#ffffff",
         windowWidth: 794,
         scrollX: 0,
-        scrollY: -window.scrollY
+        scrollY: 0
       },
       jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
       pagebreak: {
         mode: ["css", "legacy"],
-        before: ".export-section",
-        avoid: [".tp-figure", "h1", "h2", "h3", "table", "tr", "img"]
+        before: ".export-pagebreak",
+        avoid: [".tp-figure", "h1", "h2", "h3", "table", "tr"]
       }
     };
     await html2pdf().set(opt).from(root).save();
@@ -5503,8 +5412,7 @@ async function downloadMergedAsPDF(){
     console.error(err);
     alert("Could not generate PDF: " + (err.message || "Unknown error"));
   } finally {
-    if (host && host.parentNode) host.remove();
-    else if (root && root.parentNode) root.remove();
+    if (root && root.parentNode) root.remove();
     btn.disabled = false;
     btn.innerHTML = originalLabel;
   }
@@ -5522,10 +5430,15 @@ async function downloadMergedAsDocx(){
   btn.textContent = "Preparing Word…";
   try {
     const root = buildMergedExportDocument();
+    // Join sections with explicit Word page-break markers
     const bodyHtml = [...root.querySelectorAll(".export-section")]
       .map((sec, i) => {
-        // Page break is already injected as first child when i > 0
-        return sec.innerHTML;
+        const breakBefore = i > 0
+          ? '<br clear="all" style="page-break-before:always;mso-break-type:section-break" />'
+          : "";
+        // Remove the helper pagebreak div (Word uses the <br> above)
+        sec.querySelectorAll(".export-pagebreak").forEach(n => n.remove());
+        return breakBefore + sec.innerHTML;
       })
       .join("");
     const title = getMergedExportTitle().replace(/_/g, " ");
@@ -5546,92 +5459,34 @@ async function downloadMergedAsDocx(){
 </xml>
 <![endif]-->
 <style>
-  /* Academic defaults: Times New Roman, double spacing, 1-inch margins */
   @page { size: A4; margin: 25.4mm; }
   body {
-    font-family: "Times New Roman", Times, serif;
+    font-family: Georgia, 'Times New Roman', serif;
     font-size: 12pt;
-    line-height: 2;
-    color: #000000;
+    line-height: 1.7;
+    color: #1e293b;
   }
-  h1 {
-    font-family: "Times New Roman", Times, serif;
-    font-size: 16pt;
-    font-weight: bold;
-    text-align: center;
-    margin: 0 0 18pt;
-    line-height: 1.5;
-    page-break-after: avoid;
-  }
-  h2 {
-    font-family: "Times New Roman", Times, serif;
-    font-size: 14pt;
-    font-weight: bold;
-    margin: 18pt 0 10pt;
-    line-height: 1.5;
-    page-break-after: avoid;
-  }
-  h3 {
-    font-family: "Times New Roman", Times, serif;
-    font-size: 12pt;
-    font-weight: bold;
-    margin: 14pt 0 8pt;
-    line-height: 1.5;
-    page-break-after: avoid;
-  }
-  p {
-    font-family: "Times New Roman", Times, serif;
-    font-size: 12pt;
-    line-height: 2;
-    margin: 0 0 12pt;
-    text-align: justify;
-  }
-  p.export-toc-line {
-    text-align: left;
-    line-height: 1.5;
-    margin: 0 0 6pt;
-    tab-stops: right dotted 6.5in;
-  }
-  ul, ol { margin: 0 0 12pt 24pt; }
-  li {
-    font-family: "Times New Roman", Times, serif;
-    font-size: 12pt;
-    line-height: 2;
-    margin: 0 0 6pt;
-  }
-  .tp-figure { text-align: center; margin: 18pt auto; page-break-inside: avoid; }
+  h1 { font-size: 18pt; text-align: center; margin: 18pt 0 12pt; font-family: Arial, sans-serif; page-break-after: avoid; }
+  h2 { font-size: 14pt; margin: 14pt 0 8pt; font-family: Arial, sans-serif; page-break-after: avoid; }
+  h3 { font-size: 12pt; margin: 12pt 0 6pt; font-family: Arial, sans-serif; page-break-after: avoid; }
+  p { margin: 0 0 10pt; text-align: justify; }
+  ul, ol { margin: 0 0 10pt 18pt; }
+  li { margin: 0 0 4pt; }
+  .tp-figure { text-align: center; margin: 14pt auto; page-break-inside: avoid; }
   img { max-width: 100%; height: auto; }
-  .fig-caption, .fig-main-label {
-    font-family: "Times New Roman", Times, serif;
-    font-size: 11pt;
-    font-weight: bold;
-    margin-top: 6pt;
-    display: block;
-    text-align: center;
-    line-height: 1.5;
-  }
-  table {
-    border-collapse: collapse;
-    width: 100%;
-    margin: 14pt 0;
-    font-family: "Times New Roman", Times, serif;
-    font-size: 11pt;
-  }
-  th, td {
-    border: 1px solid #000;
-    padding: 6pt 8pt;
-    text-align: left;
-    vertical-align: top;
-    line-height: 1.5;
-  }
-  th { font-weight: bold; }
+  .fig-caption, .fig-main-label { font-size: 10pt; font-weight: 600; margin-top: 6pt; display: block; text-align: center; }
+  table { border-collapse: collapse; width: 100%; margin: 12pt 0; }
+  th, td { border: 1px solid #94a3b8; padding: 6pt 8pt; text-align: left; vertical-align: top; }
+  th { background: #f1f5f9; font-weight: 700; }
+  table.export-toc-table td { border: none !important; padding: 2pt 8pt 2pt 0; }
+  table.export-toc-table td:last-child { text-align: right; white-space: nowrap; width: 15%; }
 </style>
 </head>
 <body>${bodyHtml}</body>
 </html>`;
     const blob = htmlDocx.asBlob(fullHtml, {
       orientation: "portrait",
-      margins: { top: 1440, right: 1440, bottom: 1440, left: 1440 }
+      margins: { top: 1440, right: 1440, bottom: 1440, left: 1440 } // 1 inch
     });
     saveAs(blob, getMergedExportTitle() + ".docx");
   } catch (err) {
