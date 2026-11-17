@@ -5429,8 +5429,14 @@ function renderMergedPaper(value){
   `;
   wrap.appendChild(bar);
   document.getElementById("chatArea").appendChild(wrap);
-  document.getElementById("downloadMergedPdfBtn")?.addEventListener("click",()=>downloadMergedAsPDF());
-  document.getElementById("downloadMergedDocxBtn")?.addEventListener("click",()=>downloadMergedAsDocx());
+  document.getElementById("downloadMergedPdfBtn")?.addEventListener("click", async () => {
+    const includeMonkeyScout = await chooseMonkeyScoutFooter();
+    if (includeMonkeyScout !== null) downloadMergedAsPDF(includeMonkeyScout);
+  });
+  document.getElementById("downloadMergedDocxBtn")?.addEventListener("click", async () => {
+    const includeMonkeyScout = await chooseMonkeyScoutFooter();
+    if (includeMonkeyScout !== null) downloadMergedAsDocx(includeMonkeyScout);
+  });
 }
 
 function getMergedExportTitle(){
@@ -5526,7 +5532,7 @@ function buildMergedExportDocument(){
 
   const doc = document.createElement("div");
   doc.id = "merged-export-root";
-  doc.setAttribute("style", "background:#ffffff;color:#1e293b;font-family:'Times New Roman',Times,serif;font-size:12pt;line-height:1.5;");
+  doc.setAttribute("style", "background:#ffffff;color:#1e293b;font-family:'Times New Roman',Times,serif;font-size:12pt;line-height:1;");
 
   const pages = [...source.querySelectorAll(".a4-page, .merged-page")];
   // De-dupe if a node matches both classes
@@ -5610,7 +5616,7 @@ function buildMergedExportDocument(){
         fig.setAttribute("style", "text-align:center;margin:14pt auto;page-break-inside:avoid;");
       });
       clone.querySelectorAll("table:not(.export-toc-table)").forEach(t => {
-        t.setAttribute("style", "border-collapse:collapse;width:100%;margin:12pt 0;font-family:'Times New Roman',Times,serif;font-size:11pt;line-height:1.35;");
+        t.setAttribute("style", "border-collapse:collapse;width:100%;margin:12pt 0;font-family:'Times New Roman',Times,serif;font-size:12pt;line-height:1;");
         t.querySelectorAll("th").forEach(cell => {
           cell.setAttribute("style", "border:1px solid #334155;padding:6pt 8pt;text-align:left;vertical-align:top;background:#f1f5f9;font-weight:700;");
         });
@@ -5618,10 +5624,10 @@ function buildMergedExportDocument(){
           cell.setAttribute("style", "border:1px solid #334155;padding:6pt 8pt;text-align:left;vertical-align:top;");
         });
       });
-      // Ensure body text uses Times + 1.5 spacing in PDF/Word capture
-      clone.querySelectorAll("p, li").forEach(el => {
+      // Apply the requested academic typography consistently in both exports.
+      clone.querySelectorAll("p, li, td, th").forEach(el => {
         const prev = el.getAttribute("style") || "";
-        el.setAttribute("style", (prev ? prev + ";" : "") + "font-family:'Times New Roman',Times,serif;line-height:1.5;");
+        el.setAttribute("style", (prev ? prev + ";" : "") + "font-family:'Times New Roman',Times,serif;font-size:12pt;line-height:1;");
       });
       clone.querySelectorAll("h1,h2,h3").forEach(el => {
         const prev = el.getAttribute("style") || "";
@@ -5641,7 +5647,34 @@ function buildMergedExportDocument(){
   return doc;
 }
 
-async function downloadMergedAsPDF(){
+function chooseMonkeyScoutFooter(){
+  return new Promise(resolve => {
+    const existing = document.getElementById("monkeyScoutExportChoice");
+    if (existing) existing.remove();
+    const overlay = document.createElement("div");
+    overlay.id = "monkeyScoutExportChoice";
+    overlay.style.cssText = "position:fixed;inset:0;z-index:2147483647;background:rgba(15,23,42,.62);display:flex;align-items:center;justify-content:center;padding:18px;";
+    overlay.innerHTML = `
+      <div role="dialog" aria-modal="true" aria-labelledby="monkeyScoutChoiceTitle" style="width:min(420px,100%);background:#fff;color:#172033;border-radius:16px;padding:22px;box-shadow:0 24px 70px rgba(0,0,0,.28);font-family:Arial,sans-serif;">
+        <h3 id="monkeyScoutChoiceTitle" style="margin:0 0 8px;font-size:18px;">Choose your document footer</h3>
+        <p style="margin:0 0 18px;color:#64748b;font-size:13px;line-height:1.45;">Choose whether the document should display Monkey Scout on each page.</p>
+        <button type="button" data-choice="with" style="display:block;width:100%;padding:13px 14px;border:1px solid #cbd5e1;border-radius:10px;background:#f8fafc;color:#172033;text-align:left;font-weight:700;margin-bottom:10px;cursor:pointer;">With Monkey Scout <span style="display:block;font-weight:400;font-size:12px;color:#64748b;margin-top:4px;">monkey scout on the left · page number on the right</span></button>
+        <button type="button" data-choice="without" style="display:block;width:100%;padding:13px 14px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#172033;text-align:left;font-weight:700;cursor:pointer;">Without Monkey Scout <span style="display:block;font-weight:400;font-size:12px;color:#64748b;margin-top:4px;">page number only</span></button>
+        <button type="button" data-choice="cancel" style="display:block;margin:12px 0 0 auto;padding:8px 12px;border:0;background:transparent;color:#64748b;cursor:pointer;">Cancel</button>
+      </div>`;
+    const finish = value => { overlay.remove(); resolve(value); };
+    overlay.addEventListener("click", e => {
+      if (e.target === overlay) return finish(null);
+      const choice = e.target.closest("[data-choice]")?.dataset.choice;
+      if (choice === "with") finish(true);
+      else if (choice === "without") finish(false);
+      else if (choice === "cancel") finish(null);
+    });
+    document.body.appendChild(overlay);
+  });
+}
+
+async function downloadMergedAsPDF(includeMonkeyScout = false){
   const btn = document.getElementById("downloadMergedPdfBtn");
   if (!btn) return;
   if (typeof html2pdf === "undefined") {
@@ -5678,7 +5711,7 @@ async function downloadMergedAsPDF(){
     }
     const filename = getMergedExportTitle() + ".pdf";
     const opt = {
-      margin: [12, 12, 14, 12],
+      margin: [12, 12, 22, 12],
       filename,
       image: { type: "jpeg", quality: 0.98 },
       html2canvas: {
@@ -5707,7 +5740,20 @@ async function downloadMergedAsPDF(){
         avoid: [".tp-figure", "h1", "h2", "h3", "table", "tr"]
       }
     };
-    await html2pdf().set(opt).from(root).save();
+    const worker = html2pdf().set(opt).from(root).toPdf();
+    const pdf = await worker.get("pdf");
+    const totalPages = pdf.internal.getNumberOfPages();
+    for (let pageNo = 1; pageNo <= totalPages; pageNo++) {
+      pdf.setPage(pageNo);
+      pdf.setFont("times", "normal");
+      pdf.setFontSize(9);
+      pdf.setTextColor(70, 70, 70);
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      if (includeMonkeyScout) pdf.text("monkey scout", 12, pageHeight - 8);
+      pdf.text(String(pageNo), pageWidth - 12, pageHeight - 8, { align: "right" });
+    }
+    await worker.save();
   } catch (err) {
     console.error(err);
     alert("Could not generate PDF: " + (err.message || "Unknown error"));
@@ -5718,7 +5764,7 @@ async function downloadMergedAsPDF(){
   }
 }
 
-async function downloadMergedAsDocx(){
+async function downloadMergedAsDocx(includeMonkeyScout = false){
   const btn = document.getElementById("downloadMergedDocxBtn");
   if (!btn) return;
   if (typeof htmlDocx === "undefined" || typeof saveAs === "undefined") {
@@ -5767,30 +5813,36 @@ async function downloadMergedAsDocx(){
 </xml>
 <![endif]-->
 <style>
-  @page { size: A4; margin: 25.4mm; }
+  @page Section1 { size: 21cm 29.7cm; margin: 25.4mm; mso-footer: f1; }
+  div.Section1 { page: Section1; }
+  @page { size: 21cm 29.7cm; margin: 25.4mm; }
+  div#f1 { mso-element:footer; }
+  p.MsoFooter { margin:0; font-family:'Times New Roman',Times,serif; font-size:9pt; }
   body {
     font-family: 'Times New Roman', Times, serif;
     font-size: 12pt;
-    line-height: 1.5;
+    line-height: 1;
     color: #1e293b;
   }
   h1 { font-size: 16pt; text-align: center; margin: 18pt 0 12pt; font-family: 'Times New Roman', Times, serif; font-weight: bold; page-break-after: avoid; }
   h2 { font-size: 14pt; margin: 14pt 0 8pt; font-family: 'Times New Roman', Times, serif; font-weight: bold; page-break-after: avoid; }
   h3 { font-size: 12pt; margin: 12pt 0 6pt; font-family: 'Times New Roman', Times, serif; font-weight: bold; page-break-after: avoid; }
-  p { margin: 0 0 10pt; text-align: justify; line-height: 1.5; }
-  ul, ol { margin: 0 0 10pt 18pt; line-height: 1.5; }
-  li { margin: 0 0 4pt; line-height: 1.5; }
+  p { margin: 0 0 10pt; text-align: justify; line-height: 1; font-size:12pt; }
+  ul, ol { margin: 0 0 10pt 18pt; line-height: 1; font-size:12pt; }
+  li { margin: 0 0 4pt; line-height: 1; font-size:12pt; }
   .tp-figure { text-align: center; margin: 14pt auto; page-break-inside: avoid; }
   img { max-width: 100%; height: auto; }
   .fig-caption, .fig-main-label { font-size: 10pt; font-weight: 600; margin-top: 6pt; display: block; text-align: center; font-family: 'Times New Roman', Times, serif; }
-  table { border-collapse: collapse; width: 100%; margin: 12pt 0; font-family: 'Times New Roman', Times, serif; font-size: 11pt; line-height: 1.35; }
+  table { border-collapse: collapse; width: 100%; margin: 12pt 0; font-family: 'Times New Roman', Times, serif; font-size: 12pt; line-height: 1; }
   th, td { border: 1px solid #334155; padding: 6pt 8pt; text-align: left; vertical-align: top; }
   th { background: #f1f5f9; font-weight: 700; }
   table.export-toc-table td { border: none !important; padding: 2pt 8pt 2pt 0; }
   table.export-toc-table td:last-child { text-align: right; white-space: nowrap; width: 15%; }
 </style>
 </head>
-<body>${bodyHtml}</body>
+<body><div class="Section1">${bodyHtml}</div>
+<div id="f1"><table width="100%" cellpadding="0" cellspacing="0" style="width:100%;border:0;border-collapse:collapse;margin:0;font-family:'Times New Roman',Times,serif;font-size:9pt;"><tr><td style="border:0;padding:0;text-align:left;">${includeMonkeyScout ? 'monkey scout' : ''}</td><td style="border:0;padding:0;text-align:right;"> <span style="mso-element:field-begin"></span> PAGE <span style="mso-element:field-separator"></span>1<span style="mso-element:field-end"></span></td></tr></table></div>
+</body>
 </html>`;
     const blob = htmlDocx.asBlob(fullHtml, {
       orientation: "portrait",
