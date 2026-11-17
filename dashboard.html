@@ -2,6 +2,21 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
+
+<script>
+/* GitHub Pages does not support .htaccess — hide .html in the address bar */
+(function () {
+  try {
+    var path = location.pathname || "";
+    if (/\.html$/i.test(path) && path.toLowerCase() !== "/index.html") {
+      var clean = path.replace(/\.html$/i, "");
+      if (clean.length > 1 && clean.endsWith("/")) clean = clean.slice(0, -1);
+      history.replaceState(null, "", clean + location.search + location.hash);
+    }
+  } catch (e) {}
+})();
+</script>
+
 <title>Monkey Scout | Academic Workspace</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -5483,21 +5498,51 @@ function exportTocRowsAsTable(container){
  * - Editor chrome removed
  */
 function buildMergedExportDocument(){
-  const source = document.getElementById("mergedPagesRoot");
-  if (!source) throw new Error("Merged pages not found. Generate and merge the paper first.");
+  let source = document.getElementById("mergedPagesRoot");
+  // Fallback: build a temporary merge root from on-screen section cards
+  if (!source || !source.querySelector(".a4-page, .merged-page")) {
+    const tmp = document.createElement("div");
+    tmp.id = "mergedPagesRoot-fallback";
+    const cards = [...document.querySelectorAll("#chatArea .chat-msg[data-kind]")]
+      .filter(card => card.dataset.kind !== "status" && card.querySelector(".pages-container .a4-page"));
+    // Order: preliminary → toc → chapters/end matter
+    const orderRank = (k) => k === "preliminary" ? 0 : k === "toc" ? 1 : 2;
+    cards.sort((a, b) => orderRank(a.dataset.kind) - orderRank(b.dataset.kind) || Number(a.dataset.orderNo || 0) - Number(b.dataset.orderNo || 0));
+    cards.forEach(card => {
+      const sectionTitle = String(card.dataset.title || "").trim();
+      card.querySelectorAll(".pages-container > .a4-page").forEach(sourcePage => {
+        const page = sourcePage.cloneNode(true);
+        page.classList.add("merged-page");
+        page.dataset.sectionTitle = sectionTitle;
+        if (card.dataset.kind === "toc") page.classList.add("toc-page");
+        tmp.appendChild(page);
+      });
+    });
+    if (!tmp.querySelector(".a4-page, .merged-page")) {
+      throw new Error("No paper pages found to export. Generate sections (and Merge if available), keep them on screen, then try Download again.");
+    }
+    source = tmp;
+  }
 
   const doc = document.createElement("div");
   doc.id = "merged-export-root";
   doc.setAttribute("style", "background:#ffffff;color:#1e293b;font-family:'Times New Roman',Times,serif;font-size:12pt;line-height:1.5;");
 
-  const pages = [...source.querySelectorAll(":scope > .a4-page, :scope > .merged-page")];
-  if (!pages.length) throw new Error("No merged pages found to export.");
+  const pages = [...source.querySelectorAll(".a4-page, .merged-page")];
+  // De-dupe if a node matches both classes
+  const seen = new Set();
+  const uniquePages = pages.filter(p => {
+    if (seen.has(p)) return false;
+    seen.add(p);
+    return true;
+  });
+  if (!uniquePages.length) throw new Error("No merged pages found to export.");
 
   // Group consecutive pages that belong to the same section so a chapter that
   // spans several A4 screens still stays one continuous block, then break
   // before the *next* section starts.
   const groups = [];
-  pages.forEach(page => {
+  uniquePages.forEach(page => {
     const sectionTitle = String(page.dataset.sectionTitle || "").trim();
     const isToc = page.classList.contains("toc-page") || !!(page.querySelector(".toc-row, .toc-lines"));
     const key = isToc ? "__TOC__" : (sectionTitle || ("page-" + groups.length));
@@ -5609,26 +5654,33 @@ async function downloadMergedAsPDF(){
   let root = null;
   try {
     root = buildMergedExportDocument();
-    // Visible-but-transparent in the viewport so html2canvas measures real layout.
+    // Fully opaque, off-screen — opacity tricks often produce blank PDFs
     root.style.position = "fixed";
     root.style.left = "0";
     root.style.top = "0";
-    root.style.width = "210mm";
+    root.style.width = "794px";
     root.style.maxWidth = "794px";
-    root.style.padding = "18mm 16mm";
+    root.style.padding = "24px 28px";
     root.style.boxSizing = "border-box";
-    root.style.opacity = "0.02";
+    root.style.background = "#ffffff";
+    root.style.color = "#1e293b";
+    root.style.opacity = "1";
     root.style.pointerEvents = "none";
     root.style.zIndex = "2147483646";
+    root.style.transform = "translateX(-10000px)"; // off-screen but still "rendered"
     document.body.appendChild(root);
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-    // Force layout read
     void root.offsetHeight;
+    // Guard against empty export
+    const probe = (root.textContent || "").replace(/\s+/g, " ").trim();
+    if (probe.length < 40) {
+      throw new Error("Export content is empty. Open your sections on screen (or Merge the paper), then try again.");
+    }
     const filename = getMergedExportTitle() + ".pdf";
     const opt = {
       margin: [12, 12, 14, 12],
       filename,
-      image: { type: "jpeg", quality: 0.95 },
+      image: { type: "jpeg", quality: 0.98 },
       html2canvas: {
         scale: 2,
         useCORS: true,
@@ -5637,7 +5689,16 @@ async function downloadMergedAsPDF(){
         backgroundColor: "#ffffff",
         windowWidth: 794,
         scrollX: 0,
-        scrollY: 0
+        scrollY: 0,
+        onclone: function (doc) {
+          const el = doc.getElementById("merged-export-root");
+          if (el) {
+            el.style.transform = "none";
+            el.style.left = "0";
+            el.style.opacity = "1";
+            el.style.position = "static";
+          }
+        }
       },
       jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
       pagebreak: {
@@ -5670,16 +5731,24 @@ async function downloadMergedAsDocx(){
   try {
     const root = buildMergedExportDocument();
     // Join sections with explicit Word page-break markers
-    const bodyHtml = [...root.querySelectorAll(".export-section")]
+    let sections = [...root.querySelectorAll(".export-section")];
+    if (!sections.length) {
+      // Root may be a flat export — wrap whole content
+      sections = [root];
+    }
+    const bodyHtml = sections
       .map((sec, i) => {
         const breakBefore = i > 0
           ? '<br clear="all" style="page-break-before:always;mso-break-type:section-break" />'
           : "";
-        // Remove the helper pagebreak div (Word uses the <br> above)
         sec.querySelectorAll(".export-pagebreak").forEach(n => n.remove());
         return breakBefore + sec.innerHTML;
       })
       .join("");
+    const plainProbe = bodyHtml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    if (plainProbe.length < 40) {
+      throw new Error("Word export content is empty. Keep the paper sections visible on screen, then download again.");
+    }
     const title = getMergedExportTitle().replace(/_/g, " ");
     const fullHtml = `<!DOCTYPE html>
 <html xmlns:o="urn:schemas-microsoft-com:office:office"

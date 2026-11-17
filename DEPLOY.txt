@@ -1,0 +1,20 @@
+MONKEYSCOUT DEPLOY NOTES
+========================
+
+Hosting: GitHub Pages (monkeyscout.cv currently serves from GitHub.com)
+
+1) .html in the URL
+   - .htaccess does NOTHING on GitHub Pages (Apache-only).
+   - This dashboard now strips .html in the browser address bar automatically.
+   - Prefer linking to: https://monkeyscout.cv/dashboard
+     (GitHub Pages already serves extensionless HTML.)
+   - Optional better structure: move file to /dashboard/index.html
+     then the clean URL is https://monkeyscout.cv/dashboard/
+
+2) Empty Word / PDF
+   - Click Merge Complete Paper first (or keep all section pages on screen).
+   - Then use Download as Word / Download as PDF.
+   - Libraries load from CDN — need network access.
+   - If still empty, hard-refresh (Ctrl+Shift+R) after uploading this file.
+
+Upload dashboard.html to your GitHub Pages repo (replace the existing file).
