@@ -5610,7 +5610,7 @@ function buildMergedExportDocument(){
 
   const doc = document.createElement("div");
   doc.id = "merged-export-root";
-  doc.setAttribute("style", "background:#ffffff;color:#1e293b;font-family:'Times New Roman',Times,serif;font-size:12pt;line-height:1;");
+  doc.setAttribute("style", "background:#ffffff;color:#1e293b;font-family:'Times New Roman',Times,serif;font-size:12pt;line-height:1.15;");
 
   const pages = [...source.querySelectorAll(".a4-page, .merged-page")];
   // De-dupe if a node matches both classes
@@ -5650,15 +5650,62 @@ function buildMergedExportDocument(){
     return { key: sectionTitle || "continues", title: sectionTitle || heading, isToc: false };
   }
 
+  // Split a single A4 page that contains several major prelim/end-matter headings
+  // into virtual page pieces so each major unit can start on its own export page.
+  function splitPageByMajorHeadings(page) {
+    const content = page.querySelector(".a4-content") || page;
+    const children = [...content.children];
+    if (children.length < 2) return [page];
+    const pieces = [];
+    let bucket = [];
+    let bucketTitle = "";
+    const flush = () => {
+      if (!bucket.length) return;
+      const virtual = page.cloneNode(false);
+      virtual.className = page.className;
+      Object.keys(page.dataset || {}).forEach(k => { virtual.dataset[k] = page.dataset[k]; });
+      if (bucketTitle) virtual.dataset.sectionTitle = bucketTitle;
+      const wrap = document.createElement("div");
+      wrap.className = "a4-content";
+      bucket.forEach(n => wrap.appendChild(n.cloneNode(true)));
+      virtual.appendChild(wrap);
+      pieces.push(virtual);
+      bucket = [];
+    };
+    children.forEach(child => {
+      const tag = (child.tagName || "").toLowerCase();
+      const text = (child.textContent || "").replace(/\s+/g, " ").trim();
+      const isMajor = (tag === "h1" || tag === "h2" || tag === "h3") && MAJOR_SECTION_RE.test(text);
+      if (isMajor && bucket.length) {
+        flush();
+        bucketTitle = text;
+      } else if (isMajor && !bucketTitle) {
+        bucketTitle = text;
+      }
+      bucket.push(child);
+    });
+    flush();
+    return pieces.length ? pieces : [page];
+  }
+
   const groups = [];
   uniquePages.forEach(page => {
-    const meta = getSectionMeta(page);
-    const last = groups[groups.length - 1];
-    if (last && last.key === meta.key) {
-      last.pages.push(page);
-    } else {
-      groups.push({ key: meta.key, title: meta.title, isToc: meta.isToc, pages: [page] });
-    }
+    const pieces = splitPageByMajorHeadings(page);
+    pieces.forEach(piece => {
+      const meta = getSectionMeta(piece);
+      // Prefer dataset title from a split piece
+      if (piece.dataset.sectionTitle && !meta.isToc) {
+        meta.title = piece.dataset.sectionTitle;
+        const m = meta.title.match(/^(chapter\s*\d+|chapter\s+[ivxlcdm]+|conclusion|recommendations?|references?|bibliography|appendix\s*[a-z0-9]*|cover|certification|declaration|dedication|acknowledgements?|abstract|table\s*of\s*contents|list\s*of\s*\w+)/i);
+        if (m) meta.key = m[1].toLowerCase().replace(/\s+/g, "-");
+      }
+      const last = groups[groups.length - 1];
+      if (last && last.key === meta.key) {
+        last.pages.push(piece);
+      } else {
+        groups.push({ key: meta.key, title: meta.title, isToc: meta.isToc, pages: [piece] });
+      }
+    });
   });
 
   groups.forEach((group, gIdx) => {
@@ -5740,7 +5787,7 @@ function buildMergedExportDocument(){
         }
       });
       clone.querySelectorAll("table:not(.export-toc-table)").forEach(t => {
-        t.setAttribute("style", "border-collapse:collapse;width:100%;margin:12pt 0;font-family:'Times New Roman',Times,serif;font-size:12pt;line-height:1;");
+        t.setAttribute("style", "border-collapse:collapse;width:100%;margin:12pt 0;font-family:'Times New Roman',Times,serif;font-size:12pt;line-height:1.15;");
         t.querySelectorAll("th").forEach(cell => {
           cell.setAttribute("style", "border:1px solid #334155;padding:6pt 8pt;text-align:left;vertical-align:top;background:#f1f5f9;font-weight:700;");
         });
@@ -5751,7 +5798,7 @@ function buildMergedExportDocument(){
       // Apply the requested academic typography consistently in both exports.
       clone.querySelectorAll("p, li, td, th").forEach(el => {
         const prev = el.getAttribute("style") || "";
-        el.setAttribute("style", (prev ? prev + ";" : "") + "font-family:'Times New Roman',Times,serif;font-size:12pt;line-height:1;");
+        el.setAttribute("style", (prev ? prev + ";" : "") + "font-family:'Times New Roman',Times,serif;font-size:12pt;line-height:1.15;");
       });
       clone.querySelectorAll("h1,h2,h3").forEach(el => {
         const prev = el.getAttribute("style") || "";
@@ -5941,13 +5988,62 @@ async function downloadMergedAsDocx(includeMonkeyScout = false){
   btn.textContent = "Preparing Word…";
   try {
     const root = buildMergedExportDocument();
-    const sections = [...root.querySelectorAll(":scope > .export-section")];
-    const sourceSections = sections.length ? sections : [root];
+    // Prefer logical export-sections (one major academic unit each).
+    let sections = [...root.querySelectorAll(":scope > .export-section")];
+    if (!sections.length) sections = [root];
+
+    // Further split any section that still contains multiple major prelim/end-matter
+    // headings so each starts on its own Word page (Certification, Abstract, etc.).
+    const MAJOR_SPLIT_RE = /^(cover(\s*page)?|title\s*page|certification|approval|declaration|dedication|acknowledgements?|abstract|table\s*of\s*contents|contents|list\s*of\s*(tables|figures|abbreviations|symbols)|chapter\s+\d+|chapter\s+[ivxlcdm]+|conclusions?|recommendations?|references?|bibliography|appendices|appendix(\s*[a-z0-9]+)?)\b/i;
+    const expanded = [];
+    sections.forEach(sec => {
+      const host = document.createElement("div");
+      host.innerHTML = sec.innerHTML;
+      // Collect top-level block children
+      const blocks = [...host.childNodes].filter(n => n.nodeType === 1 || (n.nodeType === 3 && String(n.textContent || "").trim()));
+      if (blocks.length < 2) {
+        expanded.push(sec);
+        return;
+      }
+      let current = document.createElement("section");
+      current.className = "export-section";
+      current.setAttribute("data-section", sec.getAttribute("data-section") || "");
+      let started = false;
+      let pieceCount = 0;
+      const flush = () => {
+        if (!current.childNodes.length) return;
+        expanded.push(current);
+        pieceCount++;
+        current = document.createElement("section");
+        current.className = "export-section";
+      };
+      blocks.forEach(node => {
+        if (node.nodeType !== 1) {
+          current.appendChild(node.cloneNode(true));
+          return;
+        }
+        const tag = (node.tagName || "").toLowerCase();
+        const text = (node.textContent || "").replace(/\s+/g, " ").trim();
+        const isMajorHeading = (tag === "h1" || tag === "h2" || tag === "h3") && MAJOR_SPLIT_RE.test(text);
+        if (isMajorHeading && started && current.childNodes.length) {
+          flush();
+          current.setAttribute("data-section", text);
+        }
+        if (isMajorHeading && !current.getAttribute("data-section")) {
+          current.setAttribute("data-section", text);
+        }
+        current.appendChild(node.cloneNode(true));
+        started = true;
+      });
+      flush();
+      if (!pieceCount) expanded.push(sec);
+    });
+    sections = expanded.length ? expanded : sections;
+
     const plainProbe = (root.textContent || "").replace(/\s+/g, " ").trim();
     if (plainProbe.length < 40) throw new Error("Word export content is empty. Generate and merge your sections, then try again.");
 
-    // Convert remote images to data URLs. A real DOCX must contain its image
-    // bytes; leaving a web URL in the document would create broken pictures.
+    // Convert remote images to data URLs so the DOCX embeds real image bytes.
     const toDataUrl = blob => new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(String(reader.result || ""));
@@ -5963,84 +6059,120 @@ async function downloadMergedAsDocx(includeMonkeyScout = false){
         img.setAttribute("src", await toDataUrl(await response.blob()));
       } catch (imageError) {
         console.warn("A figure could not be embedded in the Word file:", src, imageError);
-        // Preserve the figure caption/label even if its host blocks CORS.
         const alt = img.getAttribute("alt") || "Figure image unavailable during export";
         img.replaceWith(document.createTextNode("[" + alt + "]"));
       }
     }
+    // Also convert images inside expanded section clones
+    for (const sec of sections) {
+      for (const img of sec.querySelectorAll("img")) {
+        const src = img.getAttribute("src") || "";
+        if (!src || src.startsWith("data:")) continue;
+        try {
+          const response = await fetch(src, { mode: "cors", credentials: "omit" });
+          if (!response.ok) throw new Error("Image request failed");
+          img.setAttribute("src", await toDataUrl(await response.blob()));
+        } catch (_) {
+          const alt = img.getAttribute("alt") || "Figure";
+          img.replaceWith(document.createTextNode("[" + alt + "]"));
+        }
+      }
+    }
 
     const css = `
-      body { font-family: "Times New Roman"; font-size: 12pt; color: #1e293b; }
-      p, li, td, th, div { font-family: "Times New Roman"; font-size: 12pt; line-height: 1; }
-      p { margin-top: 0; margin-bottom: 8pt; text-align: justify; }
+      body { font-family: "Times New Roman"; font-size: 12pt; color: #1e293b; line-height: 1.15; }
+      p, li, td, th, div { font-family: "Times New Roman"; font-size: 12pt; line-height: 1.15; }
+      p { margin-top: 0; margin-bottom: 8pt; text-align: justify; line-height: 1.15; }
       h1 { font-family: "Times New Roman"; font-size: 16pt; font-weight: bold; text-align: center; margin-top: 18pt; margin-bottom: 12pt; }
       h2 { font-family: "Times New Roman"; font-size: 14pt; font-weight: bold; margin-top: 14pt; margin-bottom: 8pt; }
       h3 { font-family: "Times New Roman"; font-size: 12pt; font-weight: bold; margin-top: 12pt; margin-bottom: 6pt; }
       table { border-collapse: collapse; width: 100%; margin-top: 8pt; margin-bottom: 8pt; }
       th, td { border: 1px solid #334155; padding: 5pt 6pt; vertical-align: top; }
-      .export-toc-table td { border: none; padding: 2pt 8pt 2pt 0; }
-      .export-toc-table td:last-child { text-align: right; }
-      img { max-width: 100%; height: auto; }
-      .tp-figure { text-align: center; margin: 12pt auto; }
-      .fig-caption, .fig-main-label { font-size: 10pt; text-align: center; }
+      .export-toc-table td { border: none !important; }
     `;
 
-    // Build separate page groups for proper academic numbering:
-    // Cover (no numbers) → Preliminaries (i, ii, iii...) → Body (1, 2, 3...)
-    const allPages = [];
-    sourceSections.forEach(sec => {
-      const pagesInSec = [...sec.querySelectorAll(".a4-page, .merged-page")];
-      if (pagesInSec.length) allPages.push(...pagesInSec);
-      else allPages.push(sec); // fallback
-    });
+    // Classify each logical section for academic page numbering.
+    const classifySection = (sec) => {
+      const title = String(sec.getAttribute("data-section") || "").trim();
+      const heading = ((sec.querySelector("h1,h2,h3") || {}).textContent || "").replace(/\s+/g, " ").trim();
+      const probe = (title || heading || (sec.textContent || "").slice(0, 80)).toLowerCase();
+      const hasToc = !!(sec.querySelector(".export-toc-table, .toc-row, .toc-lines"));
+      if (hasToc || /table\s*of\s*contents|^contents$/.test(probe)) return "toc";
+      if (/^cover|title\s*page/.test(probe) || sec.classList.contains("cover-page")) return "cover";
+      if (/certification|approval|declaration|dedication|acknowledgements?|abstract|list of (tables|figures|abbreviations|symbols)|preface|foreword/.test(probe)) return "prelim";
+      if (/^chapter\s|conclusions?|recommendations?|references?|bibliography|appendices|appendix/.test(probe)) return "body";
+      // Fallback: early untitled blocks before any body heading → prelim
+      return "body";
+    };
 
-    const coverPages = [];
-    const prelimPages = [];
-    const bodyPages = [];
+    const coverSecs = [];
+    const prelimSecs = [];
+    const bodySecs = [];
     let seenBody = false;
-    allPages.forEach(page => {
-      const isCover = page.classList.contains("cover-page") || /cover/i.test(page.dataset.sectionTitle || "") || /cover/i.test((page.querySelector("h1,h2")||{}).textContent || "");
-      const isPrelim = page.classList.contains("preliminary-page") || page.classList.contains("toc-page") || page.classList.contains("cover-page");
-      if (isCover && !coverPages.length && !seenBody) {
-        coverPages.push(page);
-      } else if (!seenBody && (isPrelim || page.classList.contains("toc-page"))) {
-        prelimPages.push(page);
+    sections.forEach(sec => {
+      // Strip leftover pagebreak markers; we inject real Word page breaks ourselves.
+      sec.querySelectorAll(".export-pagebreak").forEach(n => n.remove());
+      const kind = classifySection(sec);
+      if (kind === "cover" && !coverSecs.length && !seenBody) {
+        coverSecs.push(sec);
+      } else if ((kind === "prelim" || kind === "toc") && !seenBody) {
+        prelimSecs.push(sec);
+      } else if (kind === "cover" && !seenBody) {
+        // Extra cover-like block still before body
+        prelimSecs.push(sec);
       } else {
         seenBody = true;
-        bodyPages.push(page);
+        bodySecs.push(sec);
       }
     });
-    // If no explicit cover detected, treat first page as cover
-    if (!coverPages.length && allPages.length) {
-      coverPages.push(allPages[0]);
-      if (prelimPages[0] === allPages[0]) prelimPages.shift();
+    if (!coverSecs.length && sections.length) {
+      // Treat first section as cover when nothing matched.
+      const first = sections[0];
+      if (!prelimSecs.includes(first) && !bodySecs.includes(first)) coverSecs.push(first);
+      else if (prelimSecs[0] === first) {
+        // keep as is
+      } else if (bodySecs[0] === first) {
+        bodySecs.shift();
+        coverSecs.push(first);
+      }
     }
 
-    function pagesToChildren(pageList) {
-      if (!pageList.length) return [];
-      const wrapper = document.createElement("div");
-      pageList.forEach((p, i) => {
-        if (i > 0) {
-          const br = document.createElement("div");
-          br.className = "export-pagebreak";
-          br.innerHTML = "&nbsp;";
-          wrapper.appendChild(br);
-        }
-        const clean = p.cloneNode(true);
-        clean.querySelectorAll(".export-pagebreak, .tp-figure-handles, .tp-handle, .page-number, .a4-footer, .document-stats, .page-number").forEach(node => node.remove());
+    const pageBreakPara = () => new docx.Paragraph({
+      children: [new docx.PageBreak()]
+    });
+
+    const sectionToChildren = (secList) => {
+      const out = [];
+      secList.forEach((sec, idx) => {
+        // Clean clone for conversion
+        const wrapper = document.createElement("div");
+        const clean = sec.cloneNode(true);
+        clean.querySelectorAll(".export-pagebreak, .tp-figure-handles, .tp-handle, .page-number, .a4-footer, .document-stats").forEach(n => n.remove());
         wrapper.appendChild(clean);
+        let converted = [];
+        try {
+          converted = docxHtml.htmlToContent(wrapper.innerHTML, {
+            stylesheet: css,
+            maxImageWidth: 540,
+            onWarning: warning => console.warn("Word conversion note:", warning)
+          }) || [];
+        } catch (convErr) {
+          console.warn("Section conversion failed:", convErr);
+          converted = [new docx.Paragraph({
+            children: [new docx.TextRun({ text: (sec.textContent || "").replace(/\s+/g, " ").trim().slice(0, 5000), font: "Times New Roman", size: 24 })]
+          })];
+        }
+        if (idx > 0 && out.length) {
+          out.push(pageBreakPara());
+        }
+        if (converted.length) out.push(...converted);
       });
-      const converted = docxHtml.htmlToContent(wrapper.innerHTML, {
-        stylesheet: css,
-        maxImageWidth: 540,
-        onWarning: warning => console.warn("Word conversion note:", warning)
-      });
-      return converted || [];
-    }
+      return out;
+    };
 
-    const coverChildren = pagesToChildren(coverPages);
-    const prelimChildren = pagesToChildren(prelimPages);
-    const bodyChildren = pagesToChildren(bodyPages);
+    const coverChildren = sectionToChildren(coverSecs);
+    const prelimChildren = sectionToChildren(prelimSecs);
+    const bodyChildren = sectionToChildren(bodySecs);
 
     if (!coverChildren.length && !prelimChildren.length && !bodyChildren.length) {
       throw new Error("The Word converter could not read the paper content.");
@@ -6050,7 +6182,7 @@ async function downloadMergedAsDocx(includeMonkeyScout = false){
       children: [new docx.Paragraph({
         alignment: docx.AlignmentType.CENTER,
         border: { top: { style: docx.BorderStyle.SINGLE, size: 6, color: "CCCCCC", space: 8 } },
-        spacing: { before: 120, after: 0, line: 240 },
+        spacing: { before: 120, after: 0, line: 276, lineRule: "auto" },
         children: [
           ...(includeMonkeyScout
             ? [new docx.TextRun({ text: "monkey scout", font: "Times New Roman", size: 16, color: "666666" }),
@@ -6064,16 +6196,20 @@ async function downloadMergedAsDocx(includeMonkeyScout = false){
       })]
     });
 
+    // A4: 11906 x 16838 twips; ~1 inch margins
     const pageSize = {
       size: { width: 11906, height: 16838 },
-      margin: { top: 1296, right: 1296, bottom: 1296, left: 1296, footer: 720 }
+      margin: { top: 1440, right: 1440, bottom: 1440, left: 1440, footer: 720 }
     };
+
+    // 1.15 line spacing ≈ 276 twips (240 = single)
+    const LINE_115 = 276;
 
     const docxSections = [];
     if (coverChildren.length) {
       docxSections.push({
         properties: { page: pageSize },
-        footers: { default: makeFooter(false) }, // no page number on cover
+        footers: { default: makeFooter(false) },
         children: coverChildren
       });
     }
@@ -6103,8 +6239,7 @@ async function downloadMergedAsDocx(includeMonkeyScout = false){
     }
 
     // NOTE: must not be named `document` — that shadows the global DOM document
-    // and triggers "Cannot access 'document' before initialization" for earlier uses
-    // of document.getElementById / document.createElement in this function.
+    // and triggers "Cannot access 'document' before initialization".
     const wordDoc = new docx.Document({
       creator: "Monkey Scout",
       title: getMergedExportTitle().replace(/_/g, " "),
@@ -6113,7 +6248,7 @@ async function downloadMergedAsDocx(includeMonkeyScout = false){
         default: {
           document: {
             run: { font: "Times New Roman", size: 24 },
-            paragraph: { spacing: { line: 240, lineRule: "auto", after: 120 } }
+            paragraph: { spacing: { line: LINE_115, lineRule: "auto", after: 120 } }
           }
         },
         paragraphStyles: [
@@ -6124,7 +6259,7 @@ async function downloadMergedAsDocx(includeMonkeyScout = false){
             next: "Normal",
             quickFormat: true,
             run: { font: "Times New Roman", size: 32, bold: true },
-            paragraph: { spacing: { before: 240, after: 200, line: 240, lineRule: "auto" }, alignment: "center" }
+            paragraph: { spacing: { before: 240, after: 200, line: LINE_115, lineRule: "auto" }, alignment: "center" }
           },
           {
             id: "Heading2",
@@ -6133,7 +6268,7 @@ async function downloadMergedAsDocx(includeMonkeyScout = false){
             next: "Normal",
             quickFormat: true,
             run: { font: "Times New Roman", size: 28, bold: true },
-            paragraph: { spacing: { before: 240, after: 160, line: 240, lineRule: "auto" } }
+            paragraph: { spacing: { before: 240, after: 160, line: LINE_115, lineRule: "auto" } }
           },
           {
             id: "Heading3",
@@ -6142,7 +6277,7 @@ async function downloadMergedAsDocx(includeMonkeyScout = false){
             next: "Normal",
             quickFormat: true,
             run: { font: "Times New Roman", size: 24, bold: true },
-            paragraph: { spacing: { before: 200, after: 120, line: 240, lineRule: "auto" } }
+            paragraph: { spacing: { before: 200, after: 120, line: LINE_115, lineRule: "auto" } }
           }
         ]
       },
