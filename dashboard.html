@@ -6102,7 +6102,10 @@ async function downloadMergedAsDocx(includeMonkeyScout = false){
       });
     }
 
-    const document = new docx.Document({
+    // NOTE: must not be named `document` — that shadows the global DOM document
+    // and triggers "Cannot access 'document' before initialization" for earlier uses
+    // of document.getElementById / document.createElement in this function.
+    const wordDoc = new docx.Document({
       creator: "Monkey Scout",
       title: getMergedExportTitle().replace(/_/g, " "),
       description: "Academic document exported from Monkey Scout",
@@ -6146,7 +6149,7 @@ async function downloadMergedAsDocx(includeMonkeyScout = false){
       sections: docxSections
     });
 
-    const blob = await docx.Packer.toBlob(document);
+    const blob = await docx.Packer.toBlob(wordDoc);
     if (!blob || blob.size < 1000) throw new Error("The Word file was not generated correctly.");
     saveAs(blob, getMergedExportTitle() + ".docx");
   } catch (err) {
