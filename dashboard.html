@@ -5776,14 +5776,21 @@ function buildMergedExportDocument(){
         if (src) img.setAttribute("src", src);
         img.removeAttribute("width");
         img.removeAttribute("height");
-        img.setAttribute("style", "max-width:92%;height:auto;display:block;margin:10pt auto 6pt auto;");
+        // Cap at half page width; block + auto margins = text above and below only (no side wrap)
+        img.setAttribute("style", "max-width:48%;width:48%;height:auto;display:block;margin:12pt auto 8pt auto;page-break-inside:avoid;");
+        img.setAttribute("width", "48%");
       });
       clone.querySelectorAll(".tp-figure").forEach(fig => {
-        // Clear breathing room so text never collides with the image
-        fig.setAttribute("style", "text-align:center;margin:18pt auto 22pt auto;page-break-inside:avoid;display:block;width:100%;max-width:100%;");
+        // Block figure, centered, ≤ half page — text flows top and bottom only
+        fig.setAttribute("style", "text-align:center;margin:16pt auto 18pt auto;page-break-inside:avoid;display:block;width:48%;max-width:48%;float:none;clear:both;");
+        fig.removeAttribute("width");
+        const img = fig.querySelector("img");
+        if (img) {
+          img.setAttribute("style", "max-width:100%;width:100%;height:auto;display:block;margin:0 auto;page-break-inside:avoid;");
+        }
         const cap = fig.querySelector(".fig-caption, .fig-main-label");
         if (cap) {
-          cap.setAttribute("style", "display:block;text-align:center;font-size:10pt;font-weight:600;margin-top:6pt;margin-bottom:4pt;font-family:'Times New Roman',Times,serif;");
+          cap.setAttribute("style", "display:block;text-align:center;font-size:10pt;font-weight:600;margin-top:6pt;margin-bottom:4pt;font-family:'Times New Roman',Times,serif;width:100%;");
         }
       });
       clone.querySelectorAll("table:not(.export-toc-table)").forEach(t => {
@@ -6089,6 +6096,10 @@ async function downloadMergedAsDocx(includeMonkeyScout = false){
       table { border-collapse: collapse; width: 100%; margin-top: 8pt; margin-bottom: 8pt; }
       th, td { border: 1px solid #334155; padding: 5pt 6pt; vertical-align: top; }
       .export-toc-table td { border: none !important; }
+      img { max-width: 48%; height: auto; display: block; margin: 12pt auto 8pt auto; }
+      .tp-figure { display: block; width: 48%; max-width: 48%; margin: 16pt auto 18pt auto; text-align: center; float: none; clear: both; page-break-inside: avoid; }
+      .tp-figure img { max-width: 100%; width: 100%; height: auto; display: block; margin: 0 auto; }
+      .fig-caption, .fig-main-label { display: block; text-align: center; font-size: 10pt; font-weight: 600; margin-top: 6pt; }
     `;
 
     // Classify each logical section for academic page numbering.
@@ -6153,7 +6164,7 @@ async function downloadMergedAsDocx(includeMonkeyScout = false){
         try {
           converted = docxHtml.htmlToContent(wrapper.innerHTML, {
             stylesheet: css,
-            maxImageWidth: 540,
+            maxImageWidth: 280,
             onWarning: warning => console.warn("Word conversion note:", warning)
           }) || [];
         } catch (convErr) {
