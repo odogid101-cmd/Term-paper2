@@ -1,6 +1,19 @@
 <!doctype html>
 <html lang="en">
 <head>
+  <script>
+/* GitHub Pages does not support .htaccess — hide .html in the address bar */
+(function () {
+  try {
+    var path = location.pathname || "";
+    if (/\.html$/i.test(path) && path.toLowerCase() !== "/index.html") {
+      var clean = path.replace(/\.html$/i, "");
+      if (clean.length > 1 && clean.endsWith("/")) clean = clean.slice(0, -1);
+      history.replaceState(null, "", clean + location.search + location.hash);
+    }
+  } catch (e) {}
+})();
+</script>
 <meta charset="utf-8" />
 <title>Settings | Tempaper Generator</title>
 <meta name="viewport" content="width=device-width,initial-scale=1" />
