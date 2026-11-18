@@ -5892,45 +5892,175 @@ async function downloadMergedAsPDF(includeMonkeyScout = false){
     const probe = (root.textContent || "").replace(/\s+/g, " ").trim();
     if (probe.length < 40) throw new Error("The paper content is empty. Generate and merge your sections before downloading.");
 
-    // html2canvas must measure a real, in-viewport element. The previous
-    // translateX(-10000px) approach could produce a blank canvas on mobile.
-    // Make the export root a proper printable A4-width document
-    root.style.cssText = "";
-    root.style.position = "fixed";
-    root.style.left = "0";
-    root.style.top = "0";
-    root.style.width = "794px";          // ~A4 at 96dpi
-    root.style.maxWidth = "794px";
-    root.style.margin = "0";
-    root.style.padding = "0";
-    root.style.boxSizing = "border-box";
-    root.style.background = "#ffffff";
-    root.style.color = "#1e293b";
-    root.style.opacity = "1";
-    root.style.visibility = "visible";
-    root.style.pointerEvents = "none";
-    root.style.transform = "none";
-    root.style.zIndex = "2147483646";
-    root.style.overflow = "visible";
-    // Force readable typography for the canvas capture
-    root.style.fontFamily = "'Times New Roman', Times, serif";
-    root.style.fontSize = "12pt";
-    root.style.lineHeight = "1.15";
-    document.body.appendChild(root);
-
-    // Ensure every section has visible text color
-    root.querySelectorAll("*").forEach(el => {
-      const cs = window.getComputedStyle(el);
-      if (cs.color === "rgba(0, 0, 0, 0)" || cs.color === "transparent") {
-        el.style.color = "#1e293b";
+    // Same major-heading split as Word: each Certification / Abstract / Chapter / Conclusion
+    // etc. becomes its own page-starting section.
+    const MAJOR_SPLIT_RE = /^(cover(\s*page)?|title\s*page|certification|approval|declaration|dedication|acknowledgements?|abstract|table\s*of\s*contents|contents|list\s*of\s*(tables|figures|abbreviations|symbols)|chapter\s+\d+|chapter\s+[ivxlcdm]+|conclusions?|recommendations?|references?|bibliography|appendices|appendix(\s*[a-z0-9]+)?)\b/i;
+    let sections = [...root.querySelectorAll(":scope > .export-section")];
+    if (!sections.length) sections = [root];
+    const expanded = [];
+    sections.forEach(sec => {
+      const host = document.createElement("div");
+      host.innerHTML = sec.innerHTML;
+      const blocks = [...host.childNodes].filter(n => n.nodeType === 1 || (n.nodeType === 3 && String(n.textContent || "").trim()));
+      if (blocks.length < 2) {
+        expanded.push(sec);
+        return;
       }
-      if (cs.backgroundColor === "rgba(0, 0, 0, 0)") {
-        // leave transparent
-      }
+      let current = document.createElement("section");
+      current.className = "export-section";
+      current.setAttribute("data-section", sec.getAttribute("data-section") || "");
+      let started = false;
+      let pieceCount = 0;
+      const flush = () => {
+        if (!current.childNodes.length) return;
+        expanded.push(current);
+        pieceCount++;
+        current = document.createElement("section");
+        current.className = "export-section";
+      };
+      blocks.forEach(node => {
+        if (node.nodeType !== 1) {
+          current.appendChild(node.cloneNode(true));
+          return;
+        }
+        const tag = (node.tagName || "").toLowerCase();
+        const textContent = (node.textContent || "").replace(/\s+/g, " ").trim();
+        const isMajorHeading = (tag === "h1" || tag === "h2" || tag === "h3") && MAJOR_SPLIT_RE.test(textContent);
+        if (isMajorHeading && started && current.childNodes.length) {
+          flush();
+          current.setAttribute("data-section", textContent);
+        }
+        if (isMajorHeading && !current.getAttribute("data-section")) {
+          current.setAttribute("data-section", textContent);
+        }
+        current.appendChild(node.cloneNode(true));
+        started = true;
+      });
+      flush();
+      if (!pieceCount) expanded.push(sec);
     });
 
-    // Keep the temporary capture document out of the user's way while it is
-    // rendered. html2canvas captures `root` only, not this sibling mask.
+    // Rebuild root from expanded sections with hard CSS page breaks (mirrors Word PageBreak)
+    const printRoot = document.createElement("div");
+    printRoot.id = "merged-export-root";
+    expanded.forEach((sec, idx) => {
+      const section = document.createElement("section");
+      section.className = "export-section";
+      section.setAttribute("data-section", sec.getAttribute("data-section") || "");
+      // html2pdf respects page-break-before on block elements
+      section.style.cssText = [
+        "display:block",
+        "box-sizing:border-box",
+        "width:100%",
+        "max-width:100%",
+        "background:#ffffff",
+        "color:#1e293b",
+        "font-family:'Times New Roman',Times,serif",
+        "font-size:12pt",
+        "line-height:1.15",
+        "page-break-inside:auto",
+        idx === 0
+          ? "page-break-before:auto;break-before:auto"
+          : "page-break-before:always;break-before:page",
+        "padding:0",
+        "margin:0"
+      ].join(";");
+      // Strip leftover soft break markers
+      const clean = sec.cloneNode(true);
+      clean.querySelectorAll(".export-pagebreak").forEach(n => n.remove());
+      // Typography + figure sizing (match Word: ≤ half page, top/bottom flow)
+      clean.querySelectorAll("p, li, td, th, div").forEach(el => {
+        const prev = el.getAttribute("style") || "";
+        el.setAttribute("style", (prev ? prev + ";" : "") + "font-family:'Times New Roman',Times,serif;font-size:12pt;line-height:1.15;color:#1e293b;");
+      });
+      clean.querySelectorAll("h1,h2,h3,h4").forEach(el => {
+        const prev = el.getAttribute("style") || "";
+        el.setAttribute("style", (prev ? prev + ";" : "") + "font-family:'Times New Roman',Times,serif;line-height:1.15;color:#0f172a;page-break-after:avoid;");
+      });
+      clean.querySelectorAll(".tp-figure").forEach(fig => {
+        fig.setAttribute("style", "text-align:center;margin:16pt auto 18pt auto;page-break-inside:avoid;display:block;width:48%;max-width:48%;float:none;clear:both;");
+        const img = fig.querySelector("img");
+        if (img) {
+          img.removeAttribute("width");
+          img.removeAttribute("height");
+          img.setAttribute("style", "max-width:100%;width:100%;height:auto;display:block;margin:0 auto;page-break-inside:avoid;");
+        }
+        const cap = fig.querySelector(".fig-caption, .fig-main-label");
+        if (cap) {
+          cap.setAttribute("style", "display:block;text-align:center;font-size:10pt;font-weight:600;margin-top:6pt;margin-bottom:4pt;font-family:'Times New Roman',Times,serif;width:100%;");
+        }
+      });
+      clean.querySelectorAll("img").forEach(img => {
+        if (img.closest(".tp-figure")) return;
+        img.removeAttribute("width");
+        img.removeAttribute("height");
+        img.setAttribute("style", "max-width:48%;width:48%;height:auto;display:block;margin:12pt auto 8pt auto;page-break-inside:avoid;");
+      });
+      clean.querySelectorAll("table:not(.export-toc-table)").forEach(t => {
+        t.setAttribute("style", "border-collapse:collapse;width:100%;margin:12pt 0;font-family:'Times New Roman',Times,serif;font-size:12pt;line-height:1.15;");
+        t.querySelectorAll("th").forEach(cell => {
+          cell.setAttribute("style", "border:1px solid #334155;padding:6pt 8pt;text-align:left;vertical-align:top;background:#f1f5f9;font-weight:700;");
+        });
+        t.querySelectorAll("td").forEach(cell => {
+          cell.setAttribute("style", "border:1px solid #334155;padding:6pt 8pt;text-align:left;vertical-align:top;");
+        });
+      });
+      clean.querySelectorAll(".export-toc-table").forEach(t => {
+        t.setAttribute("style", "width:100%;border-collapse:collapse;margin:6pt 0 12pt;table-layout:fixed;");
+        t.querySelectorAll("td").forEach((cell, i) => {
+          cell.setAttribute("style", i === 0
+            ? "text-align:left;padding:2pt 8pt 2pt 0;border:none;width:85%;vertical-align:baseline;"
+            : "text-align:right;padding:2pt 0;border:none;width:15%;vertical-align:baseline;white-space:nowrap;");
+        });
+      });
+      while (clean.firstChild) section.appendChild(clean.firstChild);
+      printRoot.appendChild(section);
+    });
+
+    // Classify sections for footer numbering (cover / roman prelim / arabic body)
+    const classify = (sec) => {
+      const title = String(sec.getAttribute("data-section") || "").trim();
+      const heading = ((sec.querySelector("h1,h2,h3") || {}).textContent || "").replace(/\s+/g, " ").trim();
+      const probe = (title || heading || "").toLowerCase();
+      if (sec.querySelector(".export-toc-table, .toc-row, .toc-lines") || /table\s*of\s*contents|^contents$/.test(probe)) return "toc";
+      if (/^cover|title\s*page/.test(probe)) return "cover";
+      if (/certification|approval|declaration|dedication|acknowledgements?|abstract|list of (tables|figures|abbreviations|symbols)|preface|foreword/.test(probe)) return "prelim";
+      return "body";
+    };
+    const sectionKinds = [...printRoot.querySelectorAll(":scope > .export-section")].map(classify);
+
+    // Mount printable root for html2canvas
+    printRoot.style.cssText = [
+      "position:fixed",
+      "left:0",
+      "top:0",
+      "width:794px",
+      "max-width:794px",
+      "margin:0",
+      "padding:0",
+      "box-sizing:border-box",
+      "background:#ffffff",
+      "color:#1e293b",
+      "opacity:1",
+      "visibility:visible",
+      "pointer-events:none",
+      "transform:none",
+      "z-index:2147483646",
+      "overflow:visible",
+      "font-family:'Times New Roman',Times,serif",
+      "font-size:12pt",
+      "line-height:1.15"
+    ].join(";");
+    document.body.appendChild(printRoot);
+    root = printRoot; // so finally removes it
+
+    printRoot.querySelectorAll("*").forEach(el => {
+      try {
+        const cs = window.getComputedStyle(el);
+        if (cs.color === "rgba(0, 0, 0, 0)" || cs.color === "transparent") el.style.color = "#1e293b";
+      } catch (_) {}
+    });
+
     mask = document.createElement("div");
     mask.setAttribute("aria-live", "polite");
     mask.textContent = "Preparing your PDF…";
@@ -5938,8 +6068,7 @@ async function downloadMergedAsPDF(includeMonkeyScout = false){
     document.body.appendChild(mask);
 
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    // Wait for export images to settle so they are included in the PDF.
-    const imgs = [...root.querySelectorAll("img")];
+    const imgs = [...printRoot.querySelectorAll("img")];
     await Promise.all(imgs.map(img => {
       if (img.complete) return Promise.resolve();
       return new Promise(resolve => {
@@ -5951,7 +6080,6 @@ async function downloadMergedAsPDF(includeMonkeyScout = false){
 
     const filename = getMergedExportTitle() + ".pdf";
     const opt = {
-      // Balanced 20 mm margins (top = bottom) so there is no huge empty region
       margin: [20, 18, 20, 18],
       filename,
       image: { type: "jpeg", quality: 0.95 },
@@ -5965,25 +6093,54 @@ async function downloadMergedAsPDF(includeMonkeyScout = false){
         scrollX: 0,
         scrollY: 0,
         onclone: (clonedDoc) => {
-          // Force every element in the clone to be visible and dark text
           const rootClone = clonedDoc.getElementById("merged-export-root") || clonedDoc.body;
           if (rootClone) {
             rootClone.style.color = "#1e293b";
             rootClone.style.background = "#ffffff";
+            rootClone.style.lineHeight = "1.15";
+            rootClone.querySelectorAll(".export-section").forEach((sec, idx) => {
+              sec.style.pageBreakBefore = idx === 0 ? "auto" : "always";
+              sec.style.breakBefore = idx === 0 ? "auto" : "page";
+              sec.style.display = "block";
+            });
             rootClone.querySelectorAll("*").forEach(el => {
               el.style.color = el.style.color || "#1e293b";
+            });
+            rootClone.querySelectorAll(".tp-figure, img").forEach(el => {
+              if (el.tagName === "IMG" && !el.closest(".tp-figure")) {
+                el.style.maxWidth = "48%";
+                el.style.width = "48%";
+                el.style.display = "block";
+                el.style.margin = "12pt auto";
+              }
+              if (el.classList && el.classList.contains("tp-figure")) {
+                el.style.width = "48%";
+                el.style.maxWidth = "48%";
+                el.style.margin = "16pt auto";
+                el.style.display = "block";
+                el.style.float = "none";
+                el.style.clear = "both";
+              }
             });
           }
         }
       },
       jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-      pagebreak: { mode: ["css", "legacy"], before: ".export-pagebreak, .export-section", avoid: [".tp-figure", "img", "h1", "h2", "h3", "table", "tr"] }
+      pagebreak: {
+        mode: ["css", "legacy"],
+        before: ".export-section",
+        avoid: [".tp-figure", "img", "table", "tr"]
+      }
     };
 
-    const worker = html2pdf().set(opt).from(root).toPdf();
+    const worker = html2pdf().set(opt).from(printRoot).toPdf();
     const pdf = await worker.get("pdf");
     const totalPages = pdf.internal.getNumberOfPages();
     if (!totalPages || totalPages < 1) throw new Error("The PDF renderer did not create any pages.");
+
+    // Footer labels: try to map PDF pages to section kinds for roman vs arabic.
+    // html2pdf does not guarantee 1 section = 1 page, so we use sequential arabic
+    // with optional monkey-scout branding (same reliable approach as before).
     for (let pageNo = 1; pageNo <= totalPages; pageNo++) {
       pdf.setPage(pageNo);
       pdf.setFont("times", "normal");
@@ -6005,6 +6162,7 @@ async function downloadMergedAsPDF(includeMonkeyScout = false){
     btn.innerHTML = originalLabel;
   }
 }
+
 
 async function downloadMergedAsDocx(includeMonkeyScout = false){
   const btn = document.getElementById("downloadMergedDocxBtn");
