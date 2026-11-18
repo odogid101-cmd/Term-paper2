@@ -5888,41 +5888,37 @@ async function downloadMergedAsPDF(includeMonkeyScout = false){
   let root = null;
   let mask = null;
   try {
-    root = buildMergedExportDocument();
-    const probe = (root.textContent || "").replace(/\s+/g, " ").trim();
+    const built = buildMergedExportDocument();
+    const probe = (built.textContent || "").replace(/\s+/g, " ").trim();
     if (probe.length < 40) throw new Error("The paper content is empty. Generate and merge your sections before downloading.");
 
-    // Same major-heading split as Word: each Certification / Abstract / Chapter / Conclusion
-    // etc. becomes its own page-starting section.
+    // Split multi-heading blocks the same way as Word so each major unit can start on a new page.
     const MAJOR_SPLIT_RE = /^(cover(\s*page)?|title\s*page|certification|approval|declaration|dedication|acknowledgements?|abstract|table\s*of\s*contents|contents|list\s*of\s*(tables|figures|abbreviations|symbols)|chapter\s+\d+|chapter\s+[ivxlcdm]+|conclusions?|recommendations?|references?|bibliography|appendices|appendix(\s*[a-z0-9]+)?)\b/i;
-    let sections = [...root.querySelectorAll(":scope > .export-section")];
-    if (!sections.length) sections = [root];
+    let sections = [...built.querySelectorAll(":scope > .export-section")];
+    if (!sections.length) sections = [built];
+
     const expanded = [];
     sections.forEach(sec => {
       const host = document.createElement("div");
       host.innerHTML = sec.innerHTML;
-      const blocks = [...host.childNodes].filter(n => n.nodeType === 1 || (n.nodeType === 3 && String(n.textContent || "").trim()));
+      const blocks = [...host.children];
       if (blocks.length < 2) {
-        expanded.push(sec);
+        const clone = sec.cloneNode(true);
+        clone.classList.add("export-section");
+        expanded.push(clone);
         return;
       }
       let current = document.createElement("section");
       current.className = "export-section";
       current.setAttribute("data-section", sec.getAttribute("data-section") || "");
       let started = false;
-      let pieceCount = 0;
       const flush = () => {
         if (!current.childNodes.length) return;
         expanded.push(current);
-        pieceCount++;
         current = document.createElement("section");
         current.className = "export-section";
       };
       blocks.forEach(node => {
-        if (node.nodeType !== 1) {
-          current.appendChild(node.cloneNode(true));
-          return;
-        }
         const tag = (node.tagName || "").toLowerCase();
         const textContent = (node.textContent || "").replace(/\s+/g, " ").trim();
         const isMajorHeading = (tag === "h1" || tag === "h2" || tag === "h3") && MAJOR_SPLIT_RE.test(textContent);
@@ -5937,152 +5933,157 @@ async function downloadMergedAsPDF(includeMonkeyScout = false){
         started = true;
       });
       flush();
-      if (!pieceCount) expanded.push(sec);
+      if (!expanded.length) {
+        const clone = sec.cloneNode(true);
+        clone.classList.add("export-section");
+        expanded.push(clone);
+      }
     });
 
-    // Rebuild root from expanded sections with hard CSS page breaks (mirrors Word PageBreak)
+    // Printable root — normal document flow (NOT zero-height / off-screen tricks)
     const printRoot = document.createElement("div");
     printRoot.id = "merged-export-root";
+    printRoot.setAttribute("style", [
+      "position:fixed",
+      "left:0",
+      "top:0",
+      "width:794px",
+      "max-width:794px",
+      "box-sizing:border-box",
+      "margin:0",
+      "padding:24px 28px",
+      "background:#ffffff",
+      "color:#000000",
+      "font-family:'Times New Roman',Times,serif",
+      "font-size:12pt",
+      "line-height:1.15",
+      "z-index:2147483645",
+      "overflow:visible",
+      "visibility:visible",
+      "opacity:1",
+      "pointer-events:none"
+    ].join(";"));
+
     expanded.forEach((sec, idx) => {
       const section = document.createElement("section");
       section.className = "export-section";
       section.setAttribute("data-section", sec.getAttribute("data-section") || "");
-      // html2pdf respects page-break-before on block elements
-      section.style.cssText = [
+      // Only break BEFORE sections after the first — otherwise page 1 is blank.
+      section.setAttribute("style", [
         "display:block",
         "box-sizing:border-box",
         "width:100%",
-        "max-width:100%",
         "background:#ffffff",
-        "color:#1e293b",
+        "color:#000000",
         "font-family:'Times New Roman',Times,serif",
         "font-size:12pt",
         "line-height:1.15",
-        "page-break-inside:auto",
+        "padding:0",
+        "margin:0 0 12px 0",
         idx === 0
           ? "page-break-before:auto;break-before:auto"
-          : "page-break-before:always;break-before:page",
-        "padding:0",
-        "margin:0"
-      ].join(";");
-      // Strip leftover soft break markers
+          : "page-break-before:always;break-before:page"
+      ].join(";"));
+
       const clean = sec.cloneNode(true);
-      clean.querySelectorAll(".export-pagebreak").forEach(n => n.remove());
-      // Typography + figure sizing (match Word: ≤ half page, top/bottom flow)
-      clean.querySelectorAll("p, li, td, th, div").forEach(el => {
+      clean.querySelectorAll(".export-pagebreak, .tp-figure-handles, .tp-handle, .page-number, .a4-footer, .document-stats, .tp-image-placeholder").forEach(n => n.remove());
+
+      // Force paint-friendly typography (black text on white)
+      clean.querySelectorAll("*").forEach(el => {
+        if (el.nodeType !== 1) return;
+        const tag = (el.tagName || "").toLowerCase();
+        if (tag === "img") return;
         const prev = el.getAttribute("style") || "";
-        el.setAttribute("style", (prev ? prev + ";" : "") + "font-family:'Times New Roman',Times,serif;font-size:12pt;line-height:1.15;color:#1e293b;");
+        el.setAttribute("style", (prev ? prev + ";" : "") + "color:#000000;background:transparent;font-family:'Times New Roman',Times,serif;line-height:1.15;");
       });
-      clean.querySelectorAll("h1,h2,h3,h4").forEach(el => {
+      clean.querySelectorAll("p, li, td, th").forEach(el => {
         const prev = el.getAttribute("style") || "";
-        el.setAttribute("style", (prev ? prev + ";" : "") + "font-family:'Times New Roman',Times,serif;line-height:1.15;color:#0f172a;page-break-after:avoid;");
+        el.setAttribute("style", (prev ? prev + ";" : "") + "font-size:12pt;line-height:1.15;color:#000000;");
       });
+      clean.querySelectorAll("h1").forEach(el => {
+        el.setAttribute("style", "font-family:'Times New Roman',Times,serif;font-size:16pt;font-weight:bold;text-align:center;margin:12pt 0;color:#000000;page-break-after:avoid;");
+      });
+      clean.querySelectorAll("h2").forEach(el => {
+        el.setAttribute("style", "font-family:'Times New Roman',Times,serif;font-size:14pt;font-weight:bold;margin:12pt 0 8pt;color:#000000;page-break-after:avoid;");
+      });
+      clean.querySelectorAll("h3").forEach(el => {
+        el.setAttribute("style", "font-family:'Times New Roman',Times,serif;font-size:12pt;font-weight:bold;margin:10pt 0 6pt;color:#000000;page-break-after:avoid;");
+      });
+
+      // Figures ≤ half page, text above/below
       clean.querySelectorAll(".tp-figure").forEach(fig => {
-        fig.setAttribute("style", "text-align:center;margin:16pt auto 18pt auto;page-break-inside:avoid;display:block;width:48%;max-width:48%;float:none;clear:both;");
+        fig.setAttribute("style", "display:block;width:48%;max-width:48%;margin:14pt auto;text-align:center;float:none;clear:both;page-break-inside:avoid;");
         const img = fig.querySelector("img");
         if (img) {
           img.removeAttribute("width");
           img.removeAttribute("height");
-          img.setAttribute("style", "max-width:100%;width:100%;height:auto;display:block;margin:0 auto;page-break-inside:avoid;");
+          img.setAttribute("style", "max-width:100%;width:100%;height:auto;display:block;margin:0 auto;");
         }
         const cap = fig.querySelector(".fig-caption, .fig-main-label");
-        if (cap) {
-          cap.setAttribute("style", "display:block;text-align:center;font-size:10pt;font-weight:600;margin-top:6pt;margin-bottom:4pt;font-family:'Times New Roman',Times,serif;width:100%;");
-        }
+        if (cap) cap.setAttribute("style", "display:block;text-align:center;font-size:10pt;font-weight:600;margin-top:6pt;color:#000000;");
       });
       clean.querySelectorAll("img").forEach(img => {
         if (img.closest(".tp-figure")) return;
         img.removeAttribute("width");
         img.removeAttribute("height");
-        img.setAttribute("style", "max-width:48%;width:48%;height:auto;display:block;margin:12pt auto 8pt auto;page-break-inside:avoid;");
+        img.setAttribute("style", "max-width:48%;width:48%;height:auto;display:block;margin:12pt auto;page-break-inside:avoid;");
       });
       clean.querySelectorAll("table:not(.export-toc-table)").forEach(t => {
-        t.setAttribute("style", "border-collapse:collapse;width:100%;margin:12pt 0;font-family:'Times New Roman',Times,serif;font-size:12pt;line-height:1.15;");
-        t.querySelectorAll("th").forEach(cell => {
-          cell.setAttribute("style", "border:1px solid #334155;padding:6pt 8pt;text-align:left;vertical-align:top;background:#f1f5f9;font-weight:700;");
-        });
-        t.querySelectorAll("td").forEach(cell => {
-          cell.setAttribute("style", "border:1px solid #334155;padding:6pt 8pt;text-align:left;vertical-align:top;");
+        t.setAttribute("style", "border-collapse:collapse;width:100%;margin:10pt 0;font-size:11pt;line-height:1.15;");
+        t.querySelectorAll("th,td").forEach(cell => {
+          cell.setAttribute("style", "border:1px solid #333;padding:5pt 6pt;vertical-align:top;color:#000;");
         });
       });
       clean.querySelectorAll(".export-toc-table").forEach(t => {
         t.setAttribute("style", "width:100%;border-collapse:collapse;margin:6pt 0 12pt;table-layout:fixed;");
         t.querySelectorAll("td").forEach((cell, i) => {
           cell.setAttribute("style", i === 0
-            ? "text-align:left;padding:2pt 8pt 2pt 0;border:none;width:85%;vertical-align:baseline;"
-            : "text-align:right;padding:2pt 0;border:none;width:15%;vertical-align:baseline;white-space:nowrap;");
+            ? "text-align:left;padding:2pt 8pt 2pt 0;border:none;width:85%;color:#000;"
+            : "text-align:right;padding:2pt 0;border:none;width:15%;white-space:nowrap;color:#000;");
         });
       });
+
       while (clean.firstChild) section.appendChild(clean.firstChild);
-      printRoot.appendChild(section);
+      // Skip completely empty sections (would become blank PDF pages)
+      if ((section.textContent || "").replace(/\s+/g, "").length || section.querySelector("img")) {
+        printRoot.appendChild(section);
+      }
     });
 
-    // Classify sections for footer numbering (cover / roman prelim / arabic body)
-    const classify = (sec) => {
-      const title = String(sec.getAttribute("data-section") || "").trim();
-      const heading = ((sec.querySelector("h1,h2,h3") || {}).textContent || "").replace(/\s+/g, " ").trim();
-      const probe = (title || heading || "").toLowerCase();
-      if (sec.querySelector(".export-toc-table, .toc-row, .toc-lines") || /table\s*of\s*contents|^contents$/.test(probe)) return "toc";
-      if (/^cover|title\s*page/.test(probe)) return "cover";
-      if (/certification|approval|declaration|dedication|acknowledgements?|abstract|list of (tables|figures|abbreviations|symbols)|preface|foreword/.test(probe)) return "prelim";
-      return "body";
-    };
-    const sectionKinds = [...printRoot.querySelectorAll(":scope > .export-section")].map(classify);
+    if (!(printRoot.textContent || "").replace(/\s+/g, " ").trim() && !printRoot.querySelector("img")) {
+      throw new Error("PDF content collapsed to empty. Merge the paper on screen, then try Download as PDF again.");
+    }
 
-    // Mount printable root for html2canvas
-    printRoot.style.cssText = [
-      "position:fixed",
-      "left:0",
-      "top:0",
-      "width:794px",
-      "max-width:794px",
-      "margin:0",
-      "padding:0",
-      "box-sizing:border-box",
-      "background:#ffffff",
-      "color:#1e293b",
-      "opacity:1",
-      "visibility:visible",
-      "pointer-events:none",
-      "transform:none",
-      "z-index:2147483646",
-      "overflow:visible",
-      "font-family:'Times New Roman',Times,serif",
-      "font-size:12pt",
-      "line-height:1.15"
-    ].join(";");
     document.body.appendChild(printRoot);
-    root = printRoot; // so finally removes it
+    root = printRoot;
 
-    printRoot.querySelectorAll("*").forEach(el => {
-      try {
-        const cs = window.getComputedStyle(el);
-        if (cs.color === "rgba(0, 0, 0, 0)" || cs.color === "transparent") el.style.color = "#1e293b";
-      } catch (_) {}
-    });
-
+    // Full-screen mask so the user does not see the capture surface
     mask = document.createElement("div");
     mask.setAttribute("aria-live", "polite");
     mask.textContent = "Preparing your PDF…";
-    mask.style.cssText = "position:fixed;inset:0;z-index:2147483647;background:#fff;color:#334155;display:flex;align-items:center;justify-content:center;font:600 14px Arial,sans-serif;";
+    mask.style.cssText = "position:fixed;inset:0;z-index:2147483647;background:#ffffff;color:#334155;display:flex;align-items:center;justify-content:center;font:600 14px Arial,sans-serif;";
     document.body.appendChild(mask);
 
-    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    const imgs = [...printRoot.querySelectorAll("img")];
-    await Promise.all(imgs.map(img => {
-      if (img.complete) return Promise.resolve();
+    // Allow layout + images to settle
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await Promise.all([...printRoot.querySelectorAll("img")].map(img => {
+      if (img.complete && img.naturalWidth) return Promise.resolve();
       return new Promise(resolve => {
         img.onload = resolve;
         img.onerror = resolve;
-        setTimeout(resolve, 5000);
+        setTimeout(resolve, 4000);
       });
     }));
+    // Give web fonts a moment
+    if (document.fonts && document.fonts.ready) {
+      try { await Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 1500))]); } catch (_) {}
+    }
 
     const filename = getMergedExportTitle() + ".pdf";
     const opt = {
-      margin: [20, 18, 20, 18],
+      margin: [15, 15, 18, 15],
       filename,
-      image: { type: "jpeg", quality: 0.95 },
+      image: { type: "jpeg", quality: 0.98 },
       html2canvas: {
         scale: 2,
         useCORS: true,
@@ -6093,43 +6094,37 @@ async function downloadMergedAsPDF(includeMonkeyScout = false){
         scrollX: 0,
         scrollY: 0,
         onclone: (clonedDoc) => {
-          const rootClone = clonedDoc.getElementById("merged-export-root") || clonedDoc.body;
-          if (rootClone) {
-            rootClone.style.color = "#1e293b";
-            rootClone.style.background = "#ffffff";
-            rootClone.style.lineHeight = "1.15";
-            rootClone.querySelectorAll(".export-section").forEach((sec, idx) => {
-              sec.style.pageBreakBefore = idx === 0 ? "auto" : "always";
-              sec.style.breakBefore = idx === 0 ? "auto" : "page";
-              sec.style.display = "block";
-            });
-            rootClone.querySelectorAll("*").forEach(el => {
-              el.style.color = el.style.color || "#1e293b";
-            });
-            rootClone.querySelectorAll(".tp-figure, img").forEach(el => {
-              if (el.tagName === "IMG" && !el.closest(".tp-figure")) {
-                el.style.maxWidth = "48%";
-                el.style.width = "48%";
-                el.style.display = "block";
-                el.style.margin = "12pt auto";
-              }
-              if (el.classList && el.classList.contains("tp-figure")) {
-                el.style.width = "48%";
-                el.style.maxWidth = "48%";
-                el.style.margin = "16pt auto";
-                el.style.display = "block";
-                el.style.float = "none";
-                el.style.clear = "both";
-              }
-            });
-          }
+          const rootClone = clonedDoc.getElementById("merged-export-root");
+          if (!rootClone) return;
+          rootClone.style.background = "#ffffff";
+          rootClone.style.color = "#000000";
+          rootClone.style.opacity = "1";
+          rootClone.style.visibility = "visible";
+          rootClone.style.position = "static";
+          rootClone.style.left = "auto";
+          rootClone.style.top = "auto";
+          rootClone.style.width = "794px";
+          rootClone.querySelectorAll(".export-section").forEach((sec, idx) => {
+            sec.style.display = "block";
+            sec.style.color = "#000000";
+            sec.style.background = "#ffffff";
+            sec.style.pageBreakBefore = idx === 0 ? "auto" : "always";
+            sec.style.breakBefore = idx === 0 ? "auto" : "page";
+            sec.style.pageBreakInside = "auto";
+          });
+          rootClone.querySelectorAll("p, li, td, th, h1, h2, h3, h4, span, div").forEach(el => {
+            el.style.color = "#000000";
+            el.style.opacity = "1";
+            el.style.visibility = "visible";
+          });
         }
       },
       jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+      // CRITICAL: do NOT put page-break before the first section (causes a blank page 1)
       pagebreak: {
         mode: ["css", "legacy"],
-        before: ".export-section",
-        avoid: [".tp-figure", "img", "table", "tr"]
+        before: ".export-section:not(:first-child)",
+        avoid: [".tp-figure", "img", "table"]
       }
     };
 
@@ -6138,9 +6133,6 @@ async function downloadMergedAsPDF(includeMonkeyScout = false){
     const totalPages = pdf.internal.getNumberOfPages();
     if (!totalPages || totalPages < 1) throw new Error("The PDF renderer did not create any pages.");
 
-    // Footer labels: try to map PDF pages to section kinds for roman vs arabic.
-    // html2pdf does not guarantee 1 section = 1 page, so we use sequential arabic
-    // with optional monkey-scout branding (same reliable approach as before).
     for (let pageNo = 1; pageNo <= totalPages; pageNo++) {
       pdf.setPage(pageNo);
       pdf.setFont("times", "normal");
