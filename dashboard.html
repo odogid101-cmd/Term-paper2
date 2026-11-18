@@ -5361,18 +5361,22 @@ async function updateCurrentTOC(button,container){
     if(!d.toc)throw new Error("The server did not return an updated table of contents.");
     // Keep the same line order as Edit; only refresh page numbers that the live map found.
     let tocText = mergeTocPageUpdates(previousPlain, d.toc);
+    // Keep main-work structure: strip old LOT/LOF blocks, then re-insert both
+    // (List of Tables, then List of Figures) before the first chapter — same as refreshListOfFigures.
+    const tables = (typeof collectAllTables === "function") ? collectAllTables() : [];
+    const lotPlain = (typeof buildListOfTablesPlain === "function") ? buildListOfTablesPlain(tables) : "";
     const lofPlain = buildListOfFiguresPlain(figs);
-    if (lofPlain) {
+    if (lotPlain || lofPlain) {
       const lines = tocText.split(/\n/);
       const cleaned = [];
       let skip = false;
       for (const line of lines) {
         const t = line.trim();
-        if (/^list of figures\b/i.test(t)) { skip = true; continue; }
+        if (/^list of (figures|tables)\b/i.test(t)) { skip = true; continue; }
         if (skip) {
-          if (/^(list of tables|list of abbreviations|chapter\b|conclusion|recommendations?|references?|appendix|appendices|certification|declaration|dedication|acknowledg|abstract)\b/i.test(t)) {
+          if (/^(list of (figures|tables|abbreviations)|chapter\b|conclusion|recommendations?|references?|appendix|appendices|certification|declaration|dedication|acknowledg|abstract)\b/i.test(t)) {
             skip = false;
-          } else if (/^Fig\.?\s*\d/i.test(t) || /^Figure\s*\d/i.test(t) || /\.{2,}/.test(t)) {
+          } else if (/^(?:Fig\.?|Figure|Table|Tbl\.?)\s*\d/i.test(t) || /\.{2,}/.test(t)) {
             continue;
           } else if (t === "") {
             continue;
@@ -5382,23 +5386,28 @@ async function updateCurrentTOC(button,container){
         }
         if (!skip) cleaned.push(line);
       }
+      const blocks = [];
+      if (lotPlain) blocks.push(...lotPlain.split("\n"), "");
+      if (lofPlain) blocks.push(...lofPlain.split("\n"), "");
       let insertAt = cleaned.findIndex(l => /^chapter\s+/i.test(l.trim()));
       if (insertAt < 0) insertAt = cleaned.length;
-      const ab = cleaned.findIndex(l => /^list of (tables|abbreviations)\b/i.test(l.trim()));
+      const ab = cleaned.findIndex(l => /^list of abbreviations\b/i.test(l.trim()));
       if (ab >= 0) {
         insertAt = ab + 1;
         while (insertAt < cleaned.length && cleaned[insertAt].trim() && !/^(list of|chapter\s+)/i.test(cleaned[insertAt].trim())) insertAt++;
       }
-      cleaned.splice(insertAt, 0, "", ...lofPlain.split("\n"), "");
-      tocText = cleaned.join("\n");
+      cleaned.splice(insertAt, 0, "", ...blocks);
+      tocText = cleaned.join("\n").replace(/\n{3,}/g, "\n\n").trim();
     }
     updateDisplayedTableOfContents(tocText);
+    // Refresh LOF/LOT on the TOC card from live figures/tables (authoritative main-work structure)
+    try { await refreshListOfFigures(); } catch (_) {}
+    // Re-render merged document LAST so its TOC matches the main-work TOC card exactly
     const mergedOutput=document.getElementById("mergedPaperOutput");
     if(mergedOutput){
       const mergedRaw=mergedOutput.dataset.mergedContent||"";
       renderMergedPaper(mergedRaw);
     }
-    try { await refreshListOfFigures(); } catch (_) {}
   }finally{button.disabled=false;button.textContent="↻ Update TOC";}
 }
 
@@ -5427,10 +5436,24 @@ async function mergeCurrentPaper(){
     if(tocCard&&tocButton){
       try{
         await updateCurrentTOC(tocButton,tocCard);
-        addWorkflowStatus("TOC page numbers synchronized from the final merged A4 pages.");
+        // updateCurrentTOC already refreshes LOT/LOF and re-renders the merged view
+        addWorkflowStatus("TOC synchronized to match the main workspace (including List of Tables and List of Figures).");
       }catch(syncError){
         addWorkflowStatus("Paper merged, but automatic TOC synchronization needs attention: "+(syncError.message||"unknown error"));
+        // Best-effort: still try to inject LOT/LOF and refresh merge from the live TOC card
+        try { await refreshListOfFigures(); } catch (_) {}
+        try {
+          const mergedOutput=document.getElementById("mergedPaperOutput");
+          if(mergedOutput) renderMergedPaper(mergedOutput.dataset.mergedContent||"");
+        } catch (_) {}
       }
+    } else {
+      // No TOC card control — still refresh LOT/LOF if possible
+      try { await refreshListOfFigures(); } catch (_) {}
+      try {
+        const mergedOutput=document.getElementById("mergedPaperOutput");
+        if(mergedOutput) renderMergedPaper(mergedOutput.dataset.mergedContent||"");
+      } catch (_) {}
     }
   }catch(err){button.disabled=false;button.textContent="Merge Complete Paper";alert(err.message||"Merge failed.");}
 }
@@ -6894,7 +6917,14 @@ document.addEventListener("click", (e) => {
 /** Collect all figures currently rendered in the paper workspace. */
 function collectAllFigures() {
   const figs = [];
-  document.querySelectorAll("#chatArea .chat-msg .tp-figure").forEach(fig => {
+  const seen = new Set();
+  // Prefer figures in the merged document when present (final page numbers);
+  // otherwise fall back to section cards in the main workspace.
+  const mergedRoot = document.getElementById("mergedPagesRoot");
+  const scope = mergedRoot
+    ? mergedRoot.querySelectorAll(".tp-figure")
+    : document.querySelectorAll("#chatArea .chat-msg .tp-figure");
+  scope.forEach(fig => {
     // Skip empty AI placeholders that have not received an image yet
     if (fig.classList.contains("tp-image-placeholder") || fig.dataset.autoPlaceholder === "1") return;
     if (!fig.querySelector("img[src]")) return;
@@ -6904,6 +6934,9 @@ function collectAllFigures() {
     const label = fig.dataset.figLabel || (fig.querySelector(".fig-label")?.textContent || "Figure").trim();
     let caption = (fig.querySelector(".fig-caption")?.textContent || "").trim();
     caption = caption.replace(/^Fig\.?\s*[\d.]+\s*:?\s*/i, "").trim();
+    const dedupe = (label + "|" + caption).toLowerCase();
+    if (seen.has(dedupe)) return;
+    seen.add(dedupe);
     figs.push({ label, caption, page: pageNum, orderNo: Number(card?.dataset.orderNo || 0) });
   });
   figs.sort((a, b) => (a.orderNo - b.orderNo) || a.label.localeCompare(b.label));
@@ -6914,12 +6947,16 @@ function collectAllFigures() {
 function collectAllTables() {
   const tables = [];
   const seen = new Set();
-  document.querySelectorAll("#chatArea .chat-msg .tp-table-wrap, #chatArea .chat-msg table.tp-table").forEach(node => {
-    const wrap = node.classList.contains("tp-table-wrap") ? node : node.closest(".tp-table-wrap") || node;
-    const table = wrap.matches("table") ? wrap : wrap.querySelector("table");
+  const mergedRoot = document.getElementById("mergedPagesRoot");
+  const tableNodes = mergedRoot
+    ? mergedRoot.querySelectorAll(".tp-table-wrap, table.tp-table")
+    : document.querySelectorAll("#chatArea .chat-msg .tp-table-wrap, #chatArea .chat-msg table.tp-table");
+  tableNodes.forEach(node => {
+    const wrap = node.classList && node.classList.contains("tp-table-wrap") ? node : (node.closest && node.closest(".tp-table-wrap")) || node;
+    const table = wrap.matches && wrap.matches("table") ? wrap : (wrap.querySelector && wrap.querySelector("table"));
     if (!table) return;
-    const card = wrap.closest(".chat-msg");
-    const pageEl = wrap.closest(".a4-page");
+    const card = wrap.closest && wrap.closest(".chat-msg");
+    const pageEl = wrap.closest && wrap.closest(".a4-page");
     const pageNum = pageEl ? (pageEl.querySelector(".page-number")?.textContent || "").trim() : "";
     // Prefer explicit "Table 2.1: Caption" in a preceding/following paragraph or caption element
     let label = "";
