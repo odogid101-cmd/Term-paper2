@@ -2001,11 +2001,11 @@ body { background-color: var(--bg); color: var(--text); }
 }
 
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script src="https://unpkg.com/docx@9/dist/index.iife.js"></script>
 <script src="https://unpkg.com/docx@9/dist/math.umd.cjs"></script>
 <script src="https://unpkg.com/docx@9/dist/html.umd.cjs"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
 
@@ -2666,7 +2666,7 @@ function paginateContent(html) {
 
     const text = (clone.textContent || '').trim();
     if (!text) continue;
-    const words = text.split(/\s+/);
+    const words = text.split(/\\s+/);
     let buffer = '';
 
     for (let w = 0; w < words.length; w++) {
@@ -3433,43 +3433,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     suppressFabClick = false;
   }, true);
 
-  if (userId && /^\d+$/.test(String(userId))) {
-    // Hydrate the signed-in identity and recent chats from this device immediately.
-    hydrateCachedProfile(userId);
-    loadChats();
-    // Refresh account details and cloud history in the background.
-    loadProfile(userId).then(() => loadChats());
-  } else {
-    currentUser = null;
-    renderGuestProfile();
-    loadChats();
+  if (userId && /^\d+$/.test(String(userId))) await loadProfile(userId);
+  else {
+    document.getElementById("profileAvatar").innerText = "G";
+    document.getElementById("profileName").innerText = "Guest User";
+    document.getElementById("profileEmail").innerText = "Sign in to save papers";
   }
-
-  // If another tab signs in/out or changes account, immediately isolate this tab's data too.
-  window.addEventListener("storage", (event) => {
-    if (event.key !== "user_id") return;
-    currentUser = null;
-    activeChatHistory = [];
-    activePaperProjectId = null;
-    activeTocCode = null;
-    activePromptCode = null;
-    activePaperTitle = "";
-    activePaperMerged = false;
-    latestResultText = "";
-    window.__recentChatRows = [];
-    setView(APP_VIEWS.CHAT);
-    const nextId = getActiveUserId();
-    if (nextId) {
-      hydrateCachedProfile(nextId);
-      loadChats();
-      loadProfile(nextId).then(() => loadChats());
-    } else {
-      renderGuestProfile();
-      loadChats();
-    }
-  });
-  window.addEventListener("online", () => loadChats());
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) loadChats(); });
+  loadChats();
 
   document.getElementById("sendBtn").onclick = generatePaper;
   document.getElementById("micBtn").onclick = toggleRecording;
@@ -3504,43 +3474,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   setView(APP_VIEWS.CHAT);
 });
 
-function getActiveUserId() {
-  const id = String(localStorage.getItem("user_id") || "").trim();
-  return /^\d+$/.test(id) && Number(id) > 0 ? id : "";
-}
-function getWorkflowUserId(){ return getActiveUserId(); }
-function renderProfile(user, fallbackId = "") {
-  const avatar = document.getElementById("profileAvatar");
-  const nameEl = document.getElementById("profileName");
-  const emailEl = document.getElementById("profileEmail");
-  if (!avatar || !nameEl || !emailEl) return;
-  if (user && String(user.id || user.user_id || "") === String(fallbackId || user.id || user.user_id || "")) {
-    const name = String(user.username || (user.email || "").split("@")[0] || `User ${user.id}`).trim();
-    avatar.textContent = (name[0] || "U").toUpperCase();
-    nameEl.textContent = name;
-    emailEl.textContent = user.email || "Signed-in account";
-  } else if (fallbackId) {
-    avatar.textContent = "U";
-    nameEl.textContent = "Loading account…";
-    emailEl.textContent = `Account ID: ${fallbackId}`;
-  } else {
-    avatar.textContent = "G";
-    nameEl.textContent = "Guest User";
-    emailEl.textContent = "Sign in to save papers";
-  }
-}
-function hydrateCachedProfile(userId) {
-  try {
-    const cached = JSON.parse(localStorage.getItem(`monkeyScoutProfile_${userId}`) || "null");
-    if (cached && String(cached.id || cached.user_id) === String(userId)) {
-      currentUser = { ...cached, id: Number(userId) };
-      renderProfile(currentUser, userId);
-      return;
-    }
-  } catch (_) {}
-  currentUser = { id: Number(userId), username: `User ${userId}`, email: "" };
-  renderProfile(null, userId);
-}
+function getWorkflowUserId(){const id=localStorage.getItem("user_id")||"";return /^\d+$/.test(String(id))?String(id):"";}
 
 function setView(view) {
   appState.view = view;
@@ -3704,45 +3638,31 @@ function applyTheme() {
 }
 
 async function loadProfile(userId) {
-  const uid = String(userId || getActiveUserId());
-  if (!/^\d+$/.test(uid) || Number(uid) <= 0) {
-    currentUser = null;
-    renderGuestProfile();
-    return false;
-  }
-  // Never replace a known signed-in user with Guest merely because the API is slow/offline.
-  if (!currentUser || String(currentUser.id) !== uid) hydrateCachedProfile(uid);
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
   try {
-    const res = await fetch(`${API_URL}/me?user_id=${encodeURIComponent(uid)}`, { signal: controller.signal, cache: "no-store" });
-    if (res.status === 404) {
-      // The saved account ID no longer exists; clear only the invalid active login marker.
-      if (getActiveUserId() === uid) localStorage.removeItem("user_id");
-      currentUser = null;
-      renderGuestProfile();
-      return false;
-    }
-    if (!res.ok) throw new Error(`Profile request failed (${res.status})`);
-    const data = await res.json();
-    if (!data.user || String(data.user.id || data.user.user_id) !== uid) throw new Error("Profile response did not match the active account");
-    if (getActiveUserId() !== uid) return false; // Account changed while request was in flight.
-    currentUser = { ...data.user, id: Number(uid) };
-    try { localStorage.setItem(`monkeyScoutProfile_${uid}`, JSON.stringify(currentUser)); } catch (_) {}
-    renderProfile(currentUser, uid);
-    return true;
-  } catch (e) {
-    console.warn("Profile refresh unavailable; keeping the cached account identity.", e);
-    if (getActiveUserId() === uid) {
-      if (!currentUser || String(currentUser.id) !== uid) hydrateCachedProfile(uid);
-      else renderProfile(currentUser, uid);
-    }
-    return false;
-  } finally {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+    const res = await fetch(`${API_URL}/me?user_id=${userId}`, { signal: controller.signal });
     clearTimeout(timeoutId);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.user) {
+        currentUser = data.user;
+        currentUser.id = currentUser.id || currentUser.user_id;
+        const name = currentUser.username || currentUser.email.split("@")[0];
+        document.getElementById("profileAvatar").innerText = name[0].toUpperCase();
+        document.getElementById("profileName").innerText = name;
+        document.getElementById("profileEmail").innerText = currentUser.email;
+        return true;
+      }
+    }
+  } catch (e) {
+    console.warn("Backend offline or slow, using guest defaults.");
   }
+  document.getElementById("profileAvatar").innerText = "G";
+  document.getElementById("profileName").innerText = "Guest User";
+  document.getElementById("profileEmail").innerText = "guest@monkeyscout.com";
+  return true;
 }
-function renderGuestProfile() { renderProfile(null, ""); }
 
 function autoResizeTextarea() {
   const textarea = document.getElementById("promptInput");
@@ -3769,7 +3689,7 @@ function startNewChat() {
   latestResultText = "";
   toggleCopyButton("");
   activeChatHistory = [];
-  activePaperProjectId = null; activeTocCode = null; activePromptCode = null; activePaperTitle = ""; tocGenerated = false; activeSectionOrder = 0; workflowArabicPage = 1; activePaperMerged = false; workflowBusy = false; figureCounterByChapter = {};
+  activePaperProjectId = null; activeTocCode = null; activePromptCode = null; activePaperTitle = ""; tocGenerated = false; activeSectionOrder = 0; workflowArabicPage = 1;
   autoResizeTextarea();
 }
 
@@ -4421,111 +4341,107 @@ function extractTOCResult(data, fallbackPromptCode) {
 }
 
 function getChatKey() {
-  // Use the persisted account ID as the single source of truth, even before /me resolves.
-  return "chats_" + (getActiveUserId() || "guest");
+  return "chats_" + (currentUser?.id || "guest");
 }
-function readLocalChats() {
-  try {
-    const value = JSON.parse(localStorage.getItem(getChatKey()) || "[]");
-    return Array.isArray(value) ? value : [];
-  } catch (_) { return []; }
-}
-function syncChatSessionToServer(sessionData, userId = getActiveUserId()) {
-  if (!userId || !sessionData || !Array.isArray(sessionData.messages)) return Promise.resolve(false);
-  return fetch(`${API_URL}/chat-sessions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      user_id: userId, session_id: String(sessionData.id), title: String(sessionData.title || "Paper"),
-      messages: sessionData.messages
-    })
-  }).then(res => res.ok).catch(err => {
-    console.warn("Chat remains saved on this device; cloud sync will retry when online.", err);
-    return false;
-  });
-}
+
 function saveChatSession() {
   const first = activeChatHistory.find(item => item && item.prompt);
   if (!first) return;
-  const userId = getActiveUserId();
-  let chats = readLocalChats();
+
+  let chats = JSON.parse(localStorage.getItem(getChatKey()) || "[]");
+
+  // Prefer the paper topic for workflow sessions (what the user sees in Recent)
   const topicTitle = (activePaperTitle || "").trim();
   const isWorkflow = !!(activePaperProjectId || activePromptCode);
   const displayTitle = (isWorkflow && topicTitle)
     ? topicTitle.substring(0, 80)
     : String(first.prompt || "Paper").substring(0, 50);
+
+  // Stable id for term-code projects so resume updates the same Recent row
   const sessionId = (isWorkflow && activePromptCode && activeTocCode)
     ? `wf_${activePromptCode}_${activeTocCode}`
-    : String(first.id || Date.now());
+    : (first.id || Date.now());
+
   const sessionData = {
-    id: sessionId, title: displayTitle, prompt_code: activePromptCode || null,
-    toc_code: activeTocCode || null, project_id: activePaperProjectId || null,
-    workflow: isWorkflow, messages: activeChatHistory, time: Date.now()
+    id: sessionId,
+    title: displayTitle,
+    prompt_code: activePromptCode || null,
+    toc_code: activeTocCode || null,
+    project_id: activePaperProjectId || null,
+    workflow: isWorkflow,
+    messages: activeChatHistory,
+    time: Date.now()
   };
+
   first.id = sessionData.id;
+
   const existingIdx = chats.findIndex(c => String(c.id) === String(sessionData.id));
-  if (existingIdx !== -1) chats[existingIdx] = sessionData;
-  else chats.unshift(sessionData);
-  try { localStorage.setItem(getChatKey(), JSON.stringify(chats.slice(0, 20))); } catch (e) { console.warn("Could not save local chat cache", e); }
+  if (existingIdx !== -1) {
+    chats[existingIdx] = sessionData;
+  } else {
+    chats.unshift(sessionData);
+  }
+
+  localStorage.setItem(getChatKey(), JSON.stringify(chats.slice(0, 20)));
   loadChats();
-  // Workflow papers already have their own durable server records. Ordinary chats use this sync endpoint.
-  if (userId && !isWorkflow) syncChatSessionToServer(sessionData, userId);
 }
+
 function loadChats() {
   const submenu = document.getElementById("historySubmenu");
   if (!submenu) return;
-  const uid = getActiveUserId();
-  const localChats = readLocalChats();
-  const render = (extraProjects = [], extraChats = []) => {
-    if (uid !== getActiveUserId()) return; // Prevent a late response from account A repainting account B's history.
+
+  // Local chat history (topic title for workflow rows)
+  let chats = JSON.parse(localStorage.getItem(getChatKey()) || "[]");
+
+  // Also pull server workflow projects so Recent shows the topic even on another device
+  const uid = localStorage.getItem("user_id") || "";
+  const render = (extraProjects) => {
     const byKey = new Map();
     (extraProjects || []).forEach(p => {
       const key = `wf_${p.prompt_code}_${p.toc_code}`;
-      byKey.set(key, { id: key, title: p.title || "Untitled paper", prompt_code: p.prompt_code,
-        toc_code: p.toc_code, project_id: p.project_id, workflow: true, merged: !!p.merged,
-        time: p.updated_at ? Date.parse(p.updated_at) : 0 });
+      byKey.set(key, {
+        id: key,
+        title: p.title || "Untitled paper",
+        prompt_code: p.prompt_code,
+        toc_code: p.toc_code,
+        project_id: p.project_id,
+        workflow: true,
+        merged: !!p.merged,
+        time: p.updated_at ? Date.parse(p.updated_at) : 0
+      });
     });
-    (extraChats || []).forEach(c => {
-      const key = String(c.id || c.session_id || "");
-      if (key) byKey.set(key, { ...c, id: key, workflow: false });
-    });
-    localChats.forEach(c => {
+    chats.forEach(c => {
       const key = String(c.id);
       if (!byKey.has(key)) byKey.set(key, c);
       else {
-        const cloud = byKey.get(key);
-        const localIsNewer = Number(c.time || 0) >= Number(cloud.time || 0);
-        byKey.set(key, { ...cloud, ...(localIsNewer ? c : {}), id: key,
-          title: (localIsNewer && c.title) || cloud.title || c.title,
-          messages: (localIsNewer && c.messages?.length) ? c.messages : (cloud.messages || c.messages || []) });
+        // Prefer local title if present, keep codes from either
+        const existing = byKey.get(key);
+        byKey.set(key, { ...existing, ...c, title: c.title || existing.title });
       }
     });
-    const rows = [...byKey.values()].sort((a, b) => Number(b.time || 0) - Number(a.time || 0)).slice(0, 50);
-    window.__recentChatRows = rows;
-    try { localStorage.setItem(getChatKey(), JSON.stringify(rows.filter(r => !r.workflow || r.messages).slice(0, 50))); } catch (_) {}
-    submenu.innerHTML = rows.length ? rows.map((c, i) => {
+    const rows = [...byKey.values()].sort((a, b) => (b.time || 0) - (a.time || 0)).slice(0, 20);
+    if (!rows.length) {
+      submenu.innerHTML = `<div class="submenu-item" style="color:var(--muted)">No history yet</div>`;
+      return;
+    }
+    submenu.innerHTML = rows.map((c, i) => {
       const label = escapeHTML((c.title || "Paper").substring(0, 40));
       if (c.workflow && c.prompt_code && c.toc_code) {
         return `<div class="submenu-item" title="${label}" onclick="openWorkflowFromRecent('${c.prompt_code}','${c.toc_code}')">${label}</div>`;
       }
       return `<div class="submenu-item" title="${label}" onclick="openChatSession(${i})">${label}</div>`;
-    }).join("") : `<div class="submenu-item" style="color:var(--muted)">No history yet</div>`;
+    }).join("");
+    // stash ordered list for non-workflow open by index
+    window.__recentChatRows = rows;
   };
-  // Render device cache first; the UI remains useful if the network is unavailable.
-  render([], []);
-  if (!uid) return;
-  Promise.all([
-    fetch(`${API_URL}/workflow-projects?user_id=${encodeURIComponent(uid)}`, { cache: "no-store" }).then(r => r.ok ? r.json() : { projects: [] }).catch(() => ({ projects: [] })),
-    fetch(`${API_URL}/chat-sessions?user_id=${encodeURIComponent(uid)}`, { cache: "no-store" }).then(r => r.ok ? r.json() : { sessions: [] }).catch(() => ({ sessions: [] }))
-  ]).then(([projectsData, chatsData]) => {
-    if (uid !== getActiveUserId()) return;
-    const serverChats = Array.isArray(chatsData.sessions) ? chatsData.sessions : [];
-    render(projectsData.projects || [], serverChats);
-    // Migrate older chats saved locally before cloud chat sync existed.
-    const cloudIds = new Set(serverChats.map(c => String(c.id)));
-    localChats.filter(c => !c.workflow && c.messages?.length && !cloudIds.has(String(c.id)))
-      .slice(0, 20).forEach(c => syncChatSessionToServer(c, uid));
-  }).catch(() => { /* Keep the already-rendered offline cache. */ });
+
+  render([]);
+  if (uid && String(uid).match(/^\d+$/)) {
+    fetch(`${API_URL}/workflow-projects?user_id=${encodeURIComponent(uid)}`)
+      .then(r => r.json())
+      .then(data => render(data.projects || []))
+      .catch(() => render([]));
+  }
 }
 
 async function openWorkflowFromRecent(promptCode, tocCode) {
@@ -4561,7 +4477,7 @@ function openChatSession(index) {
         const htmlContent = markdownToHTML(m.result);
         const wordCount = m.result.split(/\s+/).length;
         const pageCount = Math.max(1, Math.ceil(wordCount / 250));
-        const paginatedHTML = createA4Pages(htmlContent, wordCount, {kind: "normal", startPage: 1});
+        const paginatedHTML = createA4Pages(htmlContent, wordCount, pageCount);
         addMessage("paper", paginatedHTML);
         latestResultText = m.result;
         toggleCopyButton(m.result);
@@ -4581,9 +4497,6 @@ function toggleHistory() {
 
 function logout() {
   localStorage.removeItem("user_id");
-  currentUser = null;
-  activeChatHistory = [];
-  window.__recentChatRows = [];
   window.location.href = "index.html";
 }
 
@@ -4628,10 +4541,10 @@ async function generatePaper() {
 
     if (res.ok && data.result) {
       const cleaned = cleanPaperText(data.result);
-      const wordCount = data.word_count || cleaned.split(/\s+/).length;
+      const wordCount = data.word_count || cleaned.split(/\\s+/).length;
       const pageCount = data.page_count || Math.max(1, Math.ceil(wordCount / 250));
       const htmlContent = markdownToHTML(cleaned);
-      const paginatedHTML = createA4Pages(htmlContent, wordCount, {kind: "normal", startPage: 1});
+      const paginatedHTML = createA4Pages(htmlContent, wordCount, pageCount);
 
       removeLoadingMessage();
       addMessage("paper", paginatedHTML);
@@ -5543,8 +5456,6 @@ async function mergeCurrentPaper(){
         if(mergedOutput) renderMergedPaper(mergedOutput.dataset.mergedContent||"");
       } catch (_) {}
     }
-    // Disable Resend / Add Image / Pull Next consistently after merge.
-    try { refreshWorkflowActionAvailability(); } catch (_) {}
   }catch(err){button.disabled=false;button.textContent="Merge Complete Paper";alert(err.message||"Merge failed.");}
 }
 
@@ -5613,9 +5524,9 @@ function renderMergedPaper(value){
       <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
       Download as Word (.docx)
     </button>
-    <button type="button" class="merged-download-btn primary" id="downloadMergedPdfBtn" title="Open print preview and save as PDF">
+    <button type="button" class="merged-download-btn primary" id="downloadMergedPdfBtn" title="Download as PDF">
       <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-      Print / Save as PDF
+      Download as PDF
     </button>
   `;
   wrap.appendChild(bar);
@@ -5722,7 +5633,7 @@ function buildMergedExportDocument(){
   }
 
   const doc = document.createElement("div");
-  doc.id = "merged-export-source-root";
+  doc.id = "merged-export-root";
   doc.setAttribute("style", "background:#ffffff;color:#1e293b;font-family:'Times New Roman',Times,serif;font-size:12pt;line-height:1.15;");
 
   const pages = [...source.querySelectorAll(".a4-page, .merged-page")];
@@ -5925,13 +5836,7 @@ function buildMergedExportDocument(){
         el.setAttribute("style", (prev ? prev + ";" : "") + "font-family:'Times New Roman',Times,serif;");
       });
 
-      // Keep each original A4 page as an independent export unit. PDF export
-      // rasterizes these units one at a time instead of creating one enormous canvas.
-      const pageWrap = document.createElement("div");
-      pageWrap.className = "export-page";
-      pageWrap.setAttribute("style", "display:block;position:relative;box-sizing:border-box;width:794px;min-width:794px;max-width:794px;min-height:1123px;height:auto;margin:0;padding:0;background:#ffffff;color:#000000;overflow:visible;break-inside:avoid;page-break-inside:avoid;");
-      pageWrap.appendChild(clone);
-      section.appendChild(pageWrap);
+      section.appendChild(clone);
     });
 
     doc.appendChild(section);
@@ -5974,230 +5879,283 @@ function chooseMonkeyScoutFooter(){
 async function downloadMergedAsPDF(includeMonkeyScout = false){
   const btn = document.getElementById("downloadMergedPdfBtn");
   if (!btn) return;
+  if (typeof html2pdf === "undefined") {
+    alert("PDF library not loaded. Check your internet connection and refresh the page.");
+    return;
+  }
   const originalLabel = btn.innerHTML;
   btn.disabled = true;
-  btn.textContent = "Preparing print preview…";
-
-  const closePreview = () => {
-    const old = document.getElementById("msPrintOverlay");
-    if (old) {
-      const frame = old.querySelector("iframe");
-      if (frame && frame.dataset.blobUrl) {
-        try { URL.revokeObjectURL(frame.dataset.blobUrl); } catch (_) {}
-      }
-      old.remove();
-    }
-  };
-
+  btn.textContent = "Preparing PDF…";
+  let root = null;
+  let mask = null;
   try {
     const built = buildMergedExportDocument();
-    const plainText = (built.textContent || "").replace(/\s+/g, " ").trim();
-    if (plainText.length < 40) {
-      throw new Error("The paper content is empty. Merge your paper before printing.");
-    }
+    const probe = (built.textContent || "").replace(/\s+/g, " ").trim();
+    if (probe.length < 40) throw new Error("The paper content is empty. Generate and merge your sections before downloading.");
 
-    built.querySelectorAll(".export-pagebreak").forEach(node => node.remove());
-    const sections = [...built.querySelectorAll(":scope > .export-section")];
-    if (!sections.length) {
-      throw new Error("No formatted paper sections were found. Please merge the paper again.");
-    }
+    // Split multi-heading blocks the same way as Word so each major unit can start on a new page.
+    const MAJOR_SPLIT_RE = /^(cover(\s*page)?|title\s*page|certification|approval|declaration|dedication|acknowledgements?|abstract|table\s*of\s*contents|contents|list\s*of\s*(tables|figures|abbreviations|symbols)|chapter\s+\d+|chapter\s+[ivxlcdm]+|conclusions?|recommendations?|references?|bibliography|appendices|appendix(\s*[a-z0-9]+)?)\b/i;
+    let sections = [...built.querySelectorAll(":scope > .export-section")];
+    if (!sections.length) sections = [built];
 
-    const roman = n => {
-      const values = [[1000,"m"],[900,"cm"],[500,"d"],[400,"cd"],[100,"c"],[90,"xc"],[50,"l"],[40,"xl"],[10,"x"],[9,"ix"],[5,"v"],[4,"iv"],[1,"i"]];
-      let result = "";
-      for (const [value, symbol] of values) {
-        while (n >= value) { result += symbol; n -= value; }
+    const expanded = [];
+    sections.forEach(sec => {
+      const host = document.createElement("div");
+      host.innerHTML = sec.innerHTML;
+      const blocks = [...host.children];
+      if (blocks.length < 2) {
+        const clone = sec.cloneNode(true);
+        clone.classList.add("export-section");
+        expanded.push(clone);
+        return;
       }
-      return result;
-    };
-    let preliminaryNo = 0, bodyNo = 0, bodyStarted = false, physicalPageCount = 0;
-
-    sections.forEach((section) => {
-      const sectionName = String(section.getAttribute("data-section") || "").replace(/\s+/g, " ").trim();
-      const isChapterOne = /^chapter\s*(one|1|i)\b/i.test(sectionName);
-      const isBodySection = /^(chapter\s*\d+|chapter\s+[ivxlcdm]+|conclusion|recommendations?|references?|bibliography|appendix|appendices)\b/i.test(sectionName);
-      if (isChapterOne) bodyStarted = true;
-      else if (isBodySection && !bodyStarted && /^chapter/i.test(sectionName)) bodyStarted = true;
-
-      const pageNodes = [...section.querySelectorAll(":scope > .export-page")];
-      if (!pageNodes.length) {
-        throw new Error("The section \"" + (sectionName || "Untitled") + "\" has no printable page.");
-      }
-
-      pageNodes.forEach((pageNode) => {
-        physicalPageCount++;
-        pageNode.classList.add("ms-print-page");
-        pageNode.setAttribute("data-ms-page", String(physicalPageCount));
-        pageNode.style.cssText = [
-          "position:relative!important",
-          "display:block!important",
-          "box-sizing:border-box!important",
-          "width:210mm!important",
-          "min-width:210mm!important",
-          "max-width:210mm!important",
-          "min-height:297mm!important",
-          "height:auto!important",
-          "margin:0 auto!important",
-          "padding:20mm 18mm 22mm!important",
-          "overflow:visible!important",
-          "background:#fff!important",
-          "color:#000!important",
-          "font-family:'Times New Roman',Times,serif!important",
-          "font-size:12pt!important",
-          "line-height:1.15!important",
-          "break-inside:avoid!important",
-          "page-break-inside:avoid!important",
-          "break-after:page!important",
-          "page-break-after:always!important"
-        ].join(";");
-
-        const content = pageNode.firstElementChild || pageNode;
-        content.style.setProperty("font-family", "'Times New Roman',Times,serif", "important");
-        content.style.setProperty("font-size", "12pt", "important");
-        content.style.setProperty("line-height", "1.15", "important");
-        content.style.setProperty("min-height", "auto", "important");
-        content.style.setProperty("height", "auto", "important");
-        content.querySelectorAll("p,li,td,th,div,span").forEach(el => {
-          el.style.setProperty("font-family", "'Times New Roman',Times,serif", "important");
-          el.style.setProperty("font-size", "12pt", "important");
-          el.style.setProperty("line-height", "1.15", "important");
-        });
-        content.querySelectorAll("table").forEach(table => {
-          table.style.setProperty("max-width", "100%", "important");
-          table.style.setProperty("border-collapse", "collapse", "important");
-        });
-        content.querySelectorAll("img").forEach(img => {
-          img.style.setProperty("max-width", "100%", "important");
-          img.style.setProperty("height", "auto", "important");
-        });
-
-        const isCover = /^(cover(\s*page)?|title\s*page)\b/i.test(sectionName);
-        let visibleNumber = "";
-        if (!isCover) {
-          if (!bodyStarted) {
-            preliminaryNo++;
-            visibleNumber = roman(preliminaryNo);
-          } else {
-            bodyNo++;
-            visibleNumber = String(bodyNo);
-          }
+      let current = document.createElement("section");
+      current.className = "export-section";
+      current.setAttribute("data-section", sec.getAttribute("data-section") || "");
+      let started = false;
+      const flush = () => {
+        if (!current.childNodes.length) return;
+        expanded.push(current);
+        current = document.createElement("section");
+        current.className = "export-section";
+      };
+      blocks.forEach(node => {
+        const tag = (node.tagName || "").toLowerCase();
+        const textContent = (node.textContent || "").replace(/\s+/g, " ").trim();
+        const isMajorHeading = (tag === "h1" || tag === "h2" || tag === "h3") && MAJOR_SPLIT_RE.test(textContent);
+        if (isMajorHeading && started && current.childNodes.length) {
+          flush();
+          current.setAttribute("data-section", textContent);
         }
-        const footer = document.createElement("div");
-        footer.className = "ms-print-footer";
-        footer.innerHTML = "<span>" + (includeMonkeyScout ? "monkey scout" : "") + "</span><span>" + visibleNumber + "</span>";
-        pageNode.appendChild(footer);
+        if (isMajorHeading && !current.getAttribute("data-section")) {
+          current.setAttribute("data-section", textContent);
+        }
+        current.appendChild(node.cloneNode(true));
+        started = true;
       });
+      flush();
+      if (!expanded.length) {
+        const clone = sec.cloneNode(true);
+        clone.classList.add("export-section");
+        expanded.push(clone);
+      }
     });
 
-    if (!physicalPageCount) throw new Error("No printable pages were found.");
+    // Printable root — normal document flow (NOT zero-height / off-screen tricks)
+    const printRoot = document.createElement("div");
+    printRoot.id = "merged-export-root";
+    printRoot.setAttribute("style", [
+      "position:fixed",
+      "left:0",
+      "top:0",
+      "width:794px",
+      "max-width:794px",
+      "box-sizing:border-box",
+      "margin:0",
+      "padding:24px 28px",
+      "background:#ffffff",
+      "color:#000000",
+      "font-family:'Times New Roman',Times,serif",
+      "font-size:12pt",
+      "line-height:1.15",
+      "z-index:2147483645",
+      "overflow:visible",
+      "visibility:visible",
+      "opacity:1",
+      "pointer-events:none"
+    ].join(";"));
 
-    const amp = "&" + "amp;";
-    const lt = "&" + "lt;";
-    const gt = "&" + "gt;";
-    const quot = "&" + "quot;";
-    const title = String(getMergedExportTitle())
-      .replace(/&/g, amp).replace(/</g, lt).replace(/>/g, gt).replace(/"/g, quot);
+    expanded.forEach((sec, idx) => {
+      const section = document.createElement("section");
+      section.className = "export-section";
+      section.setAttribute("data-section", sec.getAttribute("data-section") || "");
+      // Only break BEFORE sections after the first — otherwise page 1 is blank.
+      section.setAttribute("style", [
+        "display:block",
+        "box-sizing:border-box",
+        "width:100%",
+        "background:#ffffff",
+        "color:#000000",
+        "font-family:'Times New Roman',Times,serif",
+        "font-size:12pt",
+        "line-height:1.15",
+        "padding:0",
+        "margin:0 0 12px 0",
+        idx === 0
+          ? "page-break-before:auto;break-before:auto"
+          : "page-break-before:always;break-before:page"
+      ].join(";"));
 
-    const printCss = [
-      "@page { size: A4 portrait; margin: 0; }",
-      "html, body { margin:0!important; padding:0!important; background:#fff!important; }",
-      "body { color:#000!important; font-family:'Times New Roman',Times,serif!important; font-size:12pt!important; line-height:1.15!important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }",
-      "*, *::before, *::after { box-sizing:border-box; }",
-      ".export-section { display:block!important; margin:0!important; padding:0!important; }",
-      ".export-pagebreak, .page-number, .a4-footer, .document-stats, .tp-figure-handles, .tp-handle, .workflow-editor, .workflow-output-actions { display:none!important; }",
-      ".ms-print-page { position:relative!important; background:#fff!important; }",
-      ".ms-print-page:last-child { break-after:auto!important; page-break-after:auto!important; }",
-      ".ms-print-footer { position:absolute!important; left:18mm!important; right:18mm!important; bottom:10mm!important; display:flex!important; justify-content:space-between!important; align-items:center!important; min-height:5mm!important; color:#333!important; font:9pt 'Times New Roman',Times,serif!important; }",
-      ".ms-print-page h1,.ms-print-page h2,.ms-print-page h3,.ms-print-page h4 { font-family:'Times New Roman',Times,serif!important; break-after:avoid; page-break-after:avoid; }",
-      ".ms-print-page p,.ms-print-page li,.ms-print-page td,.ms-print-page th { font-family:'Times New Roman',Times,serif!important; font-size:12pt!important; line-height:1.15!important; }",
-      ".ms-print-page table { max-width:100%!important; }",
-      ".ms-print-page img { max-width:100%!important; height:auto!important; }",
-      ".ms-print-bar { position:sticky; top:0; z-index:5; display:flex; gap:8px; justify-content:flex-end; padding:10px 12px; background:#073f2d; }",
-      ".ms-print-bar button { border:0; border-radius:8px; padding:10px 14px; font-weight:700; cursor:pointer; }",
-      ".ms-print-bar .go { background:#fff; color:#073f2d; }",
-      "@media print { .ms-print-bar { display:none!important; } html, body { width:210mm!important; background:#fff!important; } .ms-print-page { margin:0!important; box-shadow:none!important; } }",
-      "@media screen { html, body { background:#e5e7eb!important; } .ms-print-page { margin:12px auto!important; box-shadow:0 2px 12px #0002; } }"
-    ].join("\n");
+      const clean = sec.cloneNode(true);
+      clean.querySelectorAll(".export-pagebreak, .tp-figure-handles, .tp-handle, .page-number, .a4-footer, .document-stats, .tp-image-placeholder").forEach(n => n.remove());
 
-    const printHtml = "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>" + title + "</title><style>" + printCss + "</style></head><body>" +
-      "<div class=\"ms-print-bar\"><button class=\"go\" type=\"button\" onclick=\"window.print()\">Print / Save as PDF</button></div>" +
-      built.innerHTML + "</body></html>";
+      // Force paint-friendly typography (black text on white)
+      clean.querySelectorAll("*").forEach(el => {
+        if (el.nodeType !== 1) return;
+        const tag = (el.tagName || "").toLowerCase();
+        if (tag === "img") return;
+        const prev = el.getAttribute("style") || "";
+        el.setAttribute("style", (prev ? prev + ";" : "") + "color:#000000;background:transparent;font-family:'Times New Roman',Times,serif;line-height:1.15;");
+      });
+      clean.querySelectorAll("p, li, td, th").forEach(el => {
+        const prev = el.getAttribute("style") || "";
+        el.setAttribute("style", (prev ? prev + ";" : "") + "font-size:12pt;line-height:1.15;color:#000000;");
+      });
+      clean.querySelectorAll("h1").forEach(el => {
+        el.setAttribute("style", "font-family:'Times New Roman',Times,serif;font-size:16pt;font-weight:bold;text-align:center;margin:12pt 0;color:#000000;page-break-after:avoid;");
+      });
+      clean.querySelectorAll("h2").forEach(el => {
+        el.setAttribute("style", "font-family:'Times New Roman',Times,serif;font-size:14pt;font-weight:bold;margin:12pt 0 8pt;color:#000000;page-break-after:avoid;");
+      });
+      clean.querySelectorAll("h3").forEach(el => {
+        el.setAttribute("style", "font-family:'Times New Roman',Times,serif;font-size:12pt;font-weight:bold;margin:10pt 0 6pt;color:#000000;page-break-after:avoid;");
+      });
 
-    const blob = new Blob([printHtml], { type: "text/html" });
-    const blobUrl = URL.createObjectURL(blob);
-
-    closePreview();
-    const overlay = document.createElement("div");
-    overlay.id = "msPrintOverlay";
-    overlay.style.cssText = "position:fixed;inset:0;z-index:2147483646;background:#0b1f18;display:flex;flex-direction:column;";
-    overlay.innerHTML =
-      "<div style=\"display:flex;gap:8px;align-items:center;justify-content:space-between;padding:10px 12px;background:#073f2d;color:#fff;font-family:Arial,sans-serif;\">" +
-        "<strong style=\"font-size:14px\">Print preview</strong>" +
-        "<div style=\"display:flex;gap:8px\">" +
-          "<button type=\"button\" data-print style=\"border:0;border-radius:8px;padding:9px 12px;font-weight:700;background:#fff;color:#073f2d;cursor:pointer\">Print / Save as PDF</button>" +
-          "<button type=\"button\" data-close style=\"border:0;border-radius:8px;padding:9px 12px;font-weight:700;background:transparent;color:#fff;cursor:pointer\">Close</button>" +
-        "</div>" +
-      "</div>" +
-      "<iframe title=\"Monkey Scout print preview\" style=\"flex:1;width:100%;border:0;background:#fff\"></iframe>";
-    document.body.appendChild(overlay);
-    const frame = overlay.querySelector("iframe");
-    frame.dataset.blobUrl = blobUrl;
-    frame.src = blobUrl;
-
-    overlay.querySelector("[data-close]").onclick = closePreview;
-    overlay.querySelector("[data-print]").onclick = () => {
-      try {
-        const win = frame.contentWindow;
-        if (win && typeof win.print === "function") {
-          win.focus();
-          win.print();
-          return;
+      // Figures ≤ half page, text above/below
+      clean.querySelectorAll(".tp-figure").forEach(fig => {
+        fig.setAttribute("style", "display:block;width:48%;max-width:48%;margin:14pt auto;text-align:center;float:none;clear:both;page-break-inside:avoid;");
+        const img = fig.querySelector("img");
+        if (img) {
+          img.removeAttribute("width");
+          img.removeAttribute("height");
+          img.setAttribute("style", "max-width:100%;width:100%;height:auto;display:block;margin:0 auto;");
         }
-      } catch (_) {}
-      // Direct navigation fallback if the phone blocks iframe printing.
-      window.location.href = blobUrl;
+        const cap = fig.querySelector(".fig-caption, .fig-main-label");
+        if (cap) cap.setAttribute("style", "display:block;text-align:center;font-size:10pt;font-weight:600;margin-top:6pt;color:#000000;");
+      });
+      clean.querySelectorAll("img").forEach(img => {
+        if (img.closest(".tp-figure")) return;
+        img.removeAttribute("width");
+        img.removeAttribute("height");
+        img.setAttribute("style", "max-width:48%;width:48%;height:auto;display:block;margin:12pt auto;page-break-inside:avoid;");
+      });
+      clean.querySelectorAll("table:not(.export-toc-table)").forEach(t => {
+        t.setAttribute("style", "border-collapse:collapse;width:100%;margin:10pt 0;font-size:11pt;line-height:1.15;");
+        t.querySelectorAll("th,td").forEach(cell => {
+          cell.setAttribute("style", "border:1px solid #333;padding:5pt 6pt;vertical-align:top;color:#000;");
+        });
+      });
+      clean.querySelectorAll(".export-toc-table").forEach(t => {
+        t.setAttribute("style", "width:100%;border-collapse:collapse;margin:6pt 0 12pt;table-layout:fixed;");
+        t.querySelectorAll("td").forEach((cell, i) => {
+          cell.setAttribute("style", i === 0
+            ? "text-align:left;padding:2pt 8pt 2pt 0;border:none;width:85%;color:#000;"
+            : "text-align:right;padding:2pt 0;border:none;width:15%;white-space:nowrap;color:#000;");
+        });
+      });
+
+      while (clean.firstChild) section.appendChild(clean.firstChild);
+      // Skip completely empty sections (would become blank PDF pages)
+      if ((section.textContent || "").replace(/\s+/g, "").length || section.querySelector("img")) {
+        printRoot.appendChild(section);
+      }
+    });
+
+    if (!(printRoot.textContent || "").replace(/\s+/g, " ").trim() && !printRoot.querySelector("img")) {
+      throw new Error("PDF content collapsed to empty. Merge the paper on screen, then try Download as PDF again.");
+    }
+
+    document.body.appendChild(printRoot);
+    root = printRoot;
+
+    // Full-screen mask so the user does not see the capture surface
+    mask = document.createElement("div");
+    mask.setAttribute("aria-live", "polite");
+    mask.textContent = "Preparing your PDF…";
+    mask.style.cssText = "position:fixed;inset:0;z-index:2147483647;background:#ffffff;color:#334155;display:flex;align-items:center;justify-content:center;font:600 14px Arial,sans-serif;";
+    document.body.appendChild(mask);
+
+    // Allow layout + images to settle
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await Promise.all([...printRoot.querySelectorAll("img")].map(img => {
+      if (img.complete && img.naturalWidth) return Promise.resolve();
+      return new Promise(resolve => {
+        img.onload = resolve;
+        img.onerror = resolve;
+        setTimeout(resolve, 4000);
+      });
+    }));
+    // Give web fonts a moment
+    if (document.fonts && document.fonts.ready) {
+      try { await Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 1500))]); } catch (_) {}
+    }
+
+    const filename = getMergedExportTitle() + ".pdf";
+    const opt = {
+      margin: [15, 15, 18, 15],
+      filename,
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+        backgroundColor: "#ffffff",
+        windowWidth: 794,
+        scrollX: 0,
+        scrollY: 0,
+        onclone: (clonedDoc) => {
+          const rootClone = clonedDoc.getElementById("merged-export-root");
+          if (!rootClone) return;
+          rootClone.style.background = "#ffffff";
+          rootClone.style.color = "#000000";
+          rootClone.style.opacity = "1";
+          rootClone.style.visibility = "visible";
+          rootClone.style.position = "static";
+          rootClone.style.left = "auto";
+          rootClone.style.top = "auto";
+          rootClone.style.width = "794px";
+          rootClone.querySelectorAll(".export-section").forEach((sec, idx) => {
+            sec.style.display = "block";
+            sec.style.color = "#000000";
+            sec.style.background = "#ffffff";
+            sec.style.pageBreakBefore = idx === 0 ? "auto" : "always";
+            sec.style.breakBefore = idx === 0 ? "auto" : "page";
+            sec.style.pageBreakInside = "auto";
+          });
+          rootClone.querySelectorAll("p, li, td, th, h1, h2, h3, h4, span, div").forEach(el => {
+            el.style.color = "#000000";
+            el.style.opacity = "1";
+            el.style.visibility = "visible";
+          });
+        }
+      },
+      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+      // CRITICAL: do NOT put page-break before the first section (causes a blank page 1)
+      pagebreak: {
+        mode: ["css", "legacy"],
+        before: ".export-section:not(:first-child)",
+        avoid: [".tp-figure", "img", "table"]
+      }
     };
+
+    const worker = html2pdf().set(opt).from(printRoot).toPdf();
+    const pdf = await worker.get("pdf");
+    const totalPages = pdf.internal.getNumberOfPages();
+    if (!totalPages || totalPages < 1) throw new Error("The PDF renderer did not create any pages.");
+
+    for (let pageNo = 1; pageNo <= totalPages; pageNo++) {
+      pdf.setPage(pageNo);
+      pdf.setFont("times", "normal");
+      pdf.setFontSize(9);
+      pdf.setTextColor(70, 70, 70);
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      if (includeMonkeyScout) pdf.text("monkey scout", 12, pageHeight - 8);
+      pdf.text(String(pageNo), pageWidth - 12, pageHeight - 8, { align: "right" });
+    }
+    await worker.save();
   } catch (err) {
-    console.error("Monkey Scout print export failed:", err);
-    closePreview();
-    alert("Could not open print preview: " + (err && err.message ? err.message : "Unknown error"));
+    console.error(err);
+    alert("Could not generate PDF: " + (err.message || "Unknown error"));
   } finally {
+    if (root && root.parentNode) root.remove();
+    if (mask && mask.parentNode) mask.remove();
     btn.disabled = false;
     btn.innerHTML = originalLabel;
   }
 }
 
-async function enforceDocxLineSpacing(blob, lineTwips = 276) {
-  if (!window.JSZip) throw new Error("The Word formatting component did not load. Refresh the page and try again.");
-  const zip = await window.JSZip.loadAsync(blob);
-  const documentFile = zip.file("word/document.xml");
-  if (!documentFile) throw new Error("The Word document structure is incomplete.");
-  let xml = await documentFile.async("string");
-  const spacing = `<w:spacing w:line="${lineTwips}" w:lineRule="auto"/>`;
-  xml = xml.replace(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g, paragraph => {
-    const selfClosingPPr = paragraph.match(/<w:pPr(?:\s[^>]*)?\s*\/>/);
-    if (selfClosingPPr) {
-      return paragraph.replace(selfClosingPPr[0], `<w:pPr>${spacing}</w:pPr>`);
-    }
-    const pPrMatch = paragraph.match(/<w:pPr(?:\s[^>]*)?>[\s\S]*?<\/w:pPr>/);
-    if (pPrMatch) {
-      let pPr = pPrMatch[0];
-      if (/<w:spacing\b[^>]*\/>/.test(pPr)) {
-        let replaced = false;
-        pPr = pPr.replace(/<w:spacing\b[^>]*\/>/g, () => replaced ? "" : (replaced = true, spacing));
-      } else if (/<w:spacing\b[^>]*>[\s\S]*?<\/w:spacing>/.test(pPr)) {
-        pPr = pPr.replace(/<w:spacing\b[^>]*>[\s\S]*?<\/w:spacing>/, spacing);
-      } else {
-        pPr = pPr.replace(/<\/w:pPr>/, spacing + "</w:pPr>");
-      }
-      return paragraph.replace(pPrMatch[0], pPr);
-    }
-    const open = paragraph.match(/^<w:p(?:\s[^>]*)?>/);
-    return open ? paragraph.replace(open[0], open[0] + `<w:pPr>${spacing}</w:pPr>`) : paragraph;
-  });
-  zip.file("word/document.xml", xml);
-  return await zip.generateAsync({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
-}
 
 async function downloadMergedAsDocx(includeMonkeyScout = false){
   const btn = document.getElementById("downloadMergedDocxBtn");
@@ -6273,45 +6231,33 @@ async function downloadMergedAsDocx(includeMonkeyScout = false){
       reader.onerror = reject;
       reader.readAsDataURL(blob);
     });
-    const embedImageSrc = async (src) => {
-      if (!src || src.startsWith("data:")) return src || "";
+    for (const img of root.querySelectorAll("img")) {
+      const src = img.getAttribute("src") || "";
+      if (!src || src.startsWith("data:")) continue;
       try {
         const response = await fetch(src, { mode: "cors", credentials: "omit" });
         if (!response.ok) throw new Error("Image request failed");
-        return await toDataUrl(await response.blob());
-      } catch (_) {}
-      // Fallback: snapshot an already-rendered copy on the page when the host allows it.
-      try {
-        const live = [...document.querySelectorAll("img")].find(node => node.getAttribute("src") === src && node.complete && node.naturalWidth);
-        if (live) {
-          const canvas = document.createElement("canvas");
-          canvas.width = live.naturalWidth;
-          canvas.height = live.naturalHeight;
-          canvas.getContext("2d").drawImage(live, 0, 0);
-          return canvas.toDataURL("image/png");
-        }
-      } catch (_) {}
-      return "";
-    };
-    let missingFigures = 0;
-    const rewriteImages = async (rootNode) => {
-      for (const img of [...rootNode.querySelectorAll("img")]) {
+        img.setAttribute("src", await toDataUrl(await response.blob()));
+      } catch (imageError) {
+        console.warn("A figure could not be embedded in the Word file:", src, imageError);
+        const alt = img.getAttribute("alt") || "Figure image unavailable during export";
+        img.replaceWith(document.createTextNode("[" + alt + "]"));
+      }
+    }
+    // Also convert images inside expanded section clones
+    for (const sec of sections) {
+      for (const img of sec.querySelectorAll("img")) {
         const src = img.getAttribute("src") || "";
         if (!src || src.startsWith("data:")) continue;
-        const dataUrl = await embedImageSrc(src);
-        if (dataUrl) {
-          img.setAttribute("src", dataUrl);
-        } else {
-          missingFigures++;
-          const alt = img.getAttribute("alt") || "Figure image unavailable during export";
+        try {
+          const response = await fetch(src, { mode: "cors", credentials: "omit" });
+          if (!response.ok) throw new Error("Image request failed");
+          img.setAttribute("src", await toDataUrl(await response.blob()));
+        } catch (_) {
+          const alt = img.getAttribute("alt") || "Figure";
           img.replaceWith(document.createTextNode("[" + alt + "]"));
         }
       }
-    };
-    await rewriteImages(root);
-    for (const sec of sections) await rewriteImages(sec);
-    if (missingFigures) {
-      console.warn(missingFigures + " figure(s) could not be embedded in the Word file (image host blocked the download).");
     }
 
     const css = `
@@ -6523,12 +6469,8 @@ async function downloadMergedAsDocx(includeMonkeyScout = false){
       sections: docxSections
     });
 
-    const packedBlob = await docx.Packer.toBlob(wordDoc);
-    if (!packedBlob || packedBlob.size < 1000) throw new Error("The Word file was not generated correctly.");
-    // Normalize every paragraph after HTML conversion so WPS and Microsoft Word
-    // cannot inherit inconsistent line spacing from individual converted elements.
-    const blob = await enforceDocxLineSpacing(packedBlob, LINE_115);
-    if (!blob || blob.size < 1000) throw new Error("The formatted Word file could not be finalized.");
+    const blob = await docx.Packer.toBlob(wordDoc);
+    if (!blob || blob.size < 1000) throw new Error("The Word file was not generated correctly.");
     saveAs(blob, getMergedExportTitle() + ".docx");
   } catch (err) {
     console.error(err);
