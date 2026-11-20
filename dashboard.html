@@ -2006,6 +2006,7 @@ body { background-color: var(--bg); color: var(--text); }
 <script src="https://unpkg.com/docx@9/dist/math.umd.cjs"></script>
 <script src="https://unpkg.com/docx@9/dist/html.umd.cjs"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
 
@@ -3433,13 +3434,43 @@ document.addEventListener("DOMContentLoaded", async () => {
     suppressFabClick = false;
   }, true);
 
-  if (userId && /^\d+$/.test(String(userId))) await loadProfile(userId);
-  else {
-    document.getElementById("profileAvatar").innerText = "G";
-    document.getElementById("profileName").innerText = "Guest User";
-    document.getElementById("profileEmail").innerText = "Sign in to save papers";
+  if (userId && /^\d+$/.test(String(userId))) {
+    // Hydrate the signed-in identity and recent chats from this device immediately.
+    hydrateCachedProfile(userId);
+    loadChats();
+    // Refresh account details and cloud history in the background.
+    loadProfile(userId).then(() => loadChats());
+  } else {
+    currentUser = null;
+    renderGuestProfile();
+    loadChats();
   }
-  loadChats();
+
+  // If another tab signs in/out or changes account, immediately isolate this tab's data too.
+  window.addEventListener("storage", (event) => {
+    if (event.key !== "user_id") return;
+    currentUser = null;
+    activeChatHistory = [];
+    activePaperProjectId = null;
+    activeTocCode = null;
+    activePromptCode = null;
+    activePaperTitle = "";
+    activePaperMerged = false;
+    latestResultText = "";
+    window.__recentChatRows = [];
+    setView(APP_VIEWS.CHAT);
+    const nextId = getActiveUserId();
+    if (nextId) {
+      hydrateCachedProfile(nextId);
+      loadChats();
+      loadProfile(nextId).then(() => loadChats());
+    } else {
+      renderGuestProfile();
+      loadChats();
+    }
+  });
+  window.addEventListener("online", () => loadChats());
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) loadChats(); });
 
   document.getElementById("sendBtn").onclick = generatePaper;
   document.getElementById("micBtn").onclick = toggleRecording;
@@ -3474,7 +3505,43 @@ document.addEventListener("DOMContentLoaded", async () => {
   setView(APP_VIEWS.CHAT);
 });
 
-function getWorkflowUserId(){const id=localStorage.getItem("user_id")||"";return /^\d+$/.test(String(id))?String(id):"";}
+function getActiveUserId() {
+  const id = String(localStorage.getItem("user_id") || "").trim();
+  return /^\d+$/.test(id) && Number(id) > 0 ? id : "";
+}
+function getWorkflowUserId(){ return getActiveUserId(); }
+function renderProfile(user, fallbackId = "") {
+  const avatar = document.getElementById("profileAvatar");
+  const nameEl = document.getElementById("profileName");
+  const emailEl = document.getElementById("profileEmail");
+  if (!avatar || !nameEl || !emailEl) return;
+  if (user && String(user.id || user.user_id || "") === String(fallbackId || user.id || user.user_id || "")) {
+    const name = String(user.username || (user.email || "").split("@")[0] || `User ${user.id}`).trim();
+    avatar.textContent = (name[0] || "U").toUpperCase();
+    nameEl.textContent = name;
+    emailEl.textContent = user.email || "Signed-in account";
+  } else if (fallbackId) {
+    avatar.textContent = "U";
+    nameEl.textContent = "Loading account…";
+    emailEl.textContent = `Account ID: ${fallbackId}`;
+  } else {
+    avatar.textContent = "G";
+    nameEl.textContent = "Guest User";
+    emailEl.textContent = "Sign in to save papers";
+  }
+}
+function hydrateCachedProfile(userId) {
+  try {
+    const cached = JSON.parse(localStorage.getItem(`monkeyScoutProfile_${userId}`) || "null");
+    if (cached && String(cached.id || cached.user_id) === String(userId)) {
+      currentUser = { ...cached, id: Number(userId) };
+      renderProfile(currentUser, userId);
+      return;
+    }
+  } catch (_) {}
+  currentUser = { id: Number(userId), username: `User ${userId}`, email: "" };
+  renderProfile(null, userId);
+}
 
 function setView(view) {
   appState.view = view;
@@ -3638,31 +3705,45 @@ function applyTheme() {
 }
 
 async function loadProfile(userId) {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
-    const res = await fetch(`${API_URL}/me?user_id=${userId}`, { signal: controller.signal });
-    clearTimeout(timeoutId);
-    if (res.ok) {
-      const data = await res.json();
-      if (data.user) {
-        currentUser = data.user;
-        currentUser.id = currentUser.id || currentUser.user_id;
-        const name = currentUser.username || currentUser.email.split("@")[0];
-        document.getElementById("profileAvatar").innerText = name[0].toUpperCase();
-        document.getElementById("profileName").innerText = name;
-        document.getElementById("profileEmail").innerText = currentUser.email;
-        return true;
-      }
-    }
-  } catch (e) {
-    console.warn("Backend offline or slow, using guest defaults.");
+  const uid = String(userId || getActiveUserId());
+  if (!/^\d+$/.test(uid) || Number(uid) <= 0) {
+    currentUser = null;
+    renderGuestProfile();
+    return false;
   }
-  document.getElementById("profileAvatar").innerText = "G";
-  document.getElementById("profileName").innerText = "Guest User";
-  document.getElementById("profileEmail").innerText = "guest@monkeyscout.com";
-  return true;
+  // Never replace a known signed-in user with Guest merely because the API is slow/offline.
+  if (!currentUser || String(currentUser.id) !== uid) hydrateCachedProfile(uid);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+  try {
+    const res = await fetch(`${API_URL}/me?user_id=${encodeURIComponent(uid)}`, { signal: controller.signal, cache: "no-store" });
+    if (res.status === 404) {
+      // The saved account ID no longer exists; clear only the invalid active login marker.
+      if (getActiveUserId() === uid) localStorage.removeItem("user_id");
+      currentUser = null;
+      renderGuestProfile();
+      return false;
+    }
+    if (!res.ok) throw new Error(`Profile request failed (${res.status})`);
+    const data = await res.json();
+    if (!data.user || String(data.user.id || data.user.user_id) !== uid) throw new Error("Profile response did not match the active account");
+    if (getActiveUserId() !== uid) return false; // Account changed while request was in flight.
+    currentUser = { ...data.user, id: Number(uid) };
+    try { localStorage.setItem(`monkeyScoutProfile_${uid}`, JSON.stringify(currentUser)); } catch (_) {}
+    renderProfile(currentUser, uid);
+    return true;
+  } catch (e) {
+    console.warn("Profile refresh unavailable; keeping the cached account identity.", e);
+    if (getActiveUserId() === uid) {
+      if (!currentUser || String(currentUser.id) !== uid) hydrateCachedProfile(uid);
+      else renderProfile(currentUser, uid);
+    }
+    return false;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
+function renderGuestProfile() { renderProfile(null, ""); }
 
 function autoResizeTextarea() {
   const textarea = document.getElementById("promptInput");
@@ -4341,107 +4422,111 @@ function extractTOCResult(data, fallbackPromptCode) {
 }
 
 function getChatKey() {
-  return "chats_" + (currentUser?.id || "guest");
+  // Use the persisted account ID as the single source of truth, even before /me resolves.
+  return "chats_" + (getActiveUserId() || "guest");
 }
-
+function readLocalChats() {
+  try {
+    const value = JSON.parse(localStorage.getItem(getChatKey()) || "[]");
+    return Array.isArray(value) ? value : [];
+  } catch (_) { return []; }
+}
+function syncChatSessionToServer(sessionData, userId = getActiveUserId()) {
+  if (!userId || !sessionData || !Array.isArray(sessionData.messages)) return Promise.resolve(false);
+  return fetch(`${API_URL}/chat-sessions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      user_id: userId, session_id: String(sessionData.id), title: String(sessionData.title || "Paper"),
+      messages: sessionData.messages
+    })
+  }).then(res => res.ok).catch(err => {
+    console.warn("Chat remains saved on this device; cloud sync will retry when online.", err);
+    return false;
+  });
+}
 function saveChatSession() {
   const first = activeChatHistory.find(item => item && item.prompt);
   if (!first) return;
-
-  let chats = JSON.parse(localStorage.getItem(getChatKey()) || "[]");
-
-  // Prefer the paper topic for workflow sessions (what the user sees in Recent)
+  const userId = getActiveUserId();
+  let chats = readLocalChats();
   const topicTitle = (activePaperTitle || "").trim();
   const isWorkflow = !!(activePaperProjectId || activePromptCode);
   const displayTitle = (isWorkflow && topicTitle)
     ? topicTitle.substring(0, 80)
     : String(first.prompt || "Paper").substring(0, 50);
-
-  // Stable id for term-code projects so resume updates the same Recent row
   const sessionId = (isWorkflow && activePromptCode && activeTocCode)
     ? `wf_${activePromptCode}_${activeTocCode}`
-    : (first.id || Date.now());
-
+    : String(first.id || Date.now());
   const sessionData = {
-    id: sessionId,
-    title: displayTitle,
-    prompt_code: activePromptCode || null,
-    toc_code: activeTocCode || null,
-    project_id: activePaperProjectId || null,
-    workflow: isWorkflow,
-    messages: activeChatHistory,
-    time: Date.now()
+    id: sessionId, title: displayTitle, prompt_code: activePromptCode || null,
+    toc_code: activeTocCode || null, project_id: activePaperProjectId || null,
+    workflow: isWorkflow, messages: activeChatHistory, time: Date.now()
   };
-
   first.id = sessionData.id;
-
   const existingIdx = chats.findIndex(c => String(c.id) === String(sessionData.id));
-  if (existingIdx !== -1) {
-    chats[existingIdx] = sessionData;
-  } else {
-    chats.unshift(sessionData);
-  }
-
-  localStorage.setItem(getChatKey(), JSON.stringify(chats.slice(0, 20)));
+  if (existingIdx !== -1) chats[existingIdx] = sessionData;
+  else chats.unshift(sessionData);
+  try { localStorage.setItem(getChatKey(), JSON.stringify(chats.slice(0, 20))); } catch (e) { console.warn("Could not save local chat cache", e); }
   loadChats();
+  // Workflow papers already have their own durable server records. Ordinary chats use this sync endpoint.
+  if (userId && !isWorkflow) syncChatSessionToServer(sessionData, userId);
 }
-
 function loadChats() {
   const submenu = document.getElementById("historySubmenu");
   if (!submenu) return;
-
-  // Local chat history (topic title for workflow rows)
-  let chats = JSON.parse(localStorage.getItem(getChatKey()) || "[]");
-
-  // Also pull server workflow projects so Recent shows the topic even on another device
-  const uid = localStorage.getItem("user_id") || "";
-  const render = (extraProjects) => {
+  const uid = getActiveUserId();
+  const localChats = readLocalChats();
+  const render = (extraProjects = [], extraChats = []) => {
+    if (uid !== getActiveUserId()) return; // Prevent a late response from account A repainting account B's history.
     const byKey = new Map();
     (extraProjects || []).forEach(p => {
       const key = `wf_${p.prompt_code}_${p.toc_code}`;
-      byKey.set(key, {
-        id: key,
-        title: p.title || "Untitled paper",
-        prompt_code: p.prompt_code,
-        toc_code: p.toc_code,
-        project_id: p.project_id,
-        workflow: true,
-        merged: !!p.merged,
-        time: p.updated_at ? Date.parse(p.updated_at) : 0
-      });
+      byKey.set(key, { id: key, title: p.title || "Untitled paper", prompt_code: p.prompt_code,
+        toc_code: p.toc_code, project_id: p.project_id, workflow: true, merged: !!p.merged,
+        time: p.updated_at ? Date.parse(p.updated_at) : 0 });
     });
-    chats.forEach(c => {
+    (extraChats || []).forEach(c => {
+      const key = String(c.id || c.session_id || "");
+      if (key) byKey.set(key, { ...c, id: key, workflow: false });
+    });
+    localChats.forEach(c => {
       const key = String(c.id);
       if (!byKey.has(key)) byKey.set(key, c);
       else {
-        // Prefer local title if present, keep codes from either
-        const existing = byKey.get(key);
-        byKey.set(key, { ...existing, ...c, title: c.title || existing.title });
+        const cloud = byKey.get(key);
+        const localIsNewer = Number(c.time || 0) >= Number(cloud.time || 0);
+        byKey.set(key, { ...cloud, ...(localIsNewer ? c : {}), id: key,
+          title: (localIsNewer && c.title) || cloud.title || c.title,
+          messages: (localIsNewer && c.messages?.length) ? c.messages : (cloud.messages || c.messages || []) });
       }
     });
-    const rows = [...byKey.values()].sort((a, b) => (b.time || 0) - (a.time || 0)).slice(0, 20);
-    if (!rows.length) {
-      submenu.innerHTML = `<div class="submenu-item" style="color:var(--muted)">No history yet</div>`;
-      return;
-    }
-    submenu.innerHTML = rows.map((c, i) => {
+    const rows = [...byKey.values()].sort((a, b) => Number(b.time || 0) - Number(a.time || 0)).slice(0, 50);
+    window.__recentChatRows = rows;
+    try { localStorage.setItem(getChatKey(), JSON.stringify(rows.filter(r => !r.workflow || r.messages).slice(0, 50))); } catch (_) {}
+    submenu.innerHTML = rows.length ? rows.map((c, i) => {
       const label = escapeHTML((c.title || "Paper").substring(0, 40));
       if (c.workflow && c.prompt_code && c.toc_code) {
         return `<div class="submenu-item" title="${label}" onclick="openWorkflowFromRecent('${c.prompt_code}','${c.toc_code}')">${label}</div>`;
       }
       return `<div class="submenu-item" title="${label}" onclick="openChatSession(${i})">${label}</div>`;
-    }).join("");
-    // stash ordered list for non-workflow open by index
-    window.__recentChatRows = rows;
+    }).join("") : `<div class="submenu-item" style="color:var(--muted)">No history yet</div>`;
   };
-
-  render([]);
-  if (uid && String(uid).match(/^\d+$/)) {
-    fetch(`${API_URL}/workflow-projects?user_id=${encodeURIComponent(uid)}`)
-      .then(r => r.json())
-      .then(data => render(data.projects || []))
-      .catch(() => render([]));
-  }
+  // Render device cache first; the UI remains useful if the network is unavailable.
+  render([], []);
+  if (!uid) return;
+  Promise.all([
+    fetch(`${API_URL}/workflow-projects?user_id=${encodeURIComponent(uid)}`, { cache: "no-store" }).then(r => r.ok ? r.json() : { projects: [] }).catch(() => ({ projects: [] })),
+    fetch(`${API_URL}/chat-sessions?user_id=${encodeURIComponent(uid)}`, { cache: "no-store" }).then(r => r.ok ? r.json() : { sessions: [] }).catch(() => ({ sessions: [] }))
+  ]).then(([projectsData, chatsData]) => {
+    if (uid !== getActiveUserId()) return;
+    const serverChats = Array.isArray(chatsData.sessions) ? chatsData.sessions : [];
+    render(projectsData.projects || [], serverChats);
+    // Migrate older chats saved locally before cloud chat sync existed.
+    const cloudIds = new Set(serverChats.map(c => String(c.id)));
+    localChats.filter(c => !c.workflow && c.messages?.length && !cloudIds.has(String(c.id)))
+      .slice(0, 20).forEach(c => syncChatSessionToServer(c, uid));
+  }).catch(() => { /* Keep the already-rendered offline cache. */ });
 }
 
 async function openWorkflowFromRecent(promptCode, tocCode) {
@@ -4497,6 +4582,9 @@ function toggleHistory() {
 
 function logout() {
   localStorage.removeItem("user_id");
+  currentUser = null;
+  activeChatHistory = [];
+  window.__recentChatRows = [];
   window.location.href = "index.html";
 }
 
@@ -5945,7 +6033,7 @@ async function downloadMergedAsPDF(includeMonkeyScout = false){
     const printRoot = document.createElement("div");
     printRoot.id = "merged-export-root";
     printRoot.setAttribute("style", [
-      "position:fixed",
+      "position:absolute",
       "left:0",
       "top:0",
       "width:794px",
@@ -6123,13 +6211,18 @@ async function downloadMergedAsPDF(includeMonkeyScout = false){
       jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
       // CRITICAL: do NOT put page-break before the first section (causes a blank page 1)
       pagebreak: {
-        mode: ["css", "legacy"],
-        before: ".export-section:not(:first-child)",
+        mode: ["css"],
         avoid: [".tp-figure", "img", "table"]
       }
     };
 
-    const worker = html2pdf().set(opt).from(printRoot).toPdf();
+    const worker = html2pdf().set(opt).from(printRoot);
+    await worker.toCanvas();
+    const renderedCanvas = await worker.get("canvas");
+    if (!renderedCanvas || renderedCanvas.width < 100 || renderedCanvas.height < 100) {
+      throw new Error("The PDF page renderer produced an empty canvas. Please refresh and try again.");
+    }
+    await worker.toPdf();
     const pdf = await worker.get("pdf");
     const totalPages = pdf.internal.getNumberOfPages();
     if (!totalPages || totalPages < 1) throw new Error("The PDF renderer did not create any pages.");
@@ -6144,7 +6237,9 @@ async function downloadMergedAsPDF(includeMonkeyScout = false){
       if (includeMonkeyScout) pdf.text("monkey scout", 12, pageHeight - 8);
       pdf.text(String(pageNo), pageWidth - 12, pageHeight - 8, { align: "right" });
     }
-    await worker.save();
+    const pdfBlob = pdf.output("blob");
+    if (!pdfBlob || pdfBlob.size < 1000) throw new Error("The generated PDF file is empty.");
+    saveAs(pdfBlob, filename);
   } catch (err) {
     console.error(err);
     alert("Could not generate PDF: " + (err.message || "Unknown error"));
@@ -6156,6 +6251,38 @@ async function downloadMergedAsPDF(includeMonkeyScout = false){
   }
 }
 
+
+async function enforceDocxLineSpacing(blob, lineTwips = 276) {
+  if (!window.JSZip) throw new Error("The Word formatting component did not load. Refresh the page and try again.");
+  const zip = await window.JSZip.loadAsync(blob);
+  const documentFile = zip.file("word/document.xml");
+  if (!documentFile) throw new Error("The Word document structure is incomplete.");
+  let xml = await documentFile.async("string");
+  const spacing = `<w:spacing w:line="${lineTwips}" w:lineRule="auto"/>`;
+  xml = xml.replace(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g, paragraph => {
+    const selfClosingPPr = paragraph.match(/<w:pPr(?:\s[^>]*)?\s*\/>/);
+    if (selfClosingPPr) {
+      return paragraph.replace(selfClosingPPr[0], `<w:pPr>${spacing}</w:pPr>`);
+    }
+    const pPrMatch = paragraph.match(/<w:pPr(?:\s[^>]*)?>[\s\S]*?<\/w:pPr>/);
+    if (pPrMatch) {
+      let pPr = pPrMatch[0];
+      if (/<w:spacing\b[^>]*\/>/.test(pPr)) {
+        let replaced = false;
+        pPr = pPr.replace(/<w:spacing\b[^>]*\/>/g, () => replaced ? "" : (replaced = true, spacing));
+      } else if (/<w:spacing\b[^>]*>[\s\S]*?<\/w:spacing>/.test(pPr)) {
+        pPr = pPr.replace(/<w:spacing\b[^>]*>[\s\S]*?<\/w:spacing>/, spacing);
+      } else {
+        pPr = pPr.replace(/<\/w:pPr>/, spacing + "</w:pPr>");
+      }
+      return paragraph.replace(pPrMatch[0], pPr);
+    }
+    const open = paragraph.match(/^<w:p(?:\s[^>]*)?>/);
+    return open ? paragraph.replace(open[0], open[0] + `<w:pPr>${spacing}</w:pPr>`) : paragraph;
+  });
+  zip.file("word/document.xml", xml);
+  return await zip.generateAsync({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+}
 
 async function downloadMergedAsDocx(includeMonkeyScout = false){
   const btn = document.getElementById("downloadMergedDocxBtn");
@@ -6469,8 +6596,12 @@ async function downloadMergedAsDocx(includeMonkeyScout = false){
       sections: docxSections
     });
 
-    const blob = await docx.Packer.toBlob(wordDoc);
-    if (!blob || blob.size < 1000) throw new Error("The Word file was not generated correctly.");
+    const packedBlob = await docx.Packer.toBlob(wordDoc);
+    if (!packedBlob || packedBlob.size < 1000) throw new Error("The Word file was not generated correctly.");
+    // Normalize every paragraph after HTML conversion so WPS and Microsoft Word
+    // cannot inherit inconsistent line spacing from individual converted elements.
+    const blob = await enforceDocxLineSpacing(packedBlob, LINE_115);
+    if (!blob || blob.size < 1000) throw new Error("The formatted Word file could not be finalized.");
     saveAs(blob, getMergedExportTitle() + ".docx");
   } catch (err) {
     console.error(err);
