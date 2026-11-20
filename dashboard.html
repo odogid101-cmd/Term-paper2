@@ -2001,7 +2001,6 @@ body { background-color: var(--bg); color: var(--text); }
 }
 
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script src="https://unpkg.com/docx@9/dist/index.iife.js"></script>
 <script src="https://unpkg.com/docx@9/dist/math.umd.cjs"></script>
 <script src="https://unpkg.com/docx@9/dist/html.umd.cjs"></script>
@@ -2667,7 +2666,7 @@ function paginateContent(html) {
 
     const text = (clone.textContent || '').trim();
     if (!text) continue;
-    const words = text.split(/\\s+/);
+    const words = text.split(/\s+/);
     let buffer = '';
 
     for (let w = 0; w < words.length; w++) {
@@ -3770,7 +3769,7 @@ function startNewChat() {
   latestResultText = "";
   toggleCopyButton("");
   activeChatHistory = [];
-  activePaperProjectId = null; activeTocCode = null; activePromptCode = null; activePaperTitle = ""; tocGenerated = false; activeSectionOrder = 0; workflowArabicPage = 1;
+  activePaperProjectId = null; activeTocCode = null; activePromptCode = null; activePaperTitle = ""; tocGenerated = false; activeSectionOrder = 0; workflowArabicPage = 1; activePaperMerged = false; workflowBusy = false; figureCounterByChapter = {};
   autoResizeTextarea();
 }
 
@@ -4562,7 +4561,7 @@ function openChatSession(index) {
         const htmlContent = markdownToHTML(m.result);
         const wordCount = m.result.split(/\s+/).length;
         const pageCount = Math.max(1, Math.ceil(wordCount / 250));
-        const paginatedHTML = createA4Pages(htmlContent, wordCount, pageCount);
+        const paginatedHTML = createA4Pages(htmlContent, wordCount, {kind: "normal", startPage: 1});
         addMessage("paper", paginatedHTML);
         latestResultText = m.result;
         toggleCopyButton(m.result);
@@ -4629,10 +4628,10 @@ async function generatePaper() {
 
     if (res.ok && data.result) {
       const cleaned = cleanPaperText(data.result);
-      const wordCount = data.word_count || cleaned.split(/\\s+/).length;
+      const wordCount = data.word_count || cleaned.split(/\s+/).length;
       const pageCount = data.page_count || Math.max(1, Math.ceil(wordCount / 250));
       const htmlContent = markdownToHTML(cleaned);
-      const paginatedHTML = createA4Pages(htmlContent, wordCount, pageCount);
+      const paginatedHTML = createA4Pages(htmlContent, wordCount, {kind: "normal", startPage: 1});
 
       removeLoadingMessage();
       addMessage("paper", paginatedHTML);
@@ -5544,6 +5543,8 @@ async function mergeCurrentPaper(){
         if(mergedOutput) renderMergedPaper(mergedOutput.dataset.mergedContent||"");
       } catch (_) {}
     }
+    // Disable Resend / Add Image / Pull Next consistently after merge.
+    try { refreshWorkflowActionAvailability(); } catch (_) {}
   }catch(err){button.disabled=false;button.textContent="Merge Complete Paper";alert(err.message||"Merge failed.");}
 }
 
@@ -5612,9 +5613,9 @@ function renderMergedPaper(value){
       <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
       Download as Word (.docx)
     </button>
-    <button type="button" class="merged-download-btn primary" id="downloadMergedPdfBtn" title="Download as PDF">
+    <button type="button" class="merged-download-btn primary" id="downloadMergedPdfBtn" title="Open print preview and save as PDF">
       <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-      Download as PDF
+      Print / Save as PDF
     </button>
   `;
   wrap.appendChild(bar);
@@ -5973,157 +5974,213 @@ function chooseMonkeyScoutFooter(){
 async function downloadMergedAsPDF(includeMonkeyScout = false){
   const btn = document.getElementById("downloadMergedPdfBtn");
   if (!btn) return;
-  if (typeof html2pdf === "undefined") {
-    alert("PDF library not loaded. Check your internet connection and refresh the page.");
+
+  // Open the print window immediately (same user gesture) so popup blockers allow it.
+  // A real window prints reliably; a 1px hidden iframe often produces blank pages.
+  const printWindow = window.open("", "monkeyScoutPrint", "noopener,noreferrer,width=920,height=760");
+  if (!printWindow) {
+    alert("Please allow popups for this site, then try Print / Save as PDF again.");
     return;
   }
-  const JsPDF = window.jspdf && window.jspdf.jsPDF ? window.jspdf.jsPDF : window.jsPDF;
-  if (typeof JsPDF !== "function") {
-    alert("The PDF page component did not load. Refresh the page and try again.");
-    return;
-  }
+  printWindow.document.open();
+  printWindow.document.write("<!doctype html><title>Preparing…</title><body style='font-family:sans-serif;padding:24px'>Preparing print preview…</body>");
+  printWindow.document.close();
+
   const originalLabel = btn.innerHTML;
   btn.disabled = true;
-  btn.textContent = "Preparing PDF…";
-  let root = null;
-  let mask = null;
+  btn.textContent = "Preparing print preview…";
+
   try {
     const built = buildMergedExportDocument();
-    if ((built.textContent || "").replace(/\s+/g, " ").trim().length < 40) {
-      throw new Error("The paper content is empty. Merge your paper before downloading.");
+    const plainText = (built.textContent || "").replace(/\s+/g, " ").trim();
+    if (plainText.length < 40) {
+      throw new Error("The paper content is empty. Merge your paper before printing.");
     }
 
-    // Expand section blocks while retaining each original A4 page wrapper.
+    built.querySelectorAll(".export-pagebreak").forEach(node => node.remove());
+
     const sections = [...built.querySelectorAll(":scope > .export-section")];
-    const pages = [];
-    sections.forEach(section => {
-      const pageNodes = [...section.querySelectorAll(":scope > .export-page")];
-      if (pageNodes.length) pageNodes.forEach(node => pages.push(node.cloneNode(true)));
-      else {
-        // Compatibility fallback for older generated structures.
-        const fallback = document.createElement("div");
-        fallback.className = "export-page";
-        fallback.style.cssText = "width:794px;min-width:794px;min-height:1123px;box-sizing:border-box;background:#fff;padding:0;";
-        fallback.innerHTML = section.innerHTML;
-        pages.push(fallback);
-      }
-    });
-    if (!pages.length) throw new Error("No paper pages were found. Please merge the paper again.");
-
-    root = document.createElement("div");
-    root.id = "merged-export-root";
-    root.style.cssText = "position:fixed;left:0;top:0;display:block;width:794px;min-width:794px;background:#fff;color:#000;z-index:2147483645;overflow:visible;pointer-events:none;font-family:'Times New Roman',Times,serif;font-size:12pt;line-height:1.15;";
-    pages.forEach((page, index) => {
-      page.classList.add("export-page");
-      page.style.cssText += ";display:block;position:relative;box-sizing:border-box;width:794px;min-width:794px;max-width:794px;min-height:1123px;height:auto;margin:0;padding:0;background:#fff;color:#000;overflow:visible;";
-      page.querySelectorAll(".export-pagebreak,.tp-figure-handles,.tp-handle,.page-number,.a4-footer,.document-stats,.tp-image-placeholder").forEach(el => el.remove());
-      page.querySelectorAll("p,li,td,th,div,span,h1,h2,h3,h4").forEach(el => {
-        el.style.color = "#000000";
-        el.style.visibility = "visible";
-        el.style.opacity = "1";
-        el.style.fontFamily = "'Times New Roman',Times,serif";
-        el.style.lineHeight = "1.15";
-      });
-      page.querySelectorAll("img").forEach(img => {
-        img.style.maxWidth = "48%";
-        img.style.height = "auto";
-      });
-      page.dataset.exportPage = String(index + 1);
-      root.appendChild(page);
-    });
-    document.body.appendChild(root);
-
-    mask = document.createElement("div");
-    mask.setAttribute("aria-live", "polite");
-    mask.textContent = "Preparing your PDF…";
-    mask.style.cssText = "position:fixed;inset:0;z-index:2147483647;background:#fff;color:#334155;display:flex;align-items:center;justify-content:center;font:600 14px Arial,sans-serif;";
-    document.body.appendChild(mask);
-
-    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    if (document.fonts && document.fonts.ready) {
-      try { await document.fonts.ready; } catch (_) {}
+    if (!sections.length) {
+      throw new Error("No formatted paper sections were found. Please merge the paper again.");
     }
-    await Promise.all([...root.querySelectorAll("img")].map(img => {
+
+    const roman = n => {
+      const values = [[1000,"m"],[900,"cm"],[500,"d"],[400,"cd"],[100,"c"],[90,"xc"],[50,"l"],[40,"xl"],[10,"x"],[9,"ix"],[5,"v"],[4,"iv"],[1,"i"]];
+      let result = "";
+      for (const [value, symbol] of values) {
+        while (n >= value) { result += symbol; n -= value; }
+      }
+      return result;
+    };
+    let preliminaryNo = 0;
+    let bodyNo = 0;
+    let bodyStarted = false;
+    let physicalPageCount = 0;
+
+    sections.forEach((section) => {
+      const sectionName = String(section.getAttribute("data-section") || "").replace(/\s+/g, " ").trim();
+      const isChapterOne = /^chapter\s*(one|1|i)\b/i.test(sectionName);
+      const isBodySection = /^(chapter\s*\d+|chapter\s+[ivxlcdm]+|conclusion|recommendations?|references?|bibliography|appendix|appendices)\b/i.test(sectionName);
+      if (isChapterOne) bodyStarted = true;
+      else if (isBodySection && !bodyStarted && /^chapter/i.test(sectionName)) bodyStarted = true;
+
+      const pageNodes = [...section.querySelectorAll(":scope > .export-page")];
+      if (!pageNodes.length) {
+        throw new Error(`The section "${sectionName || "Untitled"}" has no printable page.`);
+      }
+
+      pageNodes.forEach((pageNode) => {
+        physicalPageCount++;
+        pageNode.classList.add("ms-print-page");
+        pageNode.setAttribute("data-ms-page", String(physicalPageCount));
+
+        // One sheet per exported page. min-height keeps short pages full;
+        // overflow visible avoids cutting off the last lines.
+        pageNode.style.cssText = [
+          "position:relative!important",
+          "display:block!important",
+          "box-sizing:border-box!important",
+          "width:210mm!important",
+          "min-width:210mm!important",
+          "max-width:210mm!important",
+          "min-height:297mm!important",
+          "height:auto!important",
+          "margin:0!important",
+          "padding:20mm 18mm 22mm!important",
+          "overflow:visible!important",
+          "background:#fff!important",
+          "color:#000!important",
+          "font-family:'Times New Roman',Times,serif!important",
+          "font-size:12pt!important",
+          "line-height:1.15!important",
+          "break-inside:avoid!important",
+          "page-break-inside:avoid!important",
+          "break-after:page!important",
+          "page-break-after:always!important"
+        ].join(";");
+
+        const content = pageNode.firstElementChild || pageNode;
+        content.style.setProperty("font-family", "'Times New Roman',Times,serif", "important");
+        content.style.setProperty("font-size", "12pt", "important");
+        content.style.setProperty("line-height", "1.15", "important");
+        content.style.setProperty("min-height", "auto", "important");
+        content.style.setProperty("height", "auto", "important");
+        content.querySelectorAll("p,li,td,th,div,span").forEach(el => {
+          el.style.setProperty("font-family", "'Times New Roman',Times,serif", "important");
+          el.style.setProperty("font-size", "12pt", "important");
+          el.style.setProperty("line-height", "1.15", "important");
+        });
+        content.querySelectorAll("table").forEach(table => {
+          table.style.setProperty("max-width", "100%", "important");
+          table.style.setProperty("border-collapse", "collapse", "important");
+        });
+        content.querySelectorAll("img").forEach(img => {
+          img.style.setProperty("max-width", "100%", "important");
+          img.style.setProperty("height", "auto", "important");
+        });
+
+        const isCover = /^(cover(\s*page)?|title\s*page)\b/i.test(sectionName);
+        let visibleNumber = "";
+        if (!isCover) {
+          if (!bodyStarted) {
+            preliminaryNo++;
+            visibleNumber = roman(preliminaryNo);
+          } else {
+            bodyNo++;
+            visibleNumber = String(bodyNo);
+          }
+        }
+
+        const footer = document.createElement("div");
+        footer.className = "ms-print-footer";
+        footer.innerHTML = `<span>${includeMonkeyScout ? "monkey scout" : ""}</span><span>${visibleNumber}</span>`;
+        pageNode.appendChild(footer);
+      });
+    });
+
+    if (!physicalPageCount) throw new Error("No printable pages were found.");
+
+    const printCss = `
+      @page { size: A4 portrait; margin: 0; }
+      html, body { margin:0!important; padding:0!important; background:#fff!important; }
+      body { color:#000!important; font-family:"Times New Roman",Times,serif!important; font-size:12pt!important; line-height:1.15!important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+      *, *::before, *::after { box-sizing:border-box; }
+      .export-section { display:block!important; margin:0!important; padding:0!important; }
+      .export-pagebreak, .page-number, .a4-footer, .document-stats, .tp-figure-handles, .tp-handle, .workflow-editor, .workflow-output-actions { display:none!important; }
+      .ms-print-page { position:relative!important; background:#fff!important; }
+      .ms-print-page:last-child { break-after:auto!important; page-break-after:auto!important; }
+      .ms-print-footer {
+        position:absolute!important; left:18mm!important; right:18mm!important;
+        bottom:10mm!important; display:flex!important; justify-content:space-between!important;
+        align-items:center!important; min-height:5mm!important;
+        color:#333!important; font:9pt "Times New Roman",Times,serif!important;
+      }
+      .ms-print-page h1, .ms-print-page h2, .ms-print-page h3, .ms-print-page h4 {
+        font-family:"Times New Roman",Times,serif!important; break-after:avoid; page-break-after:avoid;
+      }
+      .ms-print-page p, .ms-print-page li, .ms-print-page td, .ms-print-page th {
+        font-family:"Times New Roman",Times,serif!important; font-size:12pt!important; line-height:1.15!important;
+      }
+      .ms-print-page table { max-width:100%!important; }
+      .ms-print-page img { max-width:100%!important; height:auto!important; }
+      @media screen {
+        html, body { background:#e5e7eb!important; }
+        .ms-print-page { margin:12px auto!important; box-shadow:0 2px 12px #0002; }
+      }
+      @media print {
+        html, body { width:210mm!important; background:#fff!important; }
+        .ms-print-page { margin:0!important; box-shadow:none!important; }
+      }
+    `;
+
+    const title = String(getMergedExportTitle()).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+    const printHtml = `<!doctype html>
+      <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+      <title>${title}</title>
+      <style>${printCss}</style></head>
+      <body>${built.innerHTML}</body></html>`;
+
+    printWindow.document.open();
+    printWindow.document.write(printHtml);
+    printWindow.document.close();
+
+    const printDoc = printWindow.document;
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error("Print preview took too long to prepare. Please try again.")), 20000);
+      const done = () => { clearTimeout(timeout); resolve(); };
+      if (printDoc.readyState === "complete") done();
+      else printWindow.onload = done;
+    });
+    try {
+      if (printDoc.fonts && printDoc.fonts.ready) await printDoc.fonts.ready;
+    } catch (_) {}
+    await Promise.all([...printDoc.images].map(img => {
       if (img.complete) return Promise.resolve();
       return new Promise(resolve => {
         img.onload = resolve;
         img.onerror = resolve;
-        setTimeout(resolve, 5000);
+        setTimeout(resolve, 8000);
       });
     }));
+    await new Promise(resolve => setTimeout(resolve, 250));
 
-    const pdf = new JsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true });
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const marginX = 15;
-    const marginTop = 14;
-    const marginBottom = 18;
-    const usableW = pageWidth - marginX * 2;
-    const usableH = pageHeight - marginTop - marginBottom;
-    let renderedCount = 0;
+    if (typeof printWindow.print !== "function") {
+      throw new Error("Your browser does not support the print preview. Please open Monkey Scout in Chrome or Edge.");
+    }
+    printWindow.focus();
+    printWindow.print();
+    printWindow.addEventListener("afterprint", () => {
+      try { printWindow.close(); } catch (_) {}
+    }, { once: true });
+    setTimeout(() => {
+      try { if (!printWindow.closed) printWindow.close(); } catch (_) {}
+    }, 120000);
 
-    for (let i = 0; i < pages.length; i++) {
-      const pageNode = root.children[i];
-      const rect = pageNode.getBoundingClientRect();
-      if (rect.width < 100 || rect.height < 100) {
-        throw new Error(`Page ${i + 1} has no measurable content (${Math.round(rect.width)}×${Math.round(rect.height)}px).`);
-      }
-      // Render only one A4 page per canvas. This avoids the zero-height canvas
-      // and browser canvas-size/memory failures caused by 20,000–30,000px captures.
-      const worker = html2pdf().set({
-        margin: 0,
-        html2canvas: {
-          scale: 1.5,
-          useCORS: true,
-          allowTaint: false,
-          logging: false,
-          backgroundColor: "#ffffff",
-          width: 794,
-          windowWidth: 794,
-          scrollX: 0,
-          scrollY: 0
-        },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
-      }).from(pageNode).toCanvas();
-      const canvas = await worker.get("canvas");
-      if (!canvas || canvas.width < 100 || canvas.height < 100) {
-        throw new Error(`Page ${i + 1} could not be rendered (${canvas ? `${canvas.width}×${canvas.height}` : "no canvas"}).`);
-      }
-      if (i > 0) pdf.addPage("a4", "portrait");
-      const imageData = canvas.toDataURL("image/jpeg", 0.94);
-      const ratio = Math.min(usableW / canvas.width, usableH / canvas.height);
-      const imageW = canvas.width * ratio;
-      const imageH = canvas.height * ratio;
-      const x = (pageWidth - imageW) / 2;
-      pdf.addImage(imageData, "JPEG", x, marginTop, imageW, imageH, undefined, "FAST");
-      // Release the large backing store before moving to the next page.
-      canvas.width = 1;
-      canvas.height = 1;
-      renderedCount++;
-      if (mask) mask.textContent = `Preparing your PDF… ${renderedCount}/${pages.length}`;
-      await new Promise(resolve => setTimeout(resolve, 0));
-    }
-
-    for (let pageNo = 1; pageNo <= renderedCount; pageNo++) {
-      pdf.setPage(pageNo);
-      pdf.setFont("times", "normal");
-      pdf.setFontSize(9);
-      pdf.setTextColor(70, 70, 70);
-      if (includeMonkeyScout) pdf.text("monkey scout", 12, pageHeight - 8);
-      pdf.text(String(pageNo), pageWidth - 12, pageHeight - 8, { align: "right" });
-    }
-    const filename = getMergedExportTitle() + ".pdf";
-    const pdfBlob = pdf.output("blob");
-    if (!pdfBlob || pdfBlob.size < 1000 || renderedCount !== pages.length) {
-      throw new Error("The PDF file was not completed successfully. Please try again.");
-    }
-    saveAs(pdfBlob, filename);
   } catch (err) {
-    console.error("Monkey Scout PDF export failed:", err);
-    alert("Could not generate PDF: " + (err && err.message ? err.message : "Unknown error"));
+    console.error("Monkey Scout print export failed:", err);
+    try { printWindow.close(); } catch (_) {}
+    alert("Could not open print preview: " + (err && err.message ? err.message : "Unknown error"));
   } finally {
-    if (root && root.parentNode) root.remove();
-    if (mask && mask.parentNode) mask.remove();
     btn.disabled = false;
     btn.innerHTML = originalLabel;
   }
@@ -6235,33 +6292,45 @@ async function downloadMergedAsDocx(includeMonkeyScout = false){
       reader.onerror = reject;
       reader.readAsDataURL(blob);
     });
-    for (const img of root.querySelectorAll("img")) {
-      const src = img.getAttribute("src") || "";
-      if (!src || src.startsWith("data:")) continue;
+    const embedImageSrc = async (src) => {
+      if (!src || src.startsWith("data:")) return src || "";
       try {
         const response = await fetch(src, { mode: "cors", credentials: "omit" });
         if (!response.ok) throw new Error("Image request failed");
-        img.setAttribute("src", await toDataUrl(await response.blob()));
-      } catch (imageError) {
-        console.warn("A figure could not be embedded in the Word file:", src, imageError);
-        const alt = img.getAttribute("alt") || "Figure image unavailable during export";
-        img.replaceWith(document.createTextNode("[" + alt + "]"));
-      }
-    }
-    // Also convert images inside expanded section clones
-    for (const sec of sections) {
-      for (const img of sec.querySelectorAll("img")) {
+        return await toDataUrl(await response.blob());
+      } catch (_) {}
+      // Fallback: snapshot an already-rendered copy on the page when the host allows it.
+      try {
+        const live = [...document.querySelectorAll("img")].find(node => node.getAttribute("src") === src && node.complete && node.naturalWidth);
+        if (live) {
+          const canvas = document.createElement("canvas");
+          canvas.width = live.naturalWidth;
+          canvas.height = live.naturalHeight;
+          canvas.getContext("2d").drawImage(live, 0, 0);
+          return canvas.toDataURL("image/png");
+        }
+      } catch (_) {}
+      return "";
+    };
+    let missingFigures = 0;
+    const rewriteImages = async (rootNode) => {
+      for (const img of [...rootNode.querySelectorAll("img")]) {
         const src = img.getAttribute("src") || "";
         if (!src || src.startsWith("data:")) continue;
-        try {
-          const response = await fetch(src, { mode: "cors", credentials: "omit" });
-          if (!response.ok) throw new Error("Image request failed");
-          img.setAttribute("src", await toDataUrl(await response.blob()));
-        } catch (_) {
-          const alt = img.getAttribute("alt") || "Figure";
+        const dataUrl = await embedImageSrc(src);
+        if (dataUrl) {
+          img.setAttribute("src", dataUrl);
+        } else {
+          missingFigures++;
+          const alt = img.getAttribute("alt") || "Figure image unavailable during export";
           img.replaceWith(document.createTextNode("[" + alt + "]"));
         }
       }
+    };
+    await rewriteImages(root);
+    for (const sec of sections) await rewriteImages(sec);
+    if (missingFigures) {
+      console.warn(missingFigures + " figure(s) could not be embedded in the Word file (image host blocked the download).");
     }
 
     const css = `
