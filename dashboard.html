@@ -5974,21 +5974,20 @@ function chooseMonkeyScoutFooter(){
 async function downloadMergedAsPDF(includeMonkeyScout = false){
   const btn = document.getElementById("downloadMergedPdfBtn");
   if (!btn) return;
-
-  // Open the print window immediately (same user gesture) so popup blockers allow it.
-  // A real window prints reliably; a 1px hidden iframe often produces blank pages.
-  const printWindow = window.open("", "monkeyScoutPrint", "noopener,noreferrer,width=920,height=760");
-  if (!printWindow) {
-    alert("Please allow popups for this site, then try Print / Save as PDF again.");
-    return;
-  }
-  printWindow.document.open();
-  printWindow.document.write("<!doctype html><title>Preparing…</title><body style='font-family:sans-serif;padding:24px'>Preparing print preview…</body>");
-  printWindow.document.close();
-
   const originalLabel = btn.innerHTML;
   btn.disabled = true;
   btn.textContent = "Preparing print preview…";
+
+  const closePreview = () => {
+    const old = document.getElementById("msPrintOverlay");
+    if (old) {
+      const frame = old.querySelector("iframe");
+      if (frame && frame.dataset.blobUrl) {
+        try { URL.revokeObjectURL(frame.dataset.blobUrl); } catch (_) {}
+      }
+      old.remove();
+    }
+  };
 
   try {
     const built = buildMergedExportDocument();
@@ -5998,7 +5997,6 @@ async function downloadMergedAsPDF(includeMonkeyScout = false){
     }
 
     built.querySelectorAll(".export-pagebreak").forEach(node => node.remove());
-
     const sections = [...built.querySelectorAll(":scope > .export-section")];
     if (!sections.length) {
       throw new Error("No formatted paper sections were found. Please merge the paper again.");
@@ -6012,10 +6010,7 @@ async function downloadMergedAsPDF(includeMonkeyScout = false){
       }
       return result;
     };
-    let preliminaryNo = 0;
-    let bodyNo = 0;
-    let bodyStarted = false;
-    let physicalPageCount = 0;
+    let preliminaryNo = 0, bodyNo = 0, bodyStarted = false, physicalPageCount = 0;
 
     sections.forEach((section) => {
       const sectionName = String(section.getAttribute("data-section") || "").replace(/\s+/g, " ").trim();
@@ -6026,16 +6021,13 @@ async function downloadMergedAsPDF(includeMonkeyScout = false){
 
       const pageNodes = [...section.querySelectorAll(":scope > .export-page")];
       if (!pageNodes.length) {
-        throw new Error(`The section "${sectionName || "Untitled"}" has no printable page.`);
+        throw new Error("The section \"" + (sectionName || "Untitled") + "\" has no printable page.");
       }
 
       pageNodes.forEach((pageNode) => {
         physicalPageCount++;
         pageNode.classList.add("ms-print-page");
         pageNode.setAttribute("data-ms-page", String(physicalPageCount));
-
-        // One sheet per exported page. min-height keeps short pages full;
-        // overflow visible avoids cutting off the last lines.
         pageNode.style.cssText = [
           "position:relative!important",
           "display:block!important",
@@ -6045,7 +6037,7 @@ async function downloadMergedAsPDF(includeMonkeyScout = false){
           "max-width:210mm!important",
           "min-height:297mm!important",
           "height:auto!important",
-          "margin:0!important",
+          "margin:0 auto!important",
           "padding:20mm 18mm 22mm!important",
           "overflow:visible!important",
           "background:#fff!important",
@@ -6090,95 +6082,84 @@ async function downloadMergedAsPDF(includeMonkeyScout = false){
             visibleNumber = String(bodyNo);
           }
         }
-
         const footer = document.createElement("div");
         footer.className = "ms-print-footer";
-        footer.innerHTML = `<span>${includeMonkeyScout ? "monkey scout" : ""}</span><span>${visibleNumber}</span>`;
+        footer.innerHTML = "<span>" + (includeMonkeyScout ? "monkey scout" : "") + "</span><span>" + visibleNumber + "</span>";
         pageNode.appendChild(footer);
       });
     });
 
     if (!physicalPageCount) throw new Error("No printable pages were found.");
 
-    const printCss = `
-      @page { size: A4 portrait; margin: 0; }
-      html, body { margin:0!important; padding:0!important; background:#fff!important; }
-      body { color:#000!important; font-family:"Times New Roman",Times,serif!important; font-size:12pt!important; line-height:1.15!important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-      *, *::before, *::after { box-sizing:border-box; }
-      .export-section { display:block!important; margin:0!important; padding:0!important; }
-      .export-pagebreak, .page-number, .a4-footer, .document-stats, .tp-figure-handles, .tp-handle, .workflow-editor, .workflow-output-actions { display:none!important; }
-      .ms-print-page { position:relative!important; background:#fff!important; }
-      .ms-print-page:last-child { break-after:auto!important; page-break-after:auto!important; }
-      .ms-print-footer {
-        position:absolute!important; left:18mm!important; right:18mm!important;
-        bottom:10mm!important; display:flex!important; justify-content:space-between!important;
-        align-items:center!important; min-height:5mm!important;
-        color:#333!important; font:9pt "Times New Roman",Times,serif!important;
-      }
-      .ms-print-page h1, .ms-print-page h2, .ms-print-page h3, .ms-print-page h4 {
-        font-family:"Times New Roman",Times,serif!important; break-after:avoid; page-break-after:avoid;
-      }
-      .ms-print-page p, .ms-print-page li, .ms-print-page td, .ms-print-page th {
-        font-family:"Times New Roman",Times,serif!important; font-size:12pt!important; line-height:1.15!important;
-      }
-      .ms-print-page table { max-width:100%!important; }
-      .ms-print-page img { max-width:100%!important; height:auto!important; }
-      @media screen {
-        html, body { background:#e5e7eb!important; }
-        .ms-print-page { margin:12px auto!important; box-shadow:0 2px 12px #0002; }
-      }
-      @media print {
-        html, body { width:210mm!important; background:#fff!important; }
-        .ms-print-page { margin:0!important; box-shadow:none!important; }
-      }
-    `;
+    const amp = "&" + "amp;";
+    const lt = "&" + "lt;";
+    const gt = "&" + "gt;";
+    const quot = "&" + "quot;";
+    const title = String(getMergedExportTitle())
+      .replace(/&/g, amp).replace(/</g, lt).replace(/>/g, gt).replace(/"/g, quot);
 
-    const title = String(getMergedExportTitle()).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
-    const printHtml = `<!doctype html>
-      <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-      <title>${title}</title>
-      <style>${printCss}</style></head>
-      <body>${built.innerHTML}</body></html>`;
+    const printCss = [
+      "@page { size: A4 portrait; margin: 0; }",
+      "html, body { margin:0!important; padding:0!important; background:#fff!important; }",
+      "body { color:#000!important; font-family:'Times New Roman',Times,serif!important; font-size:12pt!important; line-height:1.15!important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }",
+      "*, *::before, *::after { box-sizing:border-box; }",
+      ".export-section { display:block!important; margin:0!important; padding:0!important; }",
+      ".export-pagebreak, .page-number, .a4-footer, .document-stats, .tp-figure-handles, .tp-handle, .workflow-editor, .workflow-output-actions { display:none!important; }",
+      ".ms-print-page { position:relative!important; background:#fff!important; }",
+      ".ms-print-page:last-child { break-after:auto!important; page-break-after:auto!important; }",
+      ".ms-print-footer { position:absolute!important; left:18mm!important; right:18mm!important; bottom:10mm!important; display:flex!important; justify-content:space-between!important; align-items:center!important; min-height:5mm!important; color:#333!important; font:9pt 'Times New Roman',Times,serif!important; }",
+      ".ms-print-page h1,.ms-print-page h2,.ms-print-page h3,.ms-print-page h4 { font-family:'Times New Roman',Times,serif!important; break-after:avoid; page-break-after:avoid; }",
+      ".ms-print-page p,.ms-print-page li,.ms-print-page td,.ms-print-page th { font-family:'Times New Roman',Times,serif!important; font-size:12pt!important; line-height:1.15!important; }",
+      ".ms-print-page table { max-width:100%!important; }",
+      ".ms-print-page img { max-width:100%!important; height:auto!important; }",
+      ".ms-print-bar { position:sticky; top:0; z-index:5; display:flex; gap:8px; justify-content:flex-end; padding:10px 12px; background:#073f2d; }",
+      ".ms-print-bar button { border:0; border-radius:8px; padding:10px 14px; font-weight:700; cursor:pointer; }",
+      ".ms-print-bar .go { background:#fff; color:#073f2d; }",
+      "@media print { .ms-print-bar { display:none!important; } html, body { width:210mm!important; background:#fff!important; } .ms-print-page { margin:0!important; box-shadow:none!important; } }",
+      "@media screen { html, body { background:#e5e7eb!important; } .ms-print-page { margin:12px auto!important; box-shadow:0 2px 12px #0002; } }"
+    ].join("\n");
 
-    printWindow.document.open();
-    printWindow.document.write(printHtml);
-    printWindow.document.close();
+    const printHtml = "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>" + title + "</title><style>" + printCss + "</style></head><body>" +
+      "<div class=\"ms-print-bar\"><button class=\"go\" type=\"button\" onclick=\"window.print()\">Print / Save as PDF</button></div>" +
+      built.innerHTML + "</body></html>";
 
-    const printDoc = printWindow.document;
-    await new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error("Print preview took too long to prepare. Please try again.")), 20000);
-      const done = () => { clearTimeout(timeout); resolve(); };
-      if (printDoc.readyState === "complete") done();
-      else printWindow.onload = done;
-    });
-    try {
-      if (printDoc.fonts && printDoc.fonts.ready) await printDoc.fonts.ready;
-    } catch (_) {}
-    await Promise.all([...printDoc.images].map(img => {
-      if (img.complete) return Promise.resolve();
-      return new Promise(resolve => {
-        img.onload = resolve;
-        img.onerror = resolve;
-        setTimeout(resolve, 8000);
-      });
-    }));
-    await new Promise(resolve => setTimeout(resolve, 250));
+    const blob = new Blob([printHtml], { type: "text/html" });
+    const blobUrl = URL.createObjectURL(blob);
 
-    if (typeof printWindow.print !== "function") {
-      throw new Error("Your browser does not support the print preview. Please open Monkey Scout in Chrome or Edge.");
-    }
-    printWindow.focus();
-    printWindow.print();
-    printWindow.addEventListener("afterprint", () => {
-      try { printWindow.close(); } catch (_) {}
-    }, { once: true });
-    setTimeout(() => {
-      try { if (!printWindow.closed) printWindow.close(); } catch (_) {}
-    }, 120000);
+    closePreview();
+    const overlay = document.createElement("div");
+    overlay.id = "msPrintOverlay";
+    overlay.style.cssText = "position:fixed;inset:0;z-index:2147483646;background:#0b1f18;display:flex;flex-direction:column;";
+    overlay.innerHTML =
+      "<div style=\"display:flex;gap:8px;align-items:center;justify-content:space-between;padding:10px 12px;background:#073f2d;color:#fff;font-family:Arial,sans-serif;\">" +
+        "<strong style=\"font-size:14px\">Print preview</strong>" +
+        "<div style=\"display:flex;gap:8px\">" +
+          "<button type=\"button\" data-print style=\"border:0;border-radius:8px;padding:9px 12px;font-weight:700;background:#fff;color:#073f2d;cursor:pointer\">Print / Save as PDF</button>" +
+          "<button type=\"button\" data-close style=\"border:0;border-radius:8px;padding:9px 12px;font-weight:700;background:transparent;color:#fff;cursor:pointer\">Close</button>" +
+        "</div>" +
+      "</div>" +
+      "<iframe title=\"Monkey Scout print preview\" style=\"flex:1;width:100%;border:0;background:#fff\"></iframe>";
+    document.body.appendChild(overlay);
+    const frame = overlay.querySelector("iframe");
+    frame.dataset.blobUrl = blobUrl;
+    frame.src = blobUrl;
 
+    overlay.querySelector("[data-close]").onclick = closePreview;
+    overlay.querySelector("[data-print]").onclick = () => {
+      try {
+        const win = frame.contentWindow;
+        if (win && typeof win.print === "function") {
+          win.focus();
+          win.print();
+          return;
+        }
+      } catch (_) {}
+      // Direct navigation fallback if the phone blocks iframe printing.
+      window.location.href = blobUrl;
+    };
   } catch (err) {
     console.error("Monkey Scout print export failed:", err);
-    try { printWindow.close(); } catch (_) {}
+    closePreview();
     alert("Could not open print preview: " + (err && err.message ? err.message : "Unknown error"));
   } finally {
     btn.disabled = false;
