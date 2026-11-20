@@ -5924,7 +5924,13 @@ function buildMergedExportDocument(){
         el.setAttribute("style", (prev ? prev + ";" : "") + "font-family:'Times New Roman',Times,serif;");
       });
 
-      section.appendChild(clone);
+      // Keep each original A4 page as an independent export unit. PDF export
+      // rasterizes these units one at a time instead of creating one enormous canvas.
+      const pageWrap = document.createElement("div");
+      pageWrap.className = "export-page";
+      pageWrap.setAttribute("style", "display:block;position:relative;box-sizing:border-box;width:794px;min-width:794px;max-width:794px;min-height:1123px;height:auto;margin:0;padding:0;background:#ffffff;color:#000000;overflow:visible;break-inside:avoid;page-break-inside:avoid;");
+      pageWrap.appendChild(clone);
+      section.appendChild(pageWrap);
     });
 
     doc.appendChild(section);
@@ -5971,6 +5977,11 @@ async function downloadMergedAsPDF(includeMonkeyScout = false){
     alert("PDF library not loaded. Check your internet connection and refresh the page.");
     return;
   }
+  const JsPDF = window.jspdf && window.jspdf.jsPDF ? window.jspdf.jsPDF : window.jsPDF;
+  if (typeof JsPDF !== "function") {
+    alert("The PDF page component did not load. Refresh the page and try again.");
+    return;
+  }
   const originalLabel = btn.innerHTML;
   btn.disabled = true;
   btn.textContent = "Preparing PDF…";
@@ -5978,297 +5989,138 @@ async function downloadMergedAsPDF(includeMonkeyScout = false){
   let mask = null;
   try {
     const built = buildMergedExportDocument();
-    const probe = (built.textContent || "").replace(/\s+/g, " ").trim();
-    if (probe.length < 40) throw new Error("The paper content is empty. Generate and merge your sections before downloading.");
-
-    // Split multi-heading blocks the same way as Word so each major unit can start on a new page.
-    const MAJOR_SPLIT_RE = /^(cover(\s*page)?|title\s*page|certification|approval|declaration|dedication|acknowledgements?|abstract|table\s*of\s*contents|contents|list\s*of\s*(tables|figures|abbreviations|symbols)|chapter\s+\d+|chapter\s+[ivxlcdm]+|conclusions?|recommendations?|references?|bibliography|appendices|appendix(\s*[a-z0-9]+)?)\b/i;
-    let sections = [...built.querySelectorAll(":scope > .export-section")];
-    if (!sections.length) sections = [built];
-
-    const expanded = [];
-    sections.forEach(sec => {
-      const host = document.createElement("div");
-      host.innerHTML = sec.innerHTML;
-      const blocks = [...host.children];
-      if (blocks.length < 2) {
-        const clone = sec.cloneNode(true);
-        clone.classList.add("export-section");
-        expanded.push(clone);
-        return;
-      }
-      let current = document.createElement("section");
-      current.className = "export-section";
-      current.setAttribute("data-section", sec.getAttribute("data-section") || "");
-      let started = false;
-      const flush = () => {
-        if (!current.childNodes.length) return;
-        expanded.push(current);
-        current = document.createElement("section");
-        current.className = "export-section";
-      };
-      blocks.forEach(node => {
-        const tag = (node.tagName || "").toLowerCase();
-        const textContent = (node.textContent || "").replace(/\s+/g, " ").trim();
-        const isMajorHeading = (tag === "h1" || tag === "h2" || tag === "h3") && MAJOR_SPLIT_RE.test(textContent);
-        if (isMajorHeading && started && current.childNodes.length) {
-          flush();
-          current.setAttribute("data-section", textContent);
-        }
-        if (isMajorHeading && !current.getAttribute("data-section")) {
-          current.setAttribute("data-section", textContent);
-        }
-        current.appendChild(node.cloneNode(true));
-        started = true;
-      });
-      flush();
-      if (!expanded.length) {
-        const clone = sec.cloneNode(true);
-        clone.classList.add("export-section");
-        expanded.push(clone);
-      }
-    });
-
-    // Printable root — normal document flow (NOT zero-height / off-screen tricks)
-    const printRoot = document.createElement("div");
-    printRoot.id = "merged-export-root";
-    printRoot.setAttribute("style", [
-      "position:fixed",
-      "display:block",
-      "left:0",
-      "top:0",
-      "width:794px",
-      "min-width:794px",
-      "max-width:794px",
-      "min-height:1px",
-      "box-sizing:border-box",
-      "margin:0",
-      "padding:24px 28px",
-      "background:#ffffff",
-      "color:#000000",
-      "font-family:'Times New Roman',Times,serif",
-      "font-size:12pt",
-      "line-height:1.15",
-      "z-index:2147483645",
-      "overflow:visible",
-      "visibility:visible",
-      "opacity:1",
-      "pointer-events:none"
-    ].join(";"));
-
-    expanded.forEach((sec, idx) => {
-      const section = document.createElement("section");
-      section.className = "export-section";
-      section.setAttribute("data-section", sec.getAttribute("data-section") || "");
-      // Only break BEFORE sections after the first — otherwise page 1 is blank.
-      section.setAttribute("style", [
-        "display:block",
-        "box-sizing:border-box",
-        "width:100%",
-        "background:#ffffff",
-        "color:#000000",
-        "font-family:'Times New Roman',Times,serif",
-        "font-size:12pt",
-        "line-height:1.15",
-        "padding:0",
-        "margin:0 0 12px 0",
-        idx === 0
-          ? "page-break-before:auto;break-before:auto"
-          : "page-break-before:always;break-before:page"
-      ].join(";"));
-
-      const clean = sec.cloneNode(true);
-      clean.querySelectorAll(".export-pagebreak, .tp-figure-handles, .tp-handle, .page-number, .a4-footer, .document-stats, .tp-image-placeholder").forEach(n => n.remove());
-
-      // Force paint-friendly typography (black text on white)
-      clean.querySelectorAll("*").forEach(el => {
-        if (el.nodeType !== 1) return;
-        const tag = (el.tagName || "").toLowerCase();
-        if (tag === "img") return;
-        const prev = el.getAttribute("style") || "";
-        el.setAttribute("style", (prev ? prev + ";" : "") + "color:#000000;background:transparent;font-family:'Times New Roman',Times,serif;line-height:1.15;");
-      });
-      clean.querySelectorAll("p, li, td, th").forEach(el => {
-        const prev = el.getAttribute("style") || "";
-        el.setAttribute("style", (prev ? prev + ";" : "") + "font-size:12pt;line-height:1.15;color:#000000;");
-      });
-      clean.querySelectorAll("h1").forEach(el => {
-        el.setAttribute("style", "font-family:'Times New Roman',Times,serif;font-size:16pt;font-weight:bold;text-align:center;margin:12pt 0;color:#000000;page-break-after:avoid;");
-      });
-      clean.querySelectorAll("h2").forEach(el => {
-        el.setAttribute("style", "font-family:'Times New Roman',Times,serif;font-size:14pt;font-weight:bold;margin:12pt 0 8pt;color:#000000;page-break-after:avoid;");
-      });
-      clean.querySelectorAll("h3").forEach(el => {
-        el.setAttribute("style", "font-family:'Times New Roman',Times,serif;font-size:12pt;font-weight:bold;margin:10pt 0 6pt;color:#000000;page-break-after:avoid;");
-      });
-
-      // Figures ≤ half page, text above/below
-      clean.querySelectorAll(".tp-figure").forEach(fig => {
-        fig.setAttribute("style", "display:block;width:48%;max-width:48%;margin:14pt auto;text-align:center;float:none;clear:both;page-break-inside:avoid;");
-        const img = fig.querySelector("img");
-        if (img) {
-          img.removeAttribute("width");
-          img.removeAttribute("height");
-          img.setAttribute("style", "max-width:100%;width:100%;height:auto;display:block;margin:0 auto;");
-        }
-        const cap = fig.querySelector(".fig-caption, .fig-main-label");
-        if (cap) cap.setAttribute("style", "display:block;text-align:center;font-size:10pt;font-weight:600;margin-top:6pt;color:#000000;");
-      });
-      clean.querySelectorAll("img").forEach(img => {
-        if (img.closest(".tp-figure")) return;
-        img.removeAttribute("width");
-        img.removeAttribute("height");
-        img.setAttribute("style", "max-width:48%;width:48%;height:auto;display:block;margin:12pt auto;page-break-inside:avoid;");
-      });
-      clean.querySelectorAll("table:not(.export-toc-table)").forEach(t => {
-        t.setAttribute("style", "border-collapse:collapse;width:100%;margin:10pt 0;font-size:11pt;line-height:1.15;");
-        t.querySelectorAll("th,td").forEach(cell => {
-          cell.setAttribute("style", "border:1px solid #333;padding:5pt 6pt;vertical-align:top;color:#000;");
-        });
-      });
-      clean.querySelectorAll(".export-toc-table").forEach(t => {
-        t.setAttribute("style", "width:100%;border-collapse:collapse;margin:6pt 0 12pt;table-layout:fixed;");
-        t.querySelectorAll("td").forEach((cell, i) => {
-          cell.setAttribute("style", i === 0
-            ? "text-align:left;padding:2pt 8pt 2pt 0;border:none;width:85%;color:#000;"
-            : "text-align:right;padding:2pt 0;border:none;width:15%;white-space:nowrap;color:#000;");
-        });
-      });
-
-      while (clean.firstChild) section.appendChild(clean.firstChild);
-      // Skip completely empty sections (would become blank PDF pages)
-      if ((section.textContent || "").replace(/\s+/g, "").length || section.querySelector("img")) {
-        printRoot.appendChild(section);
-      }
-    });
-
-    if (!(printRoot.textContent || "").replace(/\s+/g, " ").trim() && !printRoot.querySelector("img")) {
-      throw new Error("PDF content collapsed to empty. Merge the paper on screen, then try Download as PDF again.");
+    if ((built.textContent || "").replace(/\s+/g, " ").trim().length < 40) {
+      throw new Error("The paper content is empty. Merge your paper before downloading.");
     }
 
-    document.body.appendChild(printRoot);
-    root = printRoot;
+    // Expand section blocks while retaining each original A4 page wrapper.
+    const sections = [...built.querySelectorAll(":scope > .export-section")];
+    const pages = [];
+    sections.forEach(section => {
+      const pageNodes = [...section.querySelectorAll(":scope > .export-page")];
+      if (pageNodes.length) pageNodes.forEach(node => pages.push(node.cloneNode(true)));
+      else {
+        // Compatibility fallback for older generated structures.
+        const fallback = document.createElement("div");
+        fallback.className = "export-page";
+        fallback.style.cssText = "width:794px;min-width:794px;min-height:1123px;box-sizing:border-box;background:#fff;padding:0;";
+        fallback.innerHTML = section.innerHTML;
+        pages.push(fallback);
+      }
+    });
+    if (!pages.length) throw new Error("No paper pages were found. Please merge the paper again.");
 
-    // Confirm the browser has laid out the capture surface before html2canvas clones it.
-    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-    const captureRect = printRoot.getBoundingClientRect();
-    if (captureRect.width < 100 || captureRect.height < 100 || !printRoot.querySelector(".export-section")) {
-      throw new Error(`The PDF capture area has no usable layout (width ${Math.round(captureRect.width)}px, height ${Math.round(captureRect.height)}px). Please reopen the merged paper and try again.`);
-    }
+    root = document.createElement("div");
+    root.id = "merged-export-root";
+    root.style.cssText = "position:fixed;left:0;top:0;display:block;width:794px;min-width:794px;background:#fff;color:#000;z-index:2147483645;overflow:visible;pointer-events:none;font-family:'Times New Roman',Times,serif;font-size:12pt;line-height:1.15;";
+    pages.forEach((page, index) => {
+      page.classList.add("export-page");
+      page.style.cssText += ";display:block;position:relative;box-sizing:border-box;width:794px;min-width:794px;max-width:794px;min-height:1123px;height:auto;margin:0;padding:0;background:#fff;color:#000;overflow:visible;";
+      page.querySelectorAll(".export-pagebreak,.tp-figure-handles,.tp-handle,.page-number,.a4-footer,.document-stats,.tp-image-placeholder").forEach(el => el.remove());
+      page.querySelectorAll("p,li,td,th,div,span,h1,h2,h3,h4").forEach(el => {
+        el.style.color = "#000000";
+        el.style.visibility = "visible";
+        el.style.opacity = "1";
+        el.style.fontFamily = "'Times New Roman',Times,serif";
+        el.style.lineHeight = "1.15";
+      });
+      page.querySelectorAll("img").forEach(img => {
+        img.style.maxWidth = "48%";
+        img.style.height = "auto";
+      });
+      page.dataset.exportPage = String(index + 1);
+      root.appendChild(page);
+    });
+    document.body.appendChild(root);
 
-    // Full-screen mask so the user does not see the capture surface
     mask = document.createElement("div");
     mask.setAttribute("aria-live", "polite");
     mask.textContent = "Preparing your PDF…";
-    mask.style.cssText = "position:fixed;inset:0;z-index:2147483647;background:#ffffff;color:#334155;display:flex;align-items:center;justify-content:center;font:600 14px Arial,sans-serif;";
+    mask.style.cssText = "position:fixed;inset:0;z-index:2147483647;background:#fff;color:#334155;display:flex;align-items:center;justify-content:center;font:600 14px Arial,sans-serif;";
     document.body.appendChild(mask);
 
-    // Allow layout + images to settle
-    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-    await Promise.all([...printRoot.querySelectorAll("img")].map(img => {
-      if (img.complete && img.naturalWidth) return Promise.resolve();
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    if (document.fonts && document.fonts.ready) {
+      try { await document.fonts.ready; } catch (_) {}
+    }
+    await Promise.all([...root.querySelectorAll("img")].map(img => {
+      if (img.complete) return Promise.resolve();
       return new Promise(resolve => {
         img.onload = resolve;
         img.onerror = resolve;
-        setTimeout(resolve, 4000);
+        setTimeout(resolve, 5000);
       });
     }));
-    // Give web fonts a moment
-    if (document.fonts && document.fonts.ready) {
-      try { await Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 1500))]); } catch (_) {}
-    }
 
-    const filename = getMergedExportTitle() + ".pdf";
-    const opt = {
-      margin: [15, 15, 18, 15],
-      filename,
-      image: { type: "jpeg", quality: 0.98 },
-      html2canvas: {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        backgroundColor: "#ffffff",
-        windowWidth: 794,
-        windowHeight: Math.max(
-          document.documentElement ? document.documentElement.scrollHeight : 0,
-          printRoot.scrollHeight || 0,
-          printRoot.offsetHeight || 0,
-          1200
-        ),
-        scrollX: 0,
-        scrollY: 0,
-        onclone: (clonedDoc) => {
-          const rootClone = clonedDoc.getElementById("merged-export-root");
-          if (!rootClone) return;
-          rootClone.style.background = "#ffffff";
-          rootClone.style.color = "#000000";
-          rootClone.style.opacity = "1";
-          rootClone.style.visibility = "visible";
-          rootClone.style.position = "relative";
-          rootClone.style.display = "block";
-          rootClone.style.left = "0";
-          rootClone.style.top = "0";
-          rootClone.style.width = "794px";
-          rootClone.style.minWidth = "794px";
-          rootClone.style.maxWidth = "794px";
-          rootClone.style.minHeight = "1px";
-          rootClone.style.height = "auto";
-          rootClone.style.maxHeight = "none";
-          rootClone.style.transform = "none";
-          rootClone.style.overflow = "visible";
-          rootClone.style.contain = "none";
-          rootClone.querySelectorAll(".export-section").forEach((sec, idx) => {
-            sec.style.display = "block";
-            sec.style.color = "#000000";
-            sec.style.background = "#ffffff";
-            sec.style.pageBreakBefore = idx === 0 ? "auto" : "always";
-            sec.style.breakBefore = idx === 0 ? "auto" : "page";
-            sec.style.pageBreakInside = "auto";
-          });
-          rootClone.querySelectorAll("p, li, td, th, h1, h2, h3, h4, span, div").forEach(el => {
-            el.style.color = "#000000";
-            el.style.opacity = "1";
-            el.style.visibility = "visible";
-          });
-        }
-      },
-      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-      // CRITICAL: do NOT put page-break before the first section (causes a blank page 1)
-      pagebreak: {
-        mode: ["css"],
-        avoid: [".tp-figure", "img", "table"]
+    const pdf = new JsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true });
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const marginX = 15;
+    const marginTop = 14;
+    const marginBottom = 18;
+    const usableW = pageWidth - marginX * 2;
+    const usableH = pageHeight - marginTop - marginBottom;
+    let renderedCount = 0;
+
+    for (let i = 0; i < pages.length; i++) {
+      const pageNode = root.children[i];
+      const rect = pageNode.getBoundingClientRect();
+      if (rect.width < 100 || rect.height < 100) {
+        throw new Error(`Page ${i + 1} has no measurable content (${Math.round(rect.width)}×${Math.round(rect.height)}px).`);
       }
-    };
-
-    const worker = html2pdf().set(opt).from(printRoot);
-    await worker.toCanvas();
-    const renderedCanvas = await worker.get("canvas");
-    if (!renderedCanvas || renderedCanvas.width < 100 || renderedCanvas.height < 100) {
-      const rect = printRoot ? printRoot.getBoundingClientRect() : { width: 0, height: 0 };
-      throw new Error(`The PDF renderer returned an empty canvas (${renderedCanvas ? `${renderedCanvas.width}×${renderedCanvas.height}` : "no canvas"}; capture area ${Math.round(rect.width)}×${Math.round(rect.height)}px). Please try again. If it repeats, send this message to support.`);
+      // Render only one A4 page per canvas. This avoids the zero-height canvas
+      // and browser canvas-size/memory failures caused by 20,000–30,000px captures.
+      const worker = html2pdf().set({
+        margin: 0,
+        html2canvas: {
+          scale: 1.5,
+          useCORS: true,
+          allowTaint: false,
+          logging: false,
+          backgroundColor: "#ffffff",
+          width: 794,
+          windowWidth: 794,
+          scrollX: 0,
+          scrollY: 0
+        },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
+      }).from(pageNode).toCanvas();
+      const canvas = await worker.get("canvas");
+      if (!canvas || canvas.width < 100 || canvas.height < 100) {
+        throw new Error(`Page ${i + 1} could not be rendered (${canvas ? `${canvas.width}×${canvas.height}` : "no canvas"}).`);
+      }
+      if (i > 0) pdf.addPage("a4", "portrait");
+      const imageData = canvas.toDataURL("image/jpeg", 0.94);
+      const ratio = Math.min(usableW / canvas.width, usableH / canvas.height);
+      const imageW = canvas.width * ratio;
+      const imageH = canvas.height * ratio;
+      const x = (pageWidth - imageW) / 2;
+      pdf.addImage(imageData, "JPEG", x, marginTop, imageW, imageH, undefined, "FAST");
+      // Release the large backing store before moving to the next page.
+      canvas.width = 1;
+      canvas.height = 1;
+      renderedCount++;
+      if (mask) mask.textContent = `Preparing your PDF… ${renderedCount}/${pages.length}`;
+      await new Promise(resolve => setTimeout(resolve, 0));
     }
-    await worker.toPdf();
-    const pdf = await worker.get("pdf");
-    const totalPages = pdf.internal.getNumberOfPages();
-    if (!totalPages || totalPages < 1) throw new Error("The PDF renderer did not create any pages.");
 
-    for (let pageNo = 1; pageNo <= totalPages; pageNo++) {
+    for (let pageNo = 1; pageNo <= renderedCount; pageNo++) {
       pdf.setPage(pageNo);
       pdf.setFont("times", "normal");
       pdf.setFontSize(9);
       pdf.setTextColor(70, 70, 70);
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
       if (includeMonkeyScout) pdf.text("monkey scout", 12, pageHeight - 8);
       pdf.text(String(pageNo), pageWidth - 12, pageHeight - 8, { align: "right" });
     }
+    const filename = getMergedExportTitle() + ".pdf";
     const pdfBlob = pdf.output("blob");
-    if (!pdfBlob || pdfBlob.size < 1000) throw new Error("The generated PDF file is empty.");
+    if (!pdfBlob || pdfBlob.size < 1000 || renderedCount !== pages.length) {
+      throw new Error("The PDF file was not completed successfully. Please try again.");
+    }
     saveAs(pdfBlob, filename);
   } catch (err) {
-    console.error(err);
-    alert("Could not generate PDF: " + (err.message || "Unknown error"));
+    console.error("Monkey Scout PDF export failed:", err);
+    alert("Could not generate PDF: " + (err && err.message ? err.message : "Unknown error"));
   } finally {
     if (root && root.parentNode) root.remove();
     if (mask && mask.parentNode) mask.remove();
@@ -6276,7 +6128,6 @@ async function downloadMergedAsPDF(includeMonkeyScout = false){
     btn.innerHTML = originalLabel;
   }
 }
-
 
 async function enforceDocxLineSpacing(blob, lineTwips = 276) {
   if (!window.JSZip) throw new Error("The Word formatting component did not load. Refresh the page and try again.");
