@@ -18,7 +18,8 @@
 </script>
 
 <title>Monkey Scout | Term Paper Generation & Academic Workspace</title>
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<!-- Desktop layout on all devices: fixed layout width, browser scales to fit -->
+<meta name="viewport" content="width=1100" />
 <meta property="og:image" content="https://i.postimg.cc/3xqH7Z6F/20261110-205017.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -5480,56 +5481,95 @@ async function mergeCurrentPaper(){
 }
 
 function renderMergedPaper(value){
-  // Reuse the saved section cards as the source of truth: do not flatten the
-  // paper into one HTML stream and paginate it again.
+  // Prefer the permanently saved merged document (includes editor edits + images).
+  // Fall back to live section cards only when no stored merged body exists yet.
   const old=document.getElementById("mergedPaperOutput");if(old)old.remove();
   const wrap=document.createElement("div");wrap.className="chat-msg";wrap.id="mergedPaperOutput";wrap.dataset.mergedContent=String(value||"");
   const title=document.createElement("div");title.className="merged-paper-heading";
   title.textContent="Complete Merged Term Paper";wrap.appendChild(title);
   const pages=document.createElement("div");pages.className="merged-pages";pages.id="mergedPagesRoot";
-  const cards=[...document.querySelectorAll('#chatArea .chat-msg[data-kind]')]
-    .filter(card=>card.dataset.kind!=="toc" && card.dataset.kind!=="status" && card.querySelector(".pages-container"));
-  let arabicPage=1,romanPage=1;
-  cards.forEach(card=>{
-    const kind=card.dataset.kind;
-    const sectionTitle=String(card.dataset.title||"").trim();
-    const sectionPageCount=card.querySelectorAll(".pages-container > .a4-page").length||Number(card.dataset.pageCount||1)||1;
-    [...card.querySelectorAll(".pages-container > .a4-page")].forEach((source,index)=>{
-      const page=source.cloneNode(true);page.classList.add("merged-page");
-      page.dataset.sectionTitle=sectionTitle;
-      page.dataset.sectionPageIndex=String(index);
-      page.dataset.sectionPageCount=String(sectionPageCount);
-      page.querySelectorAll(".page-number").forEach(n=>{
-        if(kind==="preliminary"){
-          n.textContent=index===0?"":romanNumber(index);
-          romanPage=index+1; // next roman after this page
-        } else {
-          n.textContent=String(arabicPage++);
-        }
+  const raw=String(value||"");
+  const RICH="[[TEMPAPER_RICH_HTML]]";
+  const PAGES="[[MERGED_PAGES_HTML]]";
+
+  const hydrateFromStored = () => {
+    if (!raw.trim()) return false;
+    if (raw.startsWith(PAGES)) {
+      const tmp=document.createElement("div");
+      tmp.innerHTML=raw.slice(PAGES.length);
+      const found=[...tmp.querySelectorAll(".a4-page")];
+      if (!found.length) return false;
+      found.forEach(p=>{
+        p.classList.add("merged-page");
+        p.querySelectorAll(".a4-content").forEach(c=>{
+          c.removeAttribute("contenteditable");
+          c.removeAttribute("spellcheck");
+        });
+        p.querySelectorAll(".tp-figure-handles,.tp-handle").forEach(n=>n.remove());
+        p.querySelectorAll(".tp-figure").forEach(f=>{ f.classList.remove("selected"); delete f.dataset.bound; });
+        pages.appendChild(p);
       });
-      pages.appendChild(page);
-    });
-  });
-  // Add the saved TOC after preliminary pages and before the first chapter.
-  const tocCard=document.querySelector('#chatArea .chat-msg[data-kind="toc"]');
-  if(tocCard){
-    const tocPages=[...tocCard.querySelectorAll(".pages-container > .a4-page")];
-    const firstBody=pages.querySelector(".body-page");
-    tocPages.forEach((source,index)=>{
-      const page=source.cloneNode(true);page.classList.add("merged-page");
-      page.querySelectorAll(".page-number").forEach(n=>n.textContent=romanNumber(romanPage++));
-      if(firstBody)pages.insertBefore(page,firstBody);else pages.appendChild(page);
-    });
-  }
-  if(!pages.children.length){
-    // Legacy fallback for merged records whose sections are not loaded in the view.
-    const marker="[[TEMPAPER_RICH_HTML]]",raw=String(value||"");
-    const html=raw.startsWith(marker)?raw.slice(marker.length):markdownToHTML(cleanPaperText(raw));
+      return pages.children.length>0;
+    }
+    // Rich HTML or markdown body → paginate
+    let html="";
+    if (raw.startsWith(RICH)) html=raw.slice(RICH.length);
+    else if (/<\/?[a-z][\s\S]*>/i.test(raw)) html=raw;
+    else html=markdownToHTML(cleanPaperText(raw));
+    if (!html.trim()) return false;
+    // Already contains pages
+    if (/class=["'][^"']*a4-page/.test(html) || /class=["']a4-page/.test(html)) {
+      const tmp=document.createElement("div");
+      tmp.innerHTML=html;
+      [...tmp.querySelectorAll(".a4-page")].forEach(p=>{ p.classList.add("merged-page"); pages.appendChild(p); });
+      if (pages.children.length) return true;
+    }
+    const wordCount=html.replace(/<[^>]*>/g," ").split(/\s+/).filter(Boolean).length;
     const fallback=document.createElement("div");
-    fallback.innerHTML=createA4Pages(html,html.replace(/<[^>]*>/g," ").split(/\s+/).filter(Boolean).length,{kind:"normal",startPage:1});
+    fallback.innerHTML=createA4Pages(html,wordCount,{kind:"normal",startPage:1});
     fallback.querySelectorAll(".document-stats").forEach(n=>n.remove());
     fallback.querySelectorAll(".pages-container > .a4-page").forEach(n=>pages.appendChild(n));
+    return pages.children.length>0;
+  };
+
+  const fromStore = hydrateFromStored();
+  if (!fromStore) {
+    // Build from live section cards (first merge / no stored body yet)
+    const cards=[...document.querySelectorAll('#chatArea .chat-msg[data-kind]')]
+      .filter(card=>card.dataset.kind!=="toc" && card.dataset.kind!=="status" && card.querySelector(".pages-container"));
+    let arabicPage=1,romanPage=1;
+    cards.forEach(card=>{
+      const kind=card.dataset.kind;
+      const sectionTitle=String(card.dataset.title||"").trim();
+      const sectionPageCount=card.querySelectorAll(".pages-container > .a4-page").length||Number(card.dataset.pageCount||1)||1;
+      [...card.querySelectorAll(".pages-container > .a4-page")].forEach((source,index)=>{
+        const page=source.cloneNode(true);page.classList.add("merged-page");
+        page.dataset.sectionTitle=sectionTitle;
+        page.dataset.sectionPageIndex=String(index);
+        page.dataset.sectionPageCount=String(sectionPageCount);
+        page.querySelectorAll(".page-number").forEach(n=>{
+          if(kind==="preliminary"){
+            n.textContent=index===0?"":romanNumber(index);
+            romanPage=index+1;
+          } else {
+            n.textContent=String(arabicPage++);
+          }
+        });
+        pages.appendChild(page);
+      });
+    });
+    const tocCard=document.querySelector('#chatArea .chat-msg[data-kind="toc"]');
+    if(tocCard){
+      const tocPages=[...tocCard.querySelectorAll(".pages-container > .a4-page")];
+      const firstBody=pages.querySelector(".body-page");
+      tocPages.forEach((source,index)=>{
+        const page=source.cloneNode(true);page.classList.add("merged-page");
+        page.querySelectorAll(".page-number").forEach(n=>n.textContent=romanNumber(romanPage++));
+        if(firstBody)pages.insertBefore(page,firstBody);else pages.appendChild(page);
+      });
+    }
   }
+  try { if (typeof bindFigureInteractions === "function") bindFigureInteractions(pages); } catch(_){}
   wrap.appendChild(pages);
   const note=document.createElement("div");note.className="workflow-merged-note";
   note.textContent="Merged document. Inline Groq refinement is disabled. Individual section edits remain saved through the existing backend.";
@@ -5556,22 +5596,61 @@ function renderMergedPaper(value){
   document.getElementById("chatArea").appendChild(wrap);
   document.getElementById("editMergedPaperBtn")?.addEventListener("click", () => {
     try {
+      // Snapshot the live merged A4 pages for the mobile editor
       localStorage.setItem("monkeyScoutEditorDoc", pages.innerHTML);
-      localStorage.setItem("monkeyScoutEditorReturn", "dashboard");
-      // Live DB context for edit.html → POST /pull-next action=edit_merged
+      localStorage.setItem("monkeyScoutEditorReturn", "dashboard.html");
+      localStorage.removeItem("monkeyScoutEditedDoc");
+      localStorage.setItem("monkeyScoutEditorDirty", "0");
       const uid = localStorage.getItem("user_id") || "";
       if (uid) localStorage.setItem("monkeyScoutEditorUserId", uid);
       if (activePaperProjectId) localStorage.setItem("monkeyScoutEditorProjectId", String(activePaperProjectId));
       localStorage.setItem("monkeyScoutApiUrl", API_URL);
     } catch (_) {}
-    window.open("edit.html", "_blank");
+    // Prefer same-origin relative path (GitHub Pages / static host)
+    const editorUrl = new URL("edit.html", window.location.href).href;
+    window.open(editorUrl, "_blank");
   });
-  // Receive edits saved from the editor and refresh the merged paper in-place.
-  window.addEventListener("storage", (event) => {
-    if (event.key !== "monkeyScoutEditedDoc" || !event.newValue) return;
+
+  // Apply edits saved from edit.html (other tab) and re-bind figure UI.
+  const applyEditedDoc = (html) => {
+    if (!html) return;
     const root = document.getElementById("mergedPagesRoot");
-    if (root) root.innerHTML = event.newValue;
-    try { localStorage.setItem("monkeyScoutEditorDoc", event.newValue); } catch (_) {}
+    const output = document.getElementById("mergedPaperOutput");
+    if (!root) return;
+    root.innerHTML = html;
+    if (output) {
+      // Persist the full page snapshot so refresh/reopen keeps edits + images
+      output.dataset.mergedContent = "[[MERGED_PAGES_HTML]]" + html;
+    }
+    try {
+      if (typeof bindFigureInteractions === "function") bindFigureInteractions(root);
+    } catch (_) {}
+    try { localStorage.setItem("monkeyScoutEditorDoc", html); } catch (_) {}
+    try { addWorkflowStatus("Merged paper updated from the editor (saved permanently when you used Save)."); } catch (_) {}
+  };
+
+  window.addEventListener("storage", (event) => {
+    if (event.key === "monkeyScoutEditedDoc" && event.newValue) {
+      applyEditedDoc(event.newValue);
+    }
+    if (event.key === "monkeyScoutEditorSavedAt" && event.newValue) {
+      try {
+        const html = localStorage.getItem("monkeyScoutEditedDoc") || localStorage.getItem("monkeyScoutEditorDoc");
+        if (html) applyEditedDoc(html);
+      } catch (_) {}
+    }
+  });
+
+  // When user returns to this tab, pick up any saved editor snapshot
+  window.addEventListener("focus", () => {
+    try {
+      const html = localStorage.getItem("monkeyScoutEditedDoc");
+      if (!html) return;
+      const root = document.getElementById("mergedPagesRoot");
+      if (!root) return;
+      if (root.innerHTML === html) return;
+      applyEditedDoc(html);
+    } catch (_) {}
   });
   document.getElementById("downloadMergedPdfBtn")?.addEventListener("click", async () => {
     const includeMonkeyScout = await chooseMonkeyScoutFooter();
