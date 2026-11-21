@@ -44,13 +44,14 @@ button,select{font:inherit}button{border:none;background:none;cursor:pointer}
 .btn:hover{background:rgba(255,255,255,.14);transform:translateY(-1px)}
 .btn.primary{background:var(--accent-gradient);border-color:transparent;box-shadow:0 10px 20px rgba(8,116,71,.28),inset 0 1px 0 rgba(255,255,255,.18)}
 .btn:disabled{opacity:.55;cursor:wait;transform:none}
-.toolbar{position:sticky;top:58px;z-index:40;background:rgba(255,255,255,.94);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;gap:4px;padding:8px 12px;flex-wrap:wrap;align-items:center;box-shadow:0 4px 16px rgba(7,63,45,.05)}
+.toolbar{position:fixed;top:58px;left:0;right:0;z-index:40;background:rgba(255,255,255,.94);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;gap:4px;padding:8px 12px;flex-wrap:wrap;align-items:center;box-shadow:0 4px 16px rgba(7,63,45,.05)}
 .toolbar-group{display:flex;align-items:center;gap:4px;padding-right:8px;margin-right:4px;border-right:1px solid var(--border)}
 .toolbar-group:last-child{border-right:0}
 .toolbar button,.toolbar select{border:1px solid transparent;border-radius:8px;background:transparent;padding:7px 9px;color:var(--text);font-size:12.5px;font-weight:600;min-height:34px}
+.toolbar button[data-cmd="undo"],.toolbar button[data-cmd="redo"]{font-size:20px;min-width:48px;min-height:42px;padding:8px 14px;font-weight:700}
 .toolbar button:hover,.toolbar select:hover{background:var(--accent-soft);border-color:rgba(8,116,71,.12);color:var(--accent-hover)}
 .toolbar select{border:1px solid var(--border);background:#fff;padding-right:18px}
-.meta-bar{max-width:860px;margin:12px auto 0;padding:0 16px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:12px}
+.meta-bar{max-width:860px;margin:80px auto 0;padding:0 16px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:12px}
 .meta-bar b{color:var(--text)}
 .live-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:rgba(8,116,71,.1);color:var(--accent);font-weight:700;font-size:11px}
 .live-pill.off{background:rgba(100,116,139,.12);color:var(--muted)}
@@ -83,7 +84,7 @@ button,select{font:inherit}button{border:none;background:none;cursor:pointer}
 .img-resize-handle{position:absolute;right:-6px;bottom:-6px;width:14px;height:14px;background:var(--accent);border:2px solid #fff;border-radius:3px;cursor:nwse-resize;z-index:5;box-shadow:0 2px 6px rgba(0,0,0,.2)}
 .tp-figure.selected,figure.selected{outline:2px solid var(--accent);outline-offset:4px}
 @media(max-width:760px){:root{--page-pad-y:36px;--page-pad-x:22px;--page-h:auto}.a4-page{min-height:70vh}.actions{width:100%}.btn{flex:1 1 auto;justify-content:center}.a4-content img{max-width:92%!important}.tp-figure,.a4-content figure{width:92%}}
-@media print{body{background:#fff}.top,.toolbar,.meta-bar{display:none!important}.workspace{margin:0;padding:0;max-width:none;gap:0}.a4-page{box-shadow:none;border:0;border-radius:0;width:210mm;min-height:297mm;margin:0;padding:25.4mm;page-break-after:always}.a4-page:last-child{page-break-after:auto}.page-number{background:transparent;border:0}.a4-footer{display:none}.img-resize-handle{display:none!important}}
+@media print{body{background:#fff}.top,.toolbar,.meta-bar,#pageBreakPanel{display:none!important}.workspace{margin:0;padding:0;max-width:none;gap:0}.a4-page{box-shadow:none;border:0;border-radius:0;width:210mm;min-height:297mm;margin:0;padding:25.4mm;page-break-after:always}.a4-page:last-child{page-break-after:auto}.page-number{background:transparent;border:0}.a4-footer{display:none}.img-resize-handle{display:none!important}}
 </style>
 </head>
 <body>
@@ -145,6 +146,9 @@ button,select{font:inherit}button{border:none;background:none;cursor:pointer}
   <span><b id="pageCount">0</b> pages · <b id="wordCount">0</b> words</span>
 </div>
 <div class="workspace" id="workspace" aria-label="Paginated term paper"></div>
+<div id="pageBreakPanel" title="Insert page break (Ctrl+Enter)" style="position:fixed;bottom:24px;right:24px;z-index:200;background:var(--accent-gradient);color:#fff;padding:14px 18px;border-radius:12px;box-shadow:0 8px 24px rgba(8,116,71,.4);cursor:pointer;font-weight:700;font-size:14px;user-select:none;transition:transform .15s ease;text-align:center;line-height:1.2;">
+  Page Break<br><span style="font-size:11px;font-weight:500;opacity:.9">Ctrl+Enter</span>
+</div>
 <script>
 const API_URL=(function(){try{const u=localStorage.getItem("monkeyScoutApiUrl");if(u)return u.replace(/\/$/,"");}catch(_){ }return"https://term-paper-n4kl.onrender.com";})();
 const RICH_MARKER="[[TEMPAPER_RICH_HTML]]";
@@ -185,8 +189,10 @@ function paginateHtml(html){
     let node=sourceNodes[i];
     if(node.nodeType===3){if(!node.textContent.trim())continue;const p=document.createElement("p");p.textContent=node.textContent.trim();node=p;}
     const clone=node.cloneNode(true);const label=(clone.textContent||"").trim();const tag=(clone.tagName||"").toUpperCase();
-    const major=(tag==="H1"||tag==="H2")&&isMajorPageHeading(label);
-    if(major&&measureContent.childNodes.length>0){pages.push(Array.from(measureContent.childNodes).map(n=>n.cloneNode(true)));measureContent.innerHTML="";}
+    const isManualBreak = clone.classList && clone.classList.contains("manual-page-break");
+    const shouldBreak = isManualBreak || isMajorPageHeading(label);
+    if(shouldBreak && measureContent.childNodes.length>0){pages.push(Array.from(measureContent.childNodes).map(n=>n.cloneNode(true)));measureContent.innerHTML="";}
+    if(isManualBreak) continue;
     if(testAppend(clone.cloneNode(true)))continue;
     if(measureContent.childNodes.length>0){pages.push(Array.from(measureContent.childNodes).map(n=>n.cloneNode(true)));measureContent.innerHTML="";}
     if(testAppend(clone.cloneNode(true)))continue;
@@ -259,7 +265,35 @@ function downloadBlob(name,content,type){const a=document.createElement("a");a.h
 document.getElementById("btnHtml").onclick=()=>{downloadBlob("term-paper.html","<!doctype html><meta charset=\"utf-8\"><title>Term Paper</title><style>body{font-family:Merriweather,Georgia,serif;line-height:1.7;max-width:800px;margin:40px auto;padding:20px;color:#1e293b}img{max-width:70%;height:auto;display:block;margin:12px auto}</style>"+collectDocumentHtml(),"text/html");setStatus("HTML downloaded","ok");};
 document.getElementById("btnTxt").onclick=()=>{downloadBlob("term-paper.txt",workspace.innerText,"text/plain");setStatus("TXT downloaded","ok");};
 document.getElementById("btnWord").onclick=()=>{const html="<!doctype html><html><head><meta charset=\"utf-8\"><style>body{font-family:Times New Roman;font-size:12pt;line-height:1.5}img{max-width:70%;height:auto;display:block;margin:12px auto}</style></head><body>"+collectDocumentHtml()+"</body></html>";downloadBlob("term-paper.doc",html,"application/msword");setStatus("Word file downloaded","ok");};
-document.addEventListener("keydown",e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="s"){e.preventDefault();saveLive(true);}});
+document.addEventListener("keydown",e=>{
+  if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="s"){e.preventDefault();saveLive(true);}
+  if((e.metaKey||e.ctrlKey)&&e.key==="Enter"){e.preventDefault();insertPageBreak();}
+});
+
+function insertPageBreak(){
+  const sel=window.getSelection();
+  if(!sel||!sel.rangeCount)return;
+  const range=sel.getRangeAt(0);
+  const br=document.createElement("div");
+  br.className="manual-page-break";
+  br.setAttribute("contenteditable","false");
+  br.style.cssText="height:0;overflow:hidden;margin:0;padding:0;border:0;";
+  range.insertNode(br);
+  range.collapse(false);
+  rePaginate();
+}
+
+function rePaginate(){
+  const html=collectDocumentHtml();
+  const pages=paginateHtml(html);
+  renderPages(pages);
+  scheduleLocalSave();
+  scheduleLiveSave();
+  setStatus("Page break inserted","ok");
+}
+
+document.getElementById("pageBreakPanel").onclick=insertPageBreak;
+
 load();
 </script>
 </body>
