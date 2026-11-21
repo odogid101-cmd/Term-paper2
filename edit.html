@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<meta name="viewport" content="width=1100" />
 <title>Monkey Scout | Paper Editor</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -542,16 +542,8 @@ svg { display: block; }
 }
 
 @media (max-width: 720px) {
-  .a4-page {
-    min-height: auto;
-    padding: 28px 16px 48px;
-    font-size: 14px;
-  }
-  .a4-content { min-height: 420px; }
-  .a4-content h1 { font-size: 20px; }
-  .top-title { display: none; }
-  .brand span { display: none; }
-  .chip-btn { padding: 0 10px; }
+  /* Keep desktop arrangement; viewport meta scales the full desktop UI on phones */
+  .workspace { padding: 18px 12px 40px; }
 }
 @media print {
   .topbar, .toolbar, .status-bar, .image-panel-backdrop { display: none !important; }
@@ -563,6 +555,7 @@ svg { display: block; }
     min-height: 297mm;
   }
 }
+
 </style>
 </head>
 <body>
@@ -591,6 +584,24 @@ svg { display: block; }
         <option value="h1">Heading 1</option>
         <option value="h2">Heading 2</option>
         <option value="h3">Heading 3</option>
+      </select>
+      <select class="tb-select" id="fontFamily" title="Font family">
+        <option value="">Font</option>
+        <option value="Merriweather, Georgia, serif">Merriweather</option>
+        <option value="Times New Roman, Times, serif">Times New Roman</option>
+        <option value="Georgia, serif">Georgia</option>
+        <option value="Inter, system-ui, sans-serif">Inter</option>
+        <option value="Arial, Helvetica, sans-serif">Arial</option>
+        <option value="Courier New, monospace">Courier New</option>
+      </select>
+      <select class="tb-select" id="fontSize" title="Font size">
+        <option value="">Size</option>
+        <option value="2">10</option>
+        <option value="3">12</option>
+        <option value="4">14</option>
+        <option value="5">18</option>
+        <option value="6">24</option>
+        <option value="7">32</option>
       </select>
     </div>
     <div class="tb-group">
@@ -869,6 +880,29 @@ svg { display: block; }
       else document.execCommand("formatBlock", false, val);
       markDirty(true);
     });
+
+    const fontFamily = document.getElementById("fontFamily");
+    const fontSize = document.getElementById("fontSize");
+    if (fontFamily) {
+      fontFamily.addEventListener("change", () => {
+        const val = fontFamily.value;
+        if (!val) return;
+        ensureSelectionInEditor();
+        document.execCommand("styleWithCSS", false, true);
+        document.execCommand("fontName", false, val);
+        markDirty(true);
+      });
+    }
+    if (fontSize) {
+      fontSize.addEventListener("change", () => {
+        const val = fontSize.value;
+        if (!val) return;
+        ensureSelectionInEditor();
+        document.execCommand("styleWithCSS", false, true);
+        document.execCommand("fontSize", false, val);
+        markDirty(true);
+      });
+    }
 
     document.addEventListener("selectionchange", refreshToolbarState);
   }
@@ -1249,16 +1283,15 @@ svg { display: block; }
   /* ---------- Save / Cancel / Back ---------- */
   async function saveChanges() {
     const html = serializePages();
-    const rich = serializeRichForServer();
+    // Full page snapshot — survives refresh/reopen and keeps images in place
+    const pagesPayload = "[[MERGED_PAGES_HTML]]" + html;
     btnSave.disabled = true;
     btnSave.textContent = "Saving…";
     setStatus("Saving…");
 
     try {
-      // Always publish to other tabs / dashboard via localStorage
       localStorage.setItem(LS_EDITED, html);
       localStorage.setItem(LS_DOC, html);
-      // Trigger storage event for same-tab consumers that poll
       try {
         localStorage.setItem("monkeyScoutEditorSavedAt", String(Date.now()));
       } catch (_) {}
@@ -1273,16 +1306,16 @@ svg { display: block; }
             user_id: uid,
             project_id: Number(pid),
             action: "edit_merged",
-            content: rich,
+            content: pagesPayload,
             inline_enabled: false
           })
         });
         let data = {};
         try { data = await res.json(); } catch (_) {}
         if (!res.ok) throw new Error(data.error || `Save failed (${res.status})`);
-        setStatus(data.message || "Saved to your account", "saved");
+        setStatus(data.message || "Saved permanently to your account", "saved");
       } else {
-        setStatus("Saved locally (sign in + open a project to sync to server)", "saved");
+        setStatus("Saved locally only — sign in and open a project to store in your database", "saved");
       }
 
       originalHTML = html;
