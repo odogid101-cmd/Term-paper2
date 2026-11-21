@@ -5558,6 +5558,11 @@ function renderMergedPaper(value){
     try {
       localStorage.setItem("monkeyScoutEditorDoc", pages.innerHTML);
       localStorage.setItem("monkeyScoutEditorReturn", "dashboard");
+      // Live DB context for edit.html → POST /pull-next action=edit_merged
+      const uid = localStorage.getItem("user_id") || "";
+      if (uid) localStorage.setItem("monkeyScoutEditorUserId", uid);
+      if (activePaperProjectId) localStorage.setItem("monkeyScoutEditorProjectId", String(activePaperProjectId));
+      localStorage.setItem("monkeyScoutApiUrl", API_URL);
     } catch (_) {}
     window.open("edit.html", "_blank");
   });
