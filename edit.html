@@ -1,20 +1,266 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Monkey Scout Editor</title>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Monkey Scout — Editor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300&display=swap" rel="stylesheet">
 <style>
-*{box-sizing:border-box}body{margin:0;background:#eef1f6;color:#202124;font-family:Arial,Helvetica,sans-serif}.top{height:58px;background:#185abd;color:white;display:flex;align-items:center;justify-content:space-between;padding:0 20px;gap:12px;flex-wrap:wrap}.brand{font-weight:700;font-size:18px}.actions{display:flex;gap:8px;flex-wrap:wrap}.btn{border:1px solid #c7d0dd;border-radius:6px;background:#fff;padding:9px 12px;cursor:pointer;font-weight:600;color:#243247}.btn:hover{background:#edf4ff}.toolbar{position:sticky;top:0;z-index:5;background:white;border-bottom:1px solid #ddd;display:flex;gap:5px;padding:10px;flex-wrap:wrap;box-shadow:0 2px 5px #0001}.toolbar button,.toolbar select{border:1px solid #ddd;border-radius:5px;background:#fff;padding:7px 9px;cursor:pointer}.toolbar button:hover{background:#f0f4fa}.wrap{max-width:1000px;margin:24px auto;padding:0 15px}.paper{background:white;min-height:1100px;padding:80px 95px;box-shadow:0 5px 25px #0001;border:1px solid #e1e5eb;outline:none;line-height:1.7;font-size:16px;color:#222}.paper:focus{outline:none}.status{font-size:12px;color:#dce8ff;margin-left:10px}@media(max-width:700px){.paper{padding:35px 22px;min-height:80vh}.top{height:auto;padding:12px}.wrap{margin:12px auto}}@media print{.top,.toolbar{display:none}.wrap{margin:0;padding:0}.paper{box-shadow:none;border:0;padding:0}}
-</style></head><body>
-<header class="top"><div class="brand">📘 Monkey Scout — Editor <span class="status" id="status">Ready</span></div><div class="actions"><button class="btn" onclick="saveLocal()">Save</button><button class="btn" onclick="saveToDashboard()">Save to Dashboard</button><button class="btn" onclick="downloadWord()">Save Word</button><button class="btn" onclick="downloadHTML()">Download HTML</button><button class="btn" onclick="downloadText()">Download TXT</button><button class="btn" onclick="window.print()">Print / PDF</button><button class="btn" onclick="window.close(); if(!window.closed) history.back()">Back</button></div></header>
-<nav class="toolbar" aria-label="Formatting toolbar"><button onclick="cmd('undo')">↶</button><button onclick="cmd('redo')">↷</button><select onchange="cmd('formatBlock',this.value)"><option value="p">Paragraph</option><option value="h1">Heading 1</option><option value="h2">Heading 2</option><option value="h3">Heading 3</option></select><select onchange="cmd('fontName',this.value)"><option>Arial</option><option>Times New Roman</option><option>Calibri</option><option>Georgia</option></select><select onchange="cmd('fontSize',this.value)"><option value="3">Normal</option><option value="2">Small</option><option value="4">Large</option><option value="5">Very large</option></select><button onclick="cmd('bold')"><b>B</b></button><button onclick="cmd('italic')"><i>I</i></button><button onclick="cmd('underline')"><u>U</u></button><button onclick="cmd('strikeThrough')">S</button><button onclick="cmd('justifyLeft')">Left</button><button onclick="cmd('justifyCenter')">Center</button><button onclick="cmd('justifyRight')">Right</button><button onclick="cmd('justifyFull')">Justify</button><button onclick="cmd('insertUnorderedList')">• List</button><button onclick="cmd('insertOrderedList')">1. List</button><button onclick="cmd('outdent')">Outdent</button><button onclick="cmd('indent')">Indent</button><button onclick="cmd('insertHorizontalRule')">Rule</button><button onclick="insertLink()">Link</button><button onclick="insertImage()">Image</button><button onclick="clearFormatting()">Clear formatting</button></nav>
-<div class="wrap"><article id="paper" class="paper" contenteditable="true" spellcheck="true"></article></div>
+:root {
+  --bg: #f4f8f5;
+  --bg-glow: radial-gradient(1000px 520px at 0% 0%, rgba(9, 105, 66, .09), transparent 54%),
+             radial-gradient(900px 460px at 100% 0%, rgba(21, 128, 82, .06), transparent 52%);
+  --sidebar: #073f2d;
+  --accent: #087447;
+  --accent-hover: #065f3a;
+  --accent-soft: rgba(8, 116, 71, .11);
+  --accent-gradient: linear-gradient(135deg, #15945d 0%, #087447 58%, #075c3b 100%);
+  --text: #17352a;
+  --muted: #64796e;
+  --border: rgba(7, 63, 45, .13);
+  --paper-bg: #ffffff;
+  --paper-text: #1e293b;
+  --shadow-card: 0 12px 28px rgba(7, 63, 45, .10);
+  --page-h: 1056px;
+  --page-pad-y: 70px;
+  --page-pad-x: 80px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);background-image:var(--bg-glow);background-attachment:fixed;color:var(--text);font-family:Inter,system-ui,sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}
+button,select{font:inherit}button{border:none;background:none;cursor:pointer}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:rgba(7,63,45,.2);border-radius:999px;border:2px solid transparent;background-clip:padding-box}
+.top{position:sticky;top:0;z-index:50;min-height:58px;background:var(--sidebar);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:10px 16px;gap:12px;flex-wrap:wrap;box-shadow:0 8px 28px rgba(7,63,45,.28)}
+.brand{display:flex;align-items:center;gap:12px;font-weight:800;font-size:15px;letter-spacing:-.03em}
+.brand-mark{width:30px;height:30px;border-radius:9px;background:var(--accent-gradient);box-shadow:0 8px 18px rgba(8,116,71,.35),inset 0 1px 0 rgba(255,255,255,.22);position:relative;flex-shrink:0}
+.brand-mark::after{content:"";position:absolute;inset:7px;border-radius:4px;background:rgba(255,255,255,.18)}
+.brand-meta{display:flex;flex-direction:column;gap:2px}
+.status{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:rgba(255,255,255,.7)}
+.status.ok{color:#86efac}.status.warn{color:#fde68a}.status.err{color:#fca5a5}.status.saving{color:#93c5fd}
+.actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.btn{border:1px solid rgba(255,255,255,.14);border-radius:10px;background:rgba(255,255,255,.08);padding:9px 12px;font-weight:650;font-size:12.5px;color:#fff;display:inline-flex;align-items:center;gap:6px;transition:transform .15s ease,background .15s ease;white-space:nowrap}
+.btn:hover{background:rgba(255,255,255,.14);transform:translateY(-1px)}
+.btn.primary{background:var(--accent-gradient);border-color:transparent;box-shadow:0 10px 20px rgba(8,116,71,.28),inset 0 1px 0 rgba(255,255,255,.18)}
+.btn:disabled{opacity:.55;cursor:wait;transform:none}
+.toolbar{position:sticky;top:58px;z-index:40;background:rgba(255,255,255,.94);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;gap:4px;padding:8px 12px;flex-wrap:wrap;align-items:center;box-shadow:0 4px 16px rgba(7,63,45,.05)}
+.toolbar-group{display:flex;align-items:center;gap:4px;padding-right:8px;margin-right:4px;border-right:1px solid var(--border)}
+.toolbar-group:last-child{border-right:0}
+.toolbar button,.toolbar select{border:1px solid transparent;border-radius:8px;background:transparent;padding:7px 9px;color:var(--text);font-size:12.5px;font-weight:600;min-height:34px}
+.toolbar button:hover,.toolbar select:hover{background:var(--accent-soft);border-color:rgba(8,116,71,.12);color:var(--accent-hover)}
+.toolbar select{border:1px solid var(--border);background:#fff;padding-right:18px}
+.meta-bar{max-width:860px;margin:12px auto 0;padding:0 16px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:12px}
+.meta-bar b{color:var(--text)}
+.live-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:rgba(8,116,71,.1);color:var(--accent);font-weight:700;font-size:11px}
+.live-pill.off{background:rgba(100,116,139,.12);color:var(--muted)}
+.live-pill .dot{width:7px;height:7px;border-radius:50%;background:currentColor;box-shadow:0 0 0 3px rgba(8,116,71,.15)}
+.workspace{max-width:860px;margin:14px auto 60px;padding:0 16px;display:flex;flex-direction:column;gap:18px}
+.a4-page{position:relative;width:100%;min-height:var(--page-h);background:var(--paper-bg);color:var(--paper-text);padding:var(--page-pad-y) var(--page-pad-x);box-shadow:var(--shadow-card),0 1px 0 rgba(255,255,255,.7) inset;border-radius:4px;border:1px solid rgba(7,63,45,.08);font-family:Merriweather,Georgia,serif;line-height:1.82;font-size:15px;page-break-after:always}
+.a4-page:focus-within{box-shadow:var(--shadow-card),0 0 0 3px rgba(8,116,71,.14)}
+.a4-content{outline:none;min-height:calc(var(--page-h) - var(--page-pad-y)*2 - 36px);word-wrap:break-word;overflow-wrap:anywhere;text-align:justify}
+.page-number{position:absolute;bottom:18px;right:24px;background:rgba(15,23,42,.05);color:#475569;font-family:Inter,sans-serif;font-weight:700;font-size:12px;padding:5px 11px;border-radius:999px;border:1px solid rgba(15,23,42,.07);z-index:3;pointer-events:none}
+.a4-footer{position:absolute;bottom:0;left:0;right:0;padding:16px var(--page-pad-x);display:flex;justify-content:space-between;font-size:11px;color:#94a3b8;font-family:Inter,sans-serif;font-weight:500;border-top:1px solid rgba(15,23,42,.05);pointer-events:none}
+.a4-content h1,.a4-content h2,.a4-content h3{font-family:Inter,system-ui,sans-serif;color:#0f172a;letter-spacing:-.02em;line-height:1.3}
+.a4-content h1{font-size:26px;font-weight:800;margin:0 0 20px;text-align:center;border-bottom:2px solid #e2e8f0;padding-bottom:12px}
+.a4-content h2{font-size:18px;font-weight:700;margin:22px 0 12px}
+.a4-content h3{font-size:15.5px;font-weight:700;margin:16px 0 8px;color:#1e293b}
+.a4-content p{margin-bottom:12px;color:#334155}
+.a4-content ul,.a4-content ol{margin:10px 0 12px 26px;color:#334155}
+.a4-content li{margin-bottom:6px}
+.a4-content strong{font-weight:700;color:#0f172a}
+.a4-content a{color:var(--accent)}
+.a4-content blockquote{border-left:4px solid #cbd5e1;padding-left:12px;margin:12px 0;color:#475569;font-style:italic}
+.a4-content table{width:100%;border-collapse:collapse;margin:14px 0;font-family:Inter,system-ui,sans-serif;font-size:12.5px}
+.a4-content th,.a4-content td{border:1px solid #e2e8f0;padding:8px 10px;text-align:left}
+.a4-content th{background:#f1f5f9;font-weight:700}
+.a4-content img{max-width:70%!important;width:auto;height:auto!important;max-height:420px;display:block;margin:14px auto;border-radius:4px;object-fit:contain;cursor:pointer}
+.a4-content img.selected-img{outline:2px solid var(--accent);outline-offset:3px}
+.tp-figure,.a4-content figure{position:relative;display:block;width:70%;max-width:100%;margin:18px auto;text-align:center}
+.tp-figure img,.a4-content figure img{max-width:100%!important;width:100%;max-height:380px;margin:0 auto}
+.fig-label,.fig-main-label,.fig-caption,.table-caption{font-family:Inter,system-ui,sans-serif;font-size:12.5px;color:#475569;margin-top:8px}
+.tp-image-placeholder{border:2px dashed rgba(8,116,71,.35);background:rgba(8,116,71,.04);border-radius:10px;padding:24px 14px;text-align:center;color:var(--accent);font-family:Inter,system-ui,sans-serif}
+.img-resize-handle{position:absolute;right:-6px;bottom:-6px;width:14px;height:14px;background:var(--accent);border:2px solid #fff;border-radius:3px;cursor:nwse-resize;z-index:5;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+.tp-figure.selected,figure.selected{outline:2px solid var(--accent);outline-offset:4px}
+@media(max-width:760px){:root{--page-pad-y:36px;--page-pad-x:22px;--page-h:auto}.a4-page{min-height:70vh}.actions{width:100%}.btn{flex:1 1 auto;justify-content:center}.a4-content img{max-width:92%!important}.tp-figure,.a4-content figure{width:92%}}
+@media print{body{background:#fff}.top,.toolbar,.meta-bar{display:none!important}.workspace{margin:0;padding:0;max-width:none;gap:0}.a4-page{box-shadow:none;border:0;border-radius:0;width:210mm;min-height:297mm;margin:0;padding:25.4mm;page-break-after:always}.a4-page:last-child{page-break-after:auto}.page-number{background:transparent;border:0}.a4-footer{display:none}.img-resize-handle{display:none!important}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <div class="brand-mark" aria-hidden="true"></div>
+    <div class="brand-meta">
+      <div>Monkey Scout — Editor</div>
+      <div class="status" id="status">Ready</div>
+    </div>
+  </div>
+  <div class="actions">
+    <button class="btn" type="button" id="btnSaveLocal">Save</button>
+    <button class="btn primary" type="button" id="btnSaveLive">Save Live</button>
+    <button class="btn" type="button" id="btnWord">Word</button>
+    <button class="btn" type="button" id="btnHtml">HTML</button>
+    <button class="btn" type="button" id="btnTxt">TXT</button>
+    <button class="btn" type="button" id="btnPrint">Print / PDF</button>
+    <button class="btn" type="button" id="btnBack">Back</button>
+  </div>
+</header>
+<nav class="toolbar" aria-label="Formatting toolbar">
+  <div class="toolbar-group">
+    <button type="button" data-cmd="undo" title="Undo">↶</button>
+    <button type="button" data-cmd="redo" title="Redo">↷</button>
+  </div>
+  <div class="toolbar-group">
+    <select id="fmtBlock" title="Style"><option value="" selected disabled>Style</option><option value="p">Paragraph</option><option value="h1">Heading 1</option><option value="h2">Heading 2</option><option value="h3">Heading 3</option></select>
+    <select id="fontName" title="Font"><option>Times New Roman</option><option>Arial</option><option>Calibri</option><option>Georgia</option><option>Merriweather</option></select>
+    <select id="fontSize" title="Size"><option value="2">Small</option><option value="3" selected>Normal</option><option value="4">Large</option><option value="5">Very large</option></select>
+  </div>
+  <div class="toolbar-group">
+    <button type="button" data-cmd="bold"><b>B</b></button>
+    <button type="button" data-cmd="italic"><i>I</i></button>
+    <button type="button" data-cmd="underline"><u>U</u></button>
+    <button type="button" data-cmd="strikeThrough"><s>S</s></button>
+  </div>
+  <div class="toolbar-group">
+    <button type="button" data-cmd="justifyLeft">Left</button>
+    <button type="button" data-cmd="justifyCenter">Center</button>
+    <button type="button" data-cmd="justifyRight">Right</button>
+    <button type="button" data-cmd="justifyFull">Justify</button>
+  </div>
+  <div class="toolbar-group">
+    <button type="button" data-cmd="insertUnorderedList">• List</button>
+    <button type="button" data-cmd="insertOrderedList">1. List</button>
+    <button type="button" data-cmd="outdent">Outdent</button>
+    <button type="button" data-cmd="indent">Indent</button>
+  </div>
+  <div class="toolbar-group">
+    <button type="button" data-cmd="insertHorizontalRule">Rule</button>
+    <button type="button" id="btnLink">Link</button>
+    <button type="button" id="btnImage">Image</button>
+    <button type="button" id="btnClearFmt">Clear</button>
+  </div>
+</nav>
+<div class="meta-bar">
+  <span><span class="live-pill" id="livePill"><span class="dot"></span> Live DB</span> · Pages split like Word/PDF. Click images to resize (max ~70%).</span>
+  <span><b id="pageCount">0</b> pages · <b id="wordCount">0</b> words</span>
+</div>
+<div class="workspace" id="workspace" aria-label="Paginated term paper"></div>
 <script>
-const paper=document.getElementById('paper'),statusEl=document.getElementById('status');let saveTimer;
-function setStatus(s){statusEl.textContent=s}
-function load(){let d='';try{d=localStorage.getItem('monkeyScoutEditorDoc')||''}catch(e){};paper.innerHTML=d||'<h1>Term Paper</h1><p>Start editing your document here…</p>';setStatus('Ready')}
-function cmd(command,value=null){paper.focus();document.execCommand(command,false,value);scheduleSave()}
-function insertLink(){let url=prompt('Enter link URL');if(url)cmd('createLink',url)}function insertImage(){let url=prompt('Image URL');if(url)cmd('insertImage',url)}function clearFormatting(){cmd('removeFormat')}
-function saveLocal(){try{localStorage.setItem('monkeyScoutEditorDoc',paper.innerHTML);setStatus('Saved locally')}catch(e){setStatus('Could not save')}}function scheduleSave(){setStatus('Editing…');clearTimeout(saveTimer);saveTimer=setTimeout(saveLocal,800)}paper.addEventListener('input',scheduleSave);
-function downloadBlob(name,content,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}function downloadHTML(){downloadBlob('term-paper.html','<!doctype html><meta charset="utf-8"><title>Term Paper</title>'+paper.innerHTML,'text/html')}function downloadText(){downloadBlob('term-paper.txt',paper.innerText,'text/plain')}
-function downloadWord(){const html='<!doctype html><html><head><meta charset="utf-8"><style>body{font-family:Times New Roman;font-size:12pt;line-height:1.5}img{max-width:100%}</style></head><body>'+paper.innerHTML+'</body></html>';downloadBlob('term-paper.doc',html,'application/msword')}
-function saveToDashboard(){saveLocal();try{localStorage.setItem('monkeyScoutEditedDoc',paper.innerHTML);setStatus('Saved to Dashboard — switch back to the dashboard tab')}catch(e){setStatus('Could not sync to dashboard')}}
+const API_URL=(function(){try{const u=localStorage.getItem("monkeyScoutApiUrl");if(u)return u.replace(/\/$/,"");}catch(_){ }return"https://term-paper-n4kl.onrender.com";})();
+const RICH_MARKER="[[TEMPAPER_RICH_HTML]]";
+const workspace=document.getElementById("workspace");
+const statusEl=document.getElementById("status");
+const pageCountEl=document.getElementById("pageCount");
+const wordCountEl=document.getElementById("wordCount");
+const livePill=document.getElementById("livePill");
+let saveTimer=null,liveSaveTimer=null,isSavingLive=false,selectedFigure=null;
+
+function getCtx(){let userId="",projectId="";try{userId=localStorage.getItem("monkeyScoutEditorUserId")||localStorage.getItem("user_id")||"";projectId=localStorage.getItem("monkeyScoutEditorProjectId")||"";}catch(_){ }return{userId:String(userId||"").trim(),projectId:String(projectId||"").trim()};}
+function setStatus(msg,kind){statusEl.textContent=msg;statusEl.className="status"+(kind?" "+kind:"");}
+function updateLivePill(){const{userId,projectId}=getCtx();const ok=/^\d+$/.test(userId)&&/^\d+$/.test(projectId);livePill.classList.toggle("off",!ok);livePill.innerHTML=ok?'<span class="dot"></span> Live DB · project '+projectId:'<span class="dot"></span> Local only (open Edit Paper from Dashboard)';return ok;}
+function setStats(){const pages=workspace.querySelectorAll(".a4-page");pageCountEl.textContent=String(pages.length);let text="";pages.forEach(p=>{text+=" "+(p.querySelector(".a4-content")?.innerText||"");});text=text.replace(/\s+/g," ").trim();wordCountEl.textContent=String(text?text.split(" ").length:0);}
+
+function constrainImages(root){(root||workspace).querySelectorAll("img").forEach(img=>{img.removeAttribute("width");img.removeAttribute("height");img.style.height="auto";const fig=img.closest(".tp-figure, figure");if(fig){const w=parseFloat(fig.style.width)||parseFloat(fig.getAttribute("data-fig-width"))||70;const clamped=Math.max(25,Math.min(95,w));fig.style.width=clamped+"%";fig.style.maxWidth="100%";fig.setAttribute("data-fig-width",String(clamped));if(!fig.style.marginLeft)fig.style.marginLeft="auto";if(!fig.style.marginRight)fig.style.marginRight="auto";}else{img.style.maxWidth=img.style.maxWidth&&parseFloat(img.style.maxWidth)<=90?img.style.maxWidth:"70%";img.style.display="block";img.style.marginLeft="auto";img.style.marginRight="auto";}});}
+function clearFigureSelection(){workspace.querySelectorAll(".tp-figure.selected, figure.selected, img.selected-img").forEach(el=>{el.classList.remove("selected","selected-img");});workspace.querySelectorAll(".img-resize-handle").forEach(h=>h.remove());selectedFigure=null;}
+function enableFigureResize(fig){clearFigureSelection();fig.classList.add("selected");selectedFigure=fig;const handle=document.createElement("div");handle.className="img-resize-handle";handle.title="Drag to resize";fig.style.position=fig.style.position||"relative";fig.appendChild(handle);const onDown=e=>{e.preventDefault();e.stopPropagation();const startX=e.touches?e.touches[0].clientX:e.clientX;const parent=fig.parentElement;const parentW=parent?parent.getBoundingClientRect().width:fig.getBoundingClientRect().width;const startW=fig.getBoundingClientRect().width;const onMove=ev=>{const x=ev.touches?ev.touches[0].clientX:ev.clientX;const dx=x-startX;const newW=Math.max(120,Math.min(parentW*0.95,startW+dx));const pct=Math.round((newW/parentW)*100);const clamped=Math.max(25,Math.min(95,pct));fig.style.width=clamped+"%";fig.setAttribute("data-fig-width",String(clamped));if(ev.cancelable)ev.preventDefault();};const onUp=()=>{document.removeEventListener("mousemove",onMove);document.removeEventListener("mouseup",onUp);document.removeEventListener("touchmove",onMove);document.removeEventListener("touchend",onUp);scheduleLocalSave();scheduleLiveSave();};document.addEventListener("mousemove",onMove,{passive:false});document.addEventListener("mouseup",onUp);document.addEventListener("touchmove",onMove,{passive:false});document.addEventListener("touchend",onUp);};handle.addEventListener("mousedown",onDown);handle.addEventListener("touchstart",onDown,{passive:false});}
+function bindImageInteractions(root){(root||workspace).querySelectorAll(".tp-figure, figure").forEach(fig=>{if(fig.dataset.editorBound==="1")return;fig.dataset.editorBound="1";fig.addEventListener("click",e=>{e.stopPropagation();enableFigureResize(fig);});});(root||workspace).querySelectorAll(".a4-content img").forEach(img=>{if(img.dataset.editorBound==="1")return;img.dataset.editorBound="1";img.addEventListener("click",e=>{e.stopPropagation();const fig=img.closest(".tp-figure, figure");if(fig){enableFigureResize(fig);return;}const wrapper=document.createElement("div");wrapper.className="tp-figure";wrapper.style.width="70%";wrapper.setAttribute("data-fig-width","70");img.parentNode.insertBefore(wrapper,img);wrapper.appendChild(img);img.style.maxWidth="100%";img.style.width="100%";bindImageInteractions(wrapper.parentElement);enableFigureResize(wrapper);scheduleLocalSave();});});}
+document.addEventListener("click",e=>{if(!e.target.closest(".tp-figure, figure, .img-resize-handle, img"))clearFigureSelection();});
+
+function romanNumber(num){const vals=[[1000,"m"],[900,"cm"],[500,"d"],[400,"cd"],[100,"c"],[90,"xc"],[50,"l"],[40,"xl"],[10,"x"],[9,"ix"],[5,"v"],[4,"iv"],[1,"i"]];let out="",n=num;for(const[v,s]of vals){while(n>=v){out+=s;n-=v;}}return out;}
+function isMajorPageHeading(text){const t=String(text||"").trim();if(!t||t.length>120)return false;return /^(cover\s*page|title\s*page|certification|declaration|dedication|acknowledg(?:e)?ments?|abstract|table of contents|list of (?:tables|figures|abbreviations|symbols)|preface|foreword|chapter\s+(?:[ivxlcdm]+|\d+|one|two|three|four|five|six|seven|eight|nine|ten)\b|conclusions?|recommendations?|references?|bibliography|appendices?)\b/i.test(t)||/^chapter\s+/i.test(t);}
+function isPreliminaryHeading(text){return /^(cover|title\s*page|certification|declaration|dedication|acknowledg(?:e)?ments?|abstract|list of|preface|foreword|table of contents|contents)\b/i.test(String(text||"").trim());}
+
+function paginateHtml(html){
+  const measureWrapper=document.createElement("div");measureWrapper.style.cssText="position:absolute;left:-99999px;top:-99999px;visibility:hidden;";document.body.appendChild(measureWrapper);
+  const measureBody=document.createElement("div");measureBody.style.cssText="width:634px;height:916px;overflow:hidden;box-sizing:border-box;font-family:Merriweather,Georgia,serif;font-size:15px;line-height:1.82;";
+  const measureContent=document.createElement("div");measureContent.style.cssText="width:100%;box-sizing:border-box;";measureBody.appendChild(measureContent);measureWrapper.appendChild(measureBody);
+  const temp=document.createElement("div");temp.innerHTML=html||"";
+  let sourceNodes=[];
+  if(temp.querySelector(".a4-page")){temp.querySelectorAll(".a4-page").forEach(p=>{const c=p.querySelector(".a4-content")||p;Array.from(c.children).forEach(n=>sourceNodes.push(n.cloneNode(true)));});}
+  else{sourceNodes=Array.from(temp.childNodes).filter(n=>n.nodeType===1||(n.nodeType===3&&n.textContent.trim()));}
+  const pages=[];measureContent.innerHTML="";
+  const fits=()=>measureContent.scrollHeight<=measureBody.clientHeight+1;
+  const testAppend=node=>{measureContent.appendChild(node);const ok=fits();if(!ok)measureContent.removeChild(node);return ok;};
+  for(let i=0;i<sourceNodes.length;i++){
+    let node=sourceNodes[i];
+    if(node.nodeType===3){if(!node.textContent.trim())continue;const p=document.createElement("p");p.textContent=node.textContent.trim();node=p;}
+    const clone=node.cloneNode(true);const label=(clone.textContent||"").trim();const tag=(clone.tagName||"").toUpperCase();
+    const major=(tag==="H1"||tag==="H2")&&isMajorPageHeading(label);
+    if(major&&measureContent.childNodes.length>0){pages.push(Array.from(measureContent.childNodes).map(n=>n.cloneNode(true)));measureContent.innerHTML="";}
+    if(testAppend(clone.cloneNode(true)))continue;
+    if(measureContent.childNodes.length>0){pages.push(Array.from(measureContent.childNodes).map(n=>n.cloneNode(true)));measureContent.innerHTML="";}
+    if(testAppend(clone.cloneNode(true)))continue;
+    const forced=clone.cloneNode(true);
+    if(forced.querySelectorAll){forced.querySelectorAll("img").forEach(img=>{img.style.maxWidth="100%";img.style.maxHeight="360px";img.style.height="auto";});}
+    if((forced.tagName||"").toLowerCase()==="img"){forced.style.maxWidth="100%";forced.style.maxHeight="360px";}
+    measureContent.appendChild(forced);pages.push(Array.from(measureContent.childNodes).map(n=>n.cloneNode(true)));measureContent.innerHTML="";
+  }
+  if(measureContent.childNodes.length>0)pages.push(Array.from(measureContent.childNodes).map(n=>n.cloneNode(true)));
+  document.body.removeChild(measureWrapper);
+  if(!pages.length)pages.push([]);
+  return pages.map(nodes=>{const w=document.createElement("div");nodes.forEach(n=>w.appendChild(n));return w.innerHTML;});
+}
+function pageKindFromHtml(html){const text=String(html||"").replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim();if(isPreliminaryHeading(text.slice(0,80)))return"preliminary-page";if(/^table of contents\b/i.test(text))return"toc-page";return"";}
+function renderPages(pageHtmlList){
+  workspace.innerHTML="";let roman=0,arabic=0;
+  pageHtmlList.forEach(html=>{
+    const kind=pageKindFromHtml(html);const page=document.createElement("div");page.className="a4-page"+(kind?" "+kind:"");
+    const content=document.createElement("div");content.className="a4-content";content.contentEditable="true";content.spellcheck=true;content.innerHTML=html||"<p><br></p>";page.appendChild(content);
+    let label;if(kind==="preliminary-page"||kind==="toc-page"){roman+=1;label=romanNumber(roman);}else{arabic+=1;label=String(arabic);}
+    const num=document.createElement("div");num.className="page-number";num.textContent=label;page.appendChild(num);
+    const footer=document.createElement("div");footer.className="a4-footer";footer.innerHTML="<span>Monkey Scout Academic Engine</span><span></span>";page.appendChild(footer);
+    content.addEventListener("input",()=>{scheduleLocalSave();scheduleLiveSave();setStats();});
+    workspace.appendChild(page);
+  });
+  constrainImages(workspace);bindImageInteractions(workspace);setStats();
+}
+function collectDocumentHtml(){const parts=[];workspace.querySelectorAll(".a4-page .a4-content").forEach(c=>{const clone=c.cloneNode(true);clone.querySelectorAll(".img-resize-handle").forEach(h=>h.remove());clone.querySelectorAll(".selected, .selected-img").forEach(el=>{el.classList.remove("selected","selected-img");});parts.push(clone.innerHTML);});return parts.join("");}
+function collectPaginatedShellHtml(){const shell=document.createElement("div");shell.className="merged-pages";workspace.querySelectorAll(".a4-page").forEach(p=>{const clone=p.cloneNode(true);clone.querySelectorAll(".img-resize-handle").forEach(h=>h.remove());clone.querySelectorAll("[contenteditable]").forEach(el=>el.removeAttribute("contenteditable"));clone.querySelectorAll(".selected, .selected-img").forEach(el=>{el.classList.remove("selected","selected-img");});shell.appendChild(clone);});return shell.innerHTML;}
+
+function load(){
+  let raw="";try{raw=localStorage.getItem("monkeyScoutEditorDoc")||"";}catch(_){}
+  if(!raw){renderPages(["<h1>Term Paper</h1><p>Start editing your document here…</p>"]);setStatus("Ready");updateLivePill();return;}
+  const probe=document.createElement("div");probe.innerHTML=raw;
+  if(probe.querySelector(".a4-page")){const list=[];probe.querySelectorAll(".a4-page").forEach(p=>{const c=p.querySelector(".a4-content")||p;list.push(c.innerHTML);});renderPages(paginateHtml(list.join("")));setStatus("Loaded · re-paginated","ok");}
+  else{const html=raw.startsWith(RICH_MARKER)?raw.slice(RICH_MARKER.length):raw;renderPages(paginateHtml(html));setStatus("Loaded","ok");}
+  updateLivePill();
+}
+function saveLocal(){try{const shell=collectPaginatedShellHtml();localStorage.setItem("monkeyScoutEditorDoc",shell);localStorage.setItem("monkeyScoutEditedDoc",shell);setStatus("Saved locally","ok");}catch(e){setStatus("Could not save locally","err");}}
+function scheduleLocalSave(){setStatus("Editing…","warn");clearTimeout(saveTimer);saveTimer=setTimeout(saveLocal,900);}
+async function saveLive(manual){
+  const{userId,projectId}=getCtx();
+  if(!/^\d+$/.test(userId)||!/^\d+$/.test(projectId)){if(manual){setStatus("Open Edit Paper from Dashboard after merge for Live DB","warn");alert("Live save needs a signed-in project.\n\nFrom the dashboard: merge the paper, then click “Edit Paper” so the project id is passed.");}saveLocal();return;}
+  if(isSavingLive)return;isSavingLive=true;if(manual)document.getElementById("btnSaveLive").disabled=true;setStatus("Saving to database…","saving");
+  try{
+    const content=RICH_MARKER+collectDocumentHtml();
+    const res=await fetch(API_URL+"/pull-next",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user_id:userId,project_id:Number(projectId),action:"edit_merged",content})});
+    let data={};try{data=await res.json();}catch(_){}
+    if(!res.ok)throw new Error(data.error||("Save failed ("+res.status+")"));
+    const shell=collectPaginatedShellHtml();try{localStorage.setItem("monkeyScoutEditorDoc",shell);localStorage.setItem("monkeyScoutEditedDoc",shell);}catch(_){}
+    setStatus(data.message||"Saved to database","ok");
+  }catch(err){setStatus(err.message||"Live save failed","err");if(manual)alert(err.message||"Live save failed");saveLocal();}
+  finally{isSavingLive=false;document.getElementById("btnSaveLive").disabled=false;}
+}
+function scheduleLiveSave(){if(!updateLivePill())return;clearTimeout(liveSaveTimer);liveSaveTimer=setTimeout(()=>saveLive(false),2200);}
+function focusedContent(){const sel=window.getSelection();if(sel&&sel.rangeCount){const node=sel.anchorNode;const el=node&&(node.nodeType===1?node:node.parentElement);const content=el&&el.closest&&el.closest(".a4-content");if(content)return content;}return workspace.querySelector(".a4-content");}
+function cmd(command,value){const target=focusedContent();if(target)target.focus();try{document.execCommand(command,false,value);}catch(_){}scheduleLocalSave();scheduleLiveSave();setStats();}
+document.querySelectorAll("[data-cmd]").forEach(btn=>btn.addEventListener("click",()=>cmd(btn.getAttribute("data-cmd"))));
+document.getElementById("fmtBlock").addEventListener("change",function(){if(this.value)cmd("formatBlock",this.value);this.selectedIndex=0;});
+document.getElementById("fontName").addEventListener("change",function(){cmd("fontName",this.value);});
+document.getElementById("fontSize").addEventListener("change",function(){cmd("fontSize",this.value);});
+document.getElementById("btnLink").onclick=()=>{const url=prompt("Enter link URL");if(url)cmd("createLink",url);};
+document.getElementById("btnImage").onclick=()=>{const url=prompt("Image URL (https://…)");if(!url)return;cmd("insertImage",url);setTimeout(()=>{constrainImages(workspace);bindImageInteractions(workspace);},50);};
+document.getElementById("btnClearFmt").onclick=()=>cmd("removeFormat");
+document.getElementById("btnSaveLocal").onclick=saveLocal;
+document.getElementById("btnSaveLive").onclick=()=>saveLive(true);
+document.getElementById("btnPrint").onclick=()=>window.print();
+document.getElementById("btnBack").onclick=()=>{try{if(localStorage.getItem("monkeyScoutEditorReturn")==="dashboard"){window.close();if(!window.closed)history.back();return;}}catch(_){}window.close();if(!window.closed)history.back();};
+function downloadBlob(name,content,type){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([content],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);}
+document.getElementById("btnHtml").onclick=()=>{downloadBlob("term-paper.html","<!doctype html><meta charset=\"utf-8\"><title>Term Paper</title><style>body{font-family:Merriweather,Georgia,serif;line-height:1.7;max-width:800px;margin:40px auto;padding:20px;color:#1e293b}img{max-width:70%;height:auto;display:block;margin:12px auto}</style>"+collectDocumentHtml(),"text/html");setStatus("HTML downloaded","ok");};
+document.getElementById("btnTxt").onclick=()=>{downloadBlob("term-paper.txt",workspace.innerText,"text/plain");setStatus("TXT downloaded","ok");};
+document.getElementById("btnWord").onclick=()=>{const html="<!doctype html><html><head><meta charset=\"utf-8\"><style>body{font-family:Times New Roman;font-size:12pt;line-height:1.5}img{max-width:70%;height:auto;display:block;margin:12px auto}</style></head><body>"+collectDocumentHtml()+"</body></html>";downloadBlob("term-paper.doc",html,"application/msword");setStatus("Word file downloaded","ok");};
+document.addEventListener("keydown",e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="s"){e.preventDefault();saveLive(true);}});
 load();
-</script></body></html>
+</script>
+</body>
+</html>
