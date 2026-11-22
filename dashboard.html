@@ -3820,9 +3820,9 @@ function renderPromptBuilderView() {
           <div class="form-field full image-mode-field">
             <label class="image-mode-label" for="pbImages">Illustrations in this paper</label>
             <div class="checkbox-row image-mode-row">
-              <label><input type="checkbox" id="pbImages" name="pbImages" ${draft.include_images ? "checked" : ""}> Ask Groq to mark useful image positions</label>
+              <label><input type="checkbox" id="pbImages" name="pbImages" ${draft.include_images ? "checked" : ""}> Use images in this term paper</label>
             </div>
-            <small class="image-mode-help">When enabled, Groq adds labelled “ADD IMAGE HERE” positions. You upload the actual pictures. You can also add images manually in any chapter even when this is OFF.</small>
+            <small class="image-mode-help">Include relevant illustrations in this term paper. Suggested positions will be marked for you to upload images.</small>
           </div>
 
           <div class="form-field">
@@ -5120,7 +5120,12 @@ function repairPipeTablesInHTML(html){
   return tmp.innerHTML;
 }
 
+function stripTestMarkers(text) {
+  // Remove leftover test-mode markers such as "End of Preliminary", "End of Chapter", etc.
+  return String(text || "").replace(/^[ \t]*End of [A-Za-z0-9 ._-]+[ \t]*$/gim, "");
+}
 function workflowContentHTML(value){
+  value = stripTestMarkers(value);
   const marker="[[TEMPAPER_RICH_HTML]]";
   const raw=String(value||"");
   if (raw.startsWith(marker)) {
@@ -5505,7 +5510,7 @@ function renderMergedPaper(value){
     let html="";
     if (raw.startsWith(RICH)) html=raw.slice(RICH.length);
     else if (/<\/?[a-z][\s\S]*>/i.test(raw)) html=raw;
-    else html=markdownToHTML(cleanPaperText(raw));
+    else html=repairPipeTablesInHTML(markdownToHTML(cleanPaperText(raw)));
     if (!html.trim()) return false;
     // Already contains pages
     if (/class=["'][^"']*a4-page/.test(html) || /class=["']a4-page/.test(html)) {
@@ -6883,7 +6888,7 @@ function showImagePanel(container, targetPlaceholder = null, preselectedFile = n
     const btn = panel.querySelector("[data-upload]");
     btn.disabled = true;
     btn.textContent = "Uploading…";
-    status.textContent = "Uploading to ImgBB…";
+    status.textContent = "Uploading image…";
     status.className = "status";
 
     try {
