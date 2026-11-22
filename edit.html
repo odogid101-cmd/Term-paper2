@@ -1,19 +1,6 @@
 <!doctype html>
 <html lang="en">
 <head>
-<script>
-/* GitHub Pages does not support .htaccess — hide .html in the address bar */
-(function () {
-  try {
-    var path = location.pathname || "";
-    if (/\.html$/i.test(path) && path.toLowerCase() !== "/index.html") {
-      var clean = path.replace(/\.html$/i, "");
-      if (clean.length > 1 && clean.endsWith("/")) clean = clean.slice(0, -1);
-      history.replaceState(null, "", clean + location.search + location.hash);
-    }
-  } catch (e) {}
-})();
-</script>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=1100" />
 <title>Monkey Scout | Paper Editor</title>
@@ -22,24 +9,24 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg: #f4f7f5;
-  --panel: #ffffff;
-  --card: #ffffff;
+  --bg: #061a14;
+  --panel: rgba(7, 40, 30, 0.96);
+  --card: #0a2e22;
   --accent: #087447;
   --accent-2: #065f3a;
-  --accent-soft: rgba(8, 116, 71, 0.12);
-  --accent-gradient: linear-gradient(135deg, #10b981 0%, #087447 55%, #065f46 100%);
-  --text: #0f172a;
-  --muted: #64748b;
-  --border: rgba(15, 23, 42, 0.09);
-  --danger: #ef4444;
-  --success: #059669;
+  --accent-soft: rgba(8, 116, 71, 0.18);
+  --accent-gradient: linear-gradient(135deg, #15945d 0%, #087447 58%, #075c3b 100%);
+  --text: #f5fff8;
+  --muted: #9bb8ab;
+  --border: rgba(148, 200, 170, 0.16);
+  --danger: #f87171;
+  --success: #34d399;
   --paper: #ffffff;
   --paper-text: #1e293b;
   --toolbar-h: 52px;
   --status-h: 36px;
   --radius: 12px;
-  --shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+  --shadow: 0 16px 40px rgba(2, 30, 20, 0.45);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -77,7 +64,7 @@ svg { display: block; }
   gap: 8px;
   padding: 0 10px;
   border-bottom: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(6, 40, 30, 0.94);
   backdrop-filter: blur(14px);
   z-index: 40;
 }
@@ -118,7 +105,7 @@ svg { display: block; }
   padding: 0 12px;
   border-radius: 9px;
   border: 1px solid var(--border);
-  background: #f8fafc;
+  background: rgba(255,255,255,0.04);
   color: var(--text);
   font-size: 12px;
   font-weight: 650;
@@ -127,7 +114,7 @@ svg { display: block; }
   gap: 6px;
   transition: background .15s, transform .15s;
 }
-.chip-btn:hover { background: #f1f5f9; }
+.chip-btn:hover { background: rgba(255,255,255,0.08); }
 .chip-btn.primary {
   background: var(--accent-gradient);
   border-color: transparent;
@@ -146,7 +133,7 @@ svg { display: block; }
   padding: 8px 10px;
   overflow-x: auto;
   border-bottom: 1px solid var(--border);
-  background: #ffffff;
+  background: rgba(6, 36, 28, 0.96);
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   z-index: 30;
@@ -180,13 +167,13 @@ svg { display: block; }
   min-height: 34px;
   border-radius: 8px;
   border: 1px solid var(--border);
-  background: #f8fafc;
+  background: rgba(255,255,255,0.04);
   color: var(--text);
   padding: 0 8px;
   font-size: 12px;
   outline: none;
 }
-.tb-select option { background: #fff; color: #0f172a; }
+.tb-select option { background: #0f172a; color: #f1f5f9; }
 
 /* ===== Workspace ===== */
 .workspace {
@@ -195,8 +182,8 @@ svg { display: block; }
   overflow: auto;
   padding: 18px 12px 40px;
   background:
-    radial-gradient(900px 400px at 10% -10%, rgba(16,185,129,0.10), transparent 55%),
-    radial-gradient(700px 300px at 90% 0%, rgba(8,116,71,0.06), transparent 50%),
+    radial-gradient(900px 400px at 10% -10%, rgba(8,116,71,0.16), transparent 55%),
+    radial-gradient(700px 300px at 90% 0%, rgba(21,148,93,0.10), transparent 50%),
     var(--bg);
   -webkit-overflow-scrolling: touch;
 }
@@ -435,7 +422,7 @@ svg { display: block; }
 .image-panel-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.45);
+  background: rgba(2, 6, 23, 0.55);
   backdrop-filter: blur(4px);
   z-index: 100;
   display: none;
@@ -471,12 +458,12 @@ svg { display: block; }
   padding: 18px 14px;
   text-align: center;
   cursor: pointer;
-  background: rgba(8,116,71,0.06);
+  background: rgba(8,116,71,0.08);
   margin-bottom: 12px;
 }
 .dropzone:hover, .dropzone.dragover {
   border-color: #087447;
-  background: rgba(8,116,71,0.12);
+  background: rgba(8,116,71,0.16);
 }
 .preview-box {
   min-height: 80px;
@@ -488,7 +475,7 @@ svg { display: block; }
   justify-content: center;
   margin-bottom: 12px;
   overflow: hidden;
-  background: #f8fafc;
+  background: rgba(255,255,255,0.03);
 }
 .preview-box img {
   max-width: 100%;
@@ -500,7 +487,7 @@ svg { display: block; }
   padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid var(--border);
-  background: #f8fafc;
+  background: rgba(2,30,20,0.35);
   color: var(--text);
   margin-bottom: 12px;
   outline: none;
@@ -517,8 +504,8 @@ svg { display: block; }
   font-size: 12px;
   color: var(--muted);
 }
-.status-line.error { color: #ef4444; }
-.status-line.success { color: #059669; }
+.status-line.error { color: #fca5a5; }
+.status-line.success { color: #a7f3d0; }
 
 /* ===== Status bar ===== */
 .status-bar {
@@ -530,7 +517,7 @@ svg { display: block; }
   gap: 10px;
   padding: 0 14px;
   border-top: 1px solid var(--border);
-  background: #ffffff;
+  background: rgba(6, 36, 28, 0.96);
   font-size: 11.5px;
   color: var(--muted);
 }
@@ -546,7 +533,7 @@ svg { display: block; }
   padding: 28px 20px;
   border: 1px solid var(--border);
   border-radius: 18px;
-  background: #f8fafc;
+  background: rgba(255,255,255,0.03);
 }
 .empty-state h2 {
   color: var(--text);
@@ -1124,20 +1111,9 @@ svg { display: block; }
     (root || document).querySelectorAll(".tp-image-placeholder").forEach(ph => {
       if (ph.dataset.bound === "1") return;
       ph.dataset.bound = "1";
-      ph.addEventListener("click", () => {
-        openImagePanel(ph);
-        setTimeout(() => {
-          try { document.getElementById("imageFile")?.click(); } catch (_) {}
-        }, 60);
-      });
+      ph.addEventListener("click", () => openImagePanel(ph));
       ph.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          openImagePanel(ph);
-          setTimeout(() => {
-            try { document.getElementById("imageFile")?.click(); } catch (_) {}
-          }, 60);
-        }
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openImagePanel(ph); }
       });
       // Direct drop onto placeholder
       ph.addEventListener("dragover", (e) => { e.preventDefault(); ph.classList.add("dragover"); });
@@ -1237,7 +1213,7 @@ svg { display: block; }
     }
     imageUpload.disabled = true;
     imageUpload.textContent = "Uploading…";
-    imageStatus.textContent = "Uploading image…";
+    imageStatus.textContent = "Uploading to ImgBB…";
     imageStatus.className = "status-line";
     try {
       const form = new FormData();
