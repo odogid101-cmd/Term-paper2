@@ -1,8 +1,8 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Verify Email</title>
+  <title>Verify Email | Monkey Scout</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
 <script>
 /* GitHub Pages does not support .htaccess — hide .html in the address bar */
@@ -17,29 +17,142 @@
   } catch (e) {}
 })();
 </script>
-  <style>
-    body { font-family: Arial, sans-serif; background:#0f172a; color:white; display:flex; justify-content:center; align-items:center; height:100vh; margin:0; }
-    .wrap { background:#1e293b; padding:24px; border-radius:10px; width:320px; box-sizing:border-box; }
-    input, button { width:100%; padding:10px; margin:8px 0; border-radius:6px; border:none; box-sizing:border-box; }
-    input { background:#0b1220; color:#fff; }
-    .btn-primary { background:#10b981; color:#062; cursor:pointer; }
-    .btn-secondary { background:#3b82f6; color:#fff; cursor:pointer; }
-    #msg { min-height:1.2em; color:#ffdddd; }
-    .row { display:flex; gap:8px; }
-    .row button { flex:1; padding:10px; }
-  </style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f4f7f5;
+  --card: #ffffff;
+  --text: #0f172a;
+  --muted: #64748b;
+  --accent: #087447;
+  --gradient: linear-gradient(135deg, #10b981 0%, #087447 55%, #065f46 100%);
+  --border: rgba(15, 23, 42, 0.08);
+  --danger: #ef4444;
+  --success: #059669;
+  --shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: Inter, system-ui, sans-serif;
+  background: var(--bg);
+  background-image:
+    radial-gradient(800px 420px at 15% -10%, rgba(16, 185, 129, 0.12), transparent 55%),
+    radial-gradient(600px 320px at 95% 5%, rgba(8, 116, 71, 0.08), transparent 50%);
+  color: var(--text);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100dvh;
+  padding: 20px;
+}
+.wrap {
+  background: var(--card);
+  padding: 28px 24px;
+  border-radius: 18px;
+  width: 100%;
+  max-width: 380px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 22px;
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.brand-dot {
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  background: var(--gradient);
+  box-shadow: 0 6px 14px rgba(8, 116, 71, 0.28);
+}
+h2 {
+  font-size: 22px;
+  font-weight: 750;
+  margin-bottom: 6px;
+  letter-spacing: -0.03em;
+  color: var(--text);
+}
+.sub {
+  font-size: 13.5px;
+  color: var(--muted);
+  margin-bottom: 22px;
+  line-height: 1.55;
+}
+input {
+  width: 100%;
+  padding: 13px 14px;
+  margin: 0 0 12px;
+  border-radius: 11px;
+  border: 1px solid var(--border);
+  background: #f8fafc;
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(8, 116, 71, 0.12);
+  background: #fff;
+}
+input::placeholder { color: #94a3b8; }
+.row { display: flex; gap: 10px; margin-top: 4px; }
+.row button { flex: 1; }
+button {
+  padding: 13px;
+  border-radius: 11px;
+  border: none;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: opacity .15s, transform .15s, background .15s;
+}
+button:disabled { opacity: 0.55; cursor: wait; }
+.btn-primary {
+  background: var(--gradient);
+  color: #ffffff;
+  box-shadow: 0 8px 18px rgba(8, 116, 71, 0.28);
+}
+.btn-primary:hover { opacity: 0.95; transform: translateY(-1px); }
+.btn-secondary {
+  background: #fff;
+  color: var(--accent);
+  border: 1.5px solid rgba(8, 116, 71, 0.28);
+}
+.btn-secondary:hover { background: rgba(8, 116, 71, 0.06); }
+#msg {
+  min-height: 1.3em;
+  margin-top: 14px;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-align: center;
+}
+#msg.error { color: var(--danger); }
+#msg.success { color: var(--success); }
+</style>
 </head>
 <body>
 
 <div class="wrap">
-  <h2>Email Verification</h2>
+  <div class="brand">
+    <div class="brand-dot"></div>
+    <span>Monkey Scout</span>
+  </div>
+  <h2>Verify your email</h2>
+  <p class="sub">Enter the verification code we sent to your inbox to activate your account.</p>
 
-  <input type="email" id="email" placeholder="Email" autocomplete="email">
-  <input type="text" id="code" placeholder="Enter verification code" autocomplete="one-time-code">
+  <input type="email" id="email" placeholder="Email address" autocomplete="email">
+  <input type="text" id="code" placeholder="Verification code" autocomplete="one-time-code" inputmode="numeric">
 
   <div class="row">
     <button id="verifyBtn" class="btn-primary">Verify</button>
-    <button id="resendBtn" class="btn-secondary">Resend code</button>
+    <button id="resendBtn" class="btn-secondary">Resend</button>
   </div>
 
   <p id="msg"></p>
@@ -47,16 +160,13 @@
 
 <script>
 (function () {
-
   const API_BASE = "https://term-paper-n4kl.onrender.com";
-
   const emailEl = document.getElementById("email");
   const codeEl = document.getElementById("code");
   const verifyBtn = document.getElementById("verifyBtn");
   const resendBtn = document.getElementById("resendBtn");
   const msgEl = document.getElementById("msg");
 
-  // Prefill email from ?email= query param if present
   const params = new URLSearchParams(window.location.search);
   const emailParam = params.get("email");
   if (emailParam) emailEl.value = decodeURIComponent(emailParam);
@@ -65,87 +175,71 @@
   resendBtn.addEventListener("click", resendCode);
   [emailEl, codeEl].forEach(el => el.addEventListener("keydown", (e) => { if (e.key === "Enter") verify(); }));
 
-  async function verify() {
-    msgEl.style.color = "#ffcccc";
-    msgEl.innerText = "";
-    verifyBtn.disabled = true;
+  function setMsg(text, type) {
+    msgEl.className = type || "";
+    msgEl.innerText = text || "";
+  }
 
+  async function verify() {
+    setMsg("");
+    verifyBtn.disabled = true;
     const payload = {
       email: emailEl.value.trim().toLowerCase(),
       code: codeEl.value.trim()
     };
-
     if (!payload.email || !payload.code) {
-      msgEl.innerText = "Fill both fields";
+      setMsg("Please fill in both fields", "error");
       verifyBtn.disabled = false;
       return;
     }
-
     try {
       const res = await fetch(API_BASE + "/verify-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
-
-      const data = await res.json().catch(()=>({ error: "Invalid response" }));
+      const data = await res.json().catch(() => ({ error: "Invalid response" }));
       if (res.ok) {
-        msgEl.style.color = "#c9fdd1";
-        msgEl.innerText = data.message || "Verified";
-        // go back to index (same folder) after success
+        setMsg(data.message || "Verified successfully", "success");
         setTimeout(() => { window.location.href = "dashboard.html"; }, 900);
       } else {
-        msgEl.style.color = "#ffcccc";
-        msgEl.innerText = data.error || "Verification failed";
+        setMsg(data.error || "Verification failed", "error");
       }
     } catch (err) {
-      console.error(err);
-      msgEl.style.color = "#ffcccc";
-      msgEl.innerText = "Network error";
+      setMsg("Network error — try again", "error");
     } finally {
       verifyBtn.disabled = false;
     }
   }
 
   async function resendCode() {
-    msgEl.style.color = "#ffcccc";
-    msgEl.innerText = "";
+    setMsg("");
     resendBtn.disabled = true;
-
     const email = emailEl.value.trim().toLowerCase();
     if (!email) {
-      msgEl.innerText = "Enter email to resend code";
+      setMsg("Enter your email to resend the code", "error");
       resendBtn.disabled = false;
       return;
     }
-
     try {
-      // Calls the server endpoint to generate & send a new signup verification code.
-      // Server must implement POST /resend-verification { email }
       const res = await fetch(API_BASE + "/resend-verification", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email })
       });
-
-      const data = await res.json().catch(()=>({ error: "Invalid response" }));
+      const data = await res.json().catch(() => ({ error: "Invalid response" }));
       if (res.ok) {
-        msgEl.style.color = "#c9fdd1";
-        msgEl.innerText = data.message || "Verification code resent";
+        setMsg(data.message || "Verification code resent", "success");
       } else {
-        msgEl.style.color = "#ffcccc";
-        msgEl.innerText = data.error || "Could not resend code";
+        setMsg(data.error || "Could not resend code", "error");
       }
     } catch (err) {
-      console.error(err);
-      msgEl.style.color = "#ffcccc";
-      msgEl.innerText = "Network error";
+      setMsg("Network error — try again", "error");
     } finally {
       resendBtn.disabled = false;
     }
   }
 })();
 </script>
-
 </body>
 </html>
