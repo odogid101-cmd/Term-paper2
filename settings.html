@@ -15,267 +15,742 @@
 })();
 </script>
 <meta charset="utf-8" />
-<title>Settings | Tempaper Generator</title>
+<title>Settings | Monkey Scout</title>
 <meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-:root{
-  --bg:#0b0d1a;--card:#151829;--text:#e2e8f0;--muted:#94a3b8;
-  --accent:#4f46e5;--success:#22c55e;--danger:#ef4444;
-  --gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-  --font-size: 16px; /* default */
+:root {
+  --bg: #f4f7f5;
+  --bg-soft: #eef2f0;
+  --card: #ffffff;
+  --card-hover: #f8fafc;
+  --text: #0f172a;
+  --muted: #64748b;
+  --accent: #087447;
+  --accent-2: #065f3a;
+  --accent-soft: rgba(8, 116, 71, 0.10);
+  --gradient: linear-gradient(135deg, #10b981 0%, #087447 55%, #065f46 100%);
+  --success: #059669;
+  --danger: #ef4444;
+  --warning: #d97706;
+  --border: rgba(15, 23, 42, 0.08);
+  --soft-border: rgba(15, 23, 42, 0.04);
+  --radius: 14px;
+  --shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+  --font-size: 16px;
 }
-[data-theme="light"]{
-  --bg:#f8fafc;--card:#ffffff;--text:#0f172a;--muted:#64748b;
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: Inter, system-ui, -apple-system, sans-serif; }
+body {
+  background: var(--bg);
+  background-image:
+    radial-gradient(900px 420px at 10% -15%, rgba(16, 185, 129, 0.10), transparent 55%),
+    radial-gradient(700px 360px at 100% 0%, rgba(8, 116, 71, 0.06), transparent 50%);
+  color: var(--text);
+  padding: 20px 16px 48px;
+  max-width: 560px;
+  margin: 0 auto;
+  font-size: var(--font-size);
+  min-height: 100dvh;
 }
-*{box-sizing:border-box;margin:0;padding:0;font-family:Inter,system-ui,Arial,sans-serif}
-body{background:var(--bg);color:var(--text);padding:20px;max-width:600px;margin:0 auto;font-size:var(--font-size);transition:.3s}
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 22px;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.back-btn {
+  width: 40px; height: 40px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 11px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  box-shadow: var(--shadow);
+  transition: background .15s, transform .15s;
+}
+.back-btn:hover { background: var(--card-hover); transform: translateX(-2px); }
 
-.header{display:flex;align-items:center;gap:10px;margin-bottom:20px;font-size:18px;font-weight:600}
-.back-btn{background:var(--card);border:none;color:var(--text);padding:8px 10px;border-radius:8px;cursor:pointer}
+.section-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 22px 4px 10px;
+}
 
-.profile-card{background:var(--card);padding:16px;border-radius:12px;display:flex;align-items:center;gap:12px;margin-bottom:16px;border:1px solid rgba(255,255,255,0.1)}
-.avatar{width:48px;height:48px;border-radius:50%;background:var(--gradient);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;position:relative}
-.avatar-badge{position:absolute;bottom:0;right:0;width:14px;height:14px;background:var(--success);border-radius:50%;border:2px solid var(--card)}
-.profile-info{flex:1}
-.profile-info.name{font-weight:600}
-.profile-info.email{font-size:13px;color:var(--muted)}
-.badge{background:rgba(79,70,229,0.2);color:var(--accent);padding:4px 8px;border-radius:6px;font-size:12px;font-weight:600}
+.profile-card {
+  background: var(--card);
+  padding: 18px;
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+.avatar {
+  width: 52px; height: 52px;
+  border-radius: 14px;
+  background: var(--gradient);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 20px;
+  color: #fff;
+  position: relative;
+  box-shadow: 0 8px 18px rgba(8, 116, 71, 0.28);
+}
+.avatar-badge {
+  position: absolute;
+  bottom: -2px; right: -2px;
+  width: 14px; height: 14px;
+  background: var(--success);
+  border-radius: 50%;
+  border: 2px solid var(--card);
+}
+.profile-info { flex: 1; min-width: 0; }
+.profile-info .name { font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.profile-info .email { font-size: 12.5px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.badge {
+  background: var(--accent-soft);
+  color: var(--accent);
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
 
-.setting-item{background:var(--card);padding:16px;border-radius:12px;margin-bottom:12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border:1px solid rgba(255,255,255,0.1);transition:.2s}
-.setting-item:hover{opacity:0.8}
-.setting-item.title{font-weight:500}
-.setting-item.subtitle{font-size:12px;color:var(--muted)}
+.setting-item, .upgrade-group {
+  background: var(--card);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  margin-bottom: 10px;
+  box-shadow: var(--shadow);
+  transition: background .15s, border-color .15s;
+}
+.setting-item {
+  padding: 15px 16px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.setting-item:hover { background: var(--card-hover); border-color: rgba(8, 116, 71, 0.22); }
+.setting-item .title { font-weight: 600; font-size: 14px; }
+.setting-item .subtitle { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.chevron { color: var(--muted); font-size: 16px; flex-shrink: 0; }
+.setting-item.danger-item .title { color: var(--danger); }
+.setting-item.danger-item:hover { border-color: rgba(239, 68, 68, 0.28); }
 
-.upgrade-group{background:var(--card);padding:16px;border-radius:12px;margin-bottom:12px;border:1px solid rgba(255,255,255,0.1)}
-.upgrade-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;cursor:pointer}
-.plan-item{background:var(--bg);padding:12px 16px;border-radius:8px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;border:1px solid rgba(255,255,255,0.1)}
-.plan-item:hover{border-color:var(--accent)}
+.upgrade-group { padding: 14px 16px; }
+.upgrade-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+}
+.plan-item {
+  background: var(--bg-soft);
+  padding: 12px 14px;
+  border-radius: 10px;
+  margin-top: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  font-size: 13.5px;
+  font-weight: 500;
+  transition: border-color .15s, background .15s;
+}
+.plan-item:hover { border-color: var(--accent); background: var(--accent-soft); }
+.plan-item .price { color: var(--muted); font-size: 12px; font-weight: 600; }
 
-.modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:none;align-items:center;justify-content:center;z-index:200}
-.modal.show{display:flex}
-.modal-content{background:var(--card);padding:24px;border-radius:16px;width:90%;max-width:400px}
-.input,select{width:100%;background:var(--bg);border:1px solid rgba(255,255,255,0.1);color:var(--text);padding:12px;border-radius:8px;margin-bottom:12px}
-.btn{background:var(--gradient);color:white;border:none;padding:12px;border-radius:8px;font-weight:600;cursor:pointer;width:100%}
-.btn.secondary{background:var(--card);border:1px solid rgba(255,255,255,0.1)}
-.alert{padding:10px;border-radius:8px;margin-bottom:12px;font-size:14px}
-.alert.success{background:rgba(34,197,94,0.1);color:var(--success)}
-.alert.error{background:rgba(239,68,68,0.1);color:var(--danger)}
+.toggle-row {
+  background: var(--card);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  box-shadow: var(--shadow);
+}
+.toggle-row .label-wrap .title { font-weight: 600; font-size: 14px; }
+.toggle-row .label-wrap .subtitle { font-size: 12px; color: var(--muted); margin-top: 2px; }
 
-.switch{position:relative;display:inline-block;width:46px;height:24px}
-.switch input{opacity:0;width:0;height:0}
-.slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#ccc;transition:.4s;border-radius:24px}
-.slider:before{position:absolute;content:"";height:18px;width:18px;left:3px;bottom:3px;background:white;transition:.4s;border-radius:50%}
-input:checked +.slider{background:var(--accent)}
-input:checked +.slider:before{transform:translateX(22px)}
-.setting-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.switch { position: relative; display: inline-block; width: 46px; height: 26px; flex-shrink: 0; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider {
+  position: absolute; cursor: pointer; inset: 0;
+  background: #cbd5e1; transition: .3s; border-radius: 26px;
+}
+.slider:before {
+  position: absolute; content: "";
+  height: 20px; width: 20px; left: 3px; bottom: 3px;
+  background: #fff; transition: .3s; border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(0,0,0,.15);
+}
+input:checked + .slider { background: var(--accent); }
+input:checked + .slider:before { transform: translateX(20px); }
+
+.modal {
+  position: fixed; inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(6px);
+  display: none; align-items: center; justify-content: center;
+  z-index: 300; padding: 16px;
+}
+.modal.show { display: flex; }
+.modal-content {
+  background: var(--card);
+  padding: 24px;
+  border-radius: 18px;
+  width: 100%;
+  max-width: 400px;
+  border: 1px solid var(--border);
+  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.12);
+  max-height: 90dvh;
+  overflow-y: auto;
+}
+.modal-content h3 {
+  font-size: 17px;
+  font-weight: 700;
+  margin-bottom: 18px;
+  letter-spacing: -0.02em;
+}
+.input, select {
+  width: 100%;
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 12px 14px;
+  border-radius: 10px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+.input:focus, select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(8, 116, 71, 0.12);
+  background: #fff;
+}
+.btn {
+  background: var(--gradient);
+  color: #fff;
+  border: none;
+  padding: 13px;
+  border-radius: 11px;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  width: 100%;
+  transition: opacity .15s, transform .15s;
+  box-shadow: 0 8px 18px rgba(8, 116, 71, 0.25);
+}
+.btn:hover { opacity: 0.95; transform: translateY(-1px); }
+.btn:disabled { opacity: 0.55; cursor: wait; transform: none; }
+.btn.secondary {
+  background: #fff;
+  border: 1px solid var(--border);
+  color: var(--text);
+  box-shadow: none;
+  margin-top: 10px;
+}
+.btn.danger-btn {
+  background: var(--danger);
+  box-shadow: 0 8px 18px rgba(239, 68, 68, 0.22);
+}
+.alert {
+  padding: 11px 13px;
+  border-radius: 10px;
+  margin-bottom: 12px;
+  font-size: 13.5px;
+  font-weight: 500;
+}
+.alert.success { background: rgba(5, 150, 105, 0.10); color: var(--success); border: 1px solid rgba(5, 150, 105, 0.22); }
+.alert.error { background: rgba(239, 68, 68, 0.10); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.22); }
+
+.setting-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  gap: 12px;
+}
+.setting-row label { font-size: 14px; font-weight: 500; }
+
+.footer-note {
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-top: 28px;
+  line-height: 1.5;
+}
 </style>
 </head>
 <body>
 
 <div class="header">
-  <button class="back-btn" onclick="window.location='dashboard.html'">←</button>
-  Tempaper Generator Settings
+  <button class="back-btn" onclick="window.location='dashboard.html'" aria-label="Back">←</button>
+  Settings
 </div>
 
-<!-- Profile Header -->
 <div class="profile-card">
-  <div class="avatar" id="profileAvatar">U<div class="avatar-badge"></div></div>
+  <div class="avatar" id="profileAvatar">U<span class="avatar-badge"></span></div>
   <div class="profile-info">
-    <div class="name" id="profileName">User name</div>
-    <div class="email" id="profileEmail">gmail</div>
+    <div class="name" id="profileName">Loading…</div>
+    <div class="email" id="profileEmail">—</div>
   </div>
   <div class="badge" id="userBadge">Free</div>
 </div>
 
-<!-- App Setting -->
+<div class="section-label">Appearance</div>
 <div class="setting-item" onclick="openModal('appModal')">
   <div>
-    <div class="title">App Setting</div>
-    <div class="subtitle" id="appSettingSummary">Theme: System, Text: 16px</div>
+    <div class="title">App preferences</div>
+    <div class="subtitle" id="appSettingSummary">Theme: System · Text: 16px</div>
   </div>
-  <span>></span>
+  <span class="chevron">›</span>
 </div>
 
-<!-- Upgrade Section -->
+<div class="toggle-row">
+  <div class="label-wrap">
+    <div class="title">Notifications</div>
+    <div class="subtitle">Email & in-app alerts</div>
+  </div>
+  <label class="switch">
+    <input type="checkbox" id="notifToggleInline" checked>
+    <span class="slider"></span>
+  </label>
+</div>
+
+<div class="toggle-row">
+  <div class="label-wrap">
+    <div class="title">Auto-save drafts</div>
+    <div class="subtitle">Save paper edits automatically</div>
+  </div>
+  <label class="switch">
+    <input type="checkbox" id="autoSaveToggle" checked>
+    <span class="slider"></span>
+  </label>
+</div>
+
+<div class="section-label">Account</div>
+<div class="setting-item" onclick="openModal('passwordModal')">
+  <div>
+    <div class="title">Change password</div>
+    <div class="subtitle">Secure your account with a new password</div>
+  </div>
+  <span class="chevron">›</span>
+</div>
+
+<div class="setting-item" onclick="openModal('emailModal')">
+  <div>
+    <div class="title">Email preferences</div>
+    <div class="subtitle">Manage verification & recovery email</div>
+  </div>
+  <span class="chevron">›</span>
+</div>
+
+<div class="section-label">Subscription</div>
 <div class="upgrade-group">
   <div class="upgrade-header" onclick="toggleUpgrade()">
-    <div class="title">Upgrade</div>
-    <span id="upgradeArrow">v</span>
+    <span>Upgrade plan</span>
+    <span id="upgradeArrow">▾</span>
   </div>
   <div id="upgradePlans">
-    <div class="plan-item" onclick="selectPlan('Gold')">Gold <span>></span></div>
-    <div class="plan-item" onclick="selectPlan('Silver')">Silver <span>></span></div>
-    <div class="plan-item" onclick="selectPlan('Diamond')">Diamond <span>></span></div>
+    <div class="plan-item" onclick="selectPlan('Silver')">
+      <span>Silver</span>
+      <span class="price">More words · Priority</span>
+    </div>
+    <div class="plan-item" onclick="selectPlan('Gold')">
+      <span>Gold</span>
+      <span class="price">Unlimited · Images</span>
+    </div>
+    <div class="plan-item" onclick="selectPlan('Diamond')">
+      <span>Diamond</span>
+      <span class="price">Team · API access</span>
+    </div>
   </div>
 </div>
 
-<!-- Security Password -->
-<div class="setting-item" onclick="openModal('passwordModal')">
-  <div class="title">Security Password</div>
-  <span>></span>
+<div class="section-label">Data & privacy</div>
+<div class="setting-item" onclick="exportData()">
+  <div>
+    <div class="title">Export my data</div>
+    <div class="subtitle">Download papers & chat history (JSON)</div>
+  </div>
+  <span class="chevron">›</span>
 </div>
 
-<!-- App Setting Modal -->
+<div class="setting-item" onclick="openModal('privacyModal')">
+  <div>
+    <div class="title">Privacy & consent</div>
+    <div class="subtitle">Research usage & analytics</div>
+  </div>
+  <span class="chevron">›</span>
+</div>
+
+<div class="section-label">Danger zone</div>
+<div class="setting-item danger-item" onclick="confirmLogout()">
+  <div>
+    <div class="title">Sign out</div>
+    <div class="subtitle">End this session on this device</div>
+  </div>
+  <span class="chevron">›</span>
+</div>
+<div class="setting-item danger-item" onclick="openModal('deleteModal')">
+  <div>
+    <div class="title">Delete account</div>
+    <div class="subtitle">Permanently remove your data</div>
+  </div>
+  <span class="chevron">›</span>
+</div>
+
+<p class="footer-note">Monkey Scout · Academic workspace<br>Settings sync when signed in</p>
+
 <div class="modal" id="appModal">
   <div class="modal-content">
-    <h3 style="margin-bottom:16px">App Settings</h3>
-
+    <h3>App preferences</h3>
     <div class="setting-row">
       <label>Theme</label>
-      <select id="themeSelect" class="input" style="width:140px;margin:0">
+      <select id="themeSelect" class="input" style="width:150px;margin:0">
         <option value="system">System</option>
         <option value="dark">Dark</option>
         <option value="light">Light</option>
       </select>
     </div>
-
     <div class="setting-row">
-      <label>Text Size</label>
-      <input type="range" id="fontSizeRange" min="12" max="20" value="16" style="width:140px">
-      <span id="fontSizeValue">16px</span>
+      <label>Text size</label>
+      <div style="display:flex;align-items:center;gap:10px">
+        <input type="range" id="fontSizeRange" min="12" max="20" value="16" style="width:110px">
+        <span id="fontSizeValue" style="font-size:13px;color:var(--muted);min-width:36px">16px</span>
+      </div>
     </div>
-
     <div class="setting-row">
-      <label>Notifications</label>
+      <label>Reduce motion</label>
       <label class="switch">
-        <input type="checkbox" id="notifToggle">
+        <input type="checkbox" id="reduceMotionToggle">
         <span class="slider"></span>
       </label>
     </div>
-
-    <button class="btn" onclick="saveAppSettings()">Save</button>
-    <button class="btn secondary" style="margin-top:10px" onclick="closeModal('appModal')">Cancel</button>
+    <button class="btn" onclick="saveAppSettings()">Save preferences</button>
+    <button class="btn secondary" onclick="closeModal('appModal')">Cancel</button>
   </div>
 </div>
 
-<!-- Password Change Modal -->
 <div class="modal" id="passwordModal">
   <div class="modal-content">
-    <h3 style="margin-bottom:16px">Change Password</h3>
+    <h3>Change password</h3>
     <div id="alertBox"></div>
-    <button class="btn secondary" style="margin-bottom:12px" onclick="sendPasswordCode()">Send Code to <span id="emailForCode"></span></button>
+    <button class="btn secondary" style="margin-bottom:14px" onclick="sendPasswordCode()">
+      Send code to <span id="emailForCode">your email</span>
+    </button>
     <div id="passwordForm" style="display:none">
-      <input class="input" id="codeInput" placeholder="Enter 6-digit code"/>
-      <input class="input" id="newPassInput" type="password" placeholder="New Password"/>
-      <button class="btn" onclick="changePassword()">Update Password</button>
+      <input class="input" id="codeInput" placeholder="6-digit verification code" autocomplete="one-time-code">
+      <input class="input" id="newPassInput" type="password" placeholder="New password (min 8 characters)" autocomplete="new-password">
+      <input class="input" id="confirmPassInput" type="password" placeholder="Confirm new password">
+      <button class="btn" onclick="changePassword()">Update password</button>
     </div>
-    <button class="btn" style="background:var(--danger);margin-top:10px" onclick="closeModal('passwordModal')">Cancel</button>
+    <button class="btn secondary" onclick="closeModal('passwordModal')">Close</button>
   </div>
 </div>
 
-  
+<div class="modal" id="emailModal">
+  <div class="modal-content">
+    <h3>Email preferences</h3>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.5">
+      Your verified email is used for login recovery and important account notices.
+    </p>
+    <input class="input" id="displayEmail" readonly style="opacity:0.9">
+    <div class="toggle-row" style="margin:0 0 12px;padding:12px;border-radius:10px;box-shadow:none">
+      <div class="label-wrap">
+        <div class="title" style="font-size:13px">Product updates</div>
+        <div class="subtitle">Occasional feature announcements</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="productEmailToggle" checked>
+        <span class="slider"></span>
+      </label>
+    </div>
+    <button class="btn" onclick="saveEmailPrefs()">Save</button>
+    <button class="btn secondary" onclick="closeModal('emailModal')">Cancel</button>
+  </div>
+</div>
+
+<div class="modal" id="privacyModal">
+  <div class="modal-content">
+    <h3>Privacy & consent</h3>
+    <div class="toggle-row" style="margin-bottom:10px;padding:12px;border-radius:10px;box-shadow:none">
+      <div class="label-wrap">
+        <div class="title" style="font-size:13px">Usage analytics</div>
+        <div class="subtitle">Help improve Monkey Scout</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="analyticsToggle" checked>
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div class="toggle-row" style="margin-bottom:14px;padding:12px;border-radius:10px;box-shadow:none">
+      <div class="label-wrap">
+        <div class="title" style="font-size:13px">Research improvement</div>
+        <div class="subtitle">Anonymous paper quality signals</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="researchToggle">
+        <span class="slider"></span>
+      </label>
+    </div>
+    <button class="btn" onclick="savePrivacy()">Save preferences</button>
+    <button class="btn secondary" onclick="closeModal('privacyModal')">Cancel</button>
+  </div>
+</div>
+
+<div class="modal" id="deleteModal">
+  <div class="modal-content">
+    <h3 style="color:var(--danger)">Delete account</h3>
+    <p style="font-size:13.5px;color:var(--muted);line-height:1.55;margin-bottom:16px">
+      This permanently deletes your profile, papers, and chat history. This action cannot be undone.
+    </p>
+    <input class="input" id="deleteConfirmInput" placeholder='Type DELETE to confirm'>
+    <button class="btn danger-btn" onclick="deleteAccount()">Delete my account</button>
+    <button class="btn secondary" onclick="closeModal('deleteModal')">Cancel</button>
+  </div>
+</div>
+
 <script>
-const API_URL = "https://term-paper-n4kl.onrender.com"; // CHANGE THIS
+const API_URL = "https://term-paper-n4kl.onrender.com";
 let currentUser = null;
-let appSettings = {theme: 'system', fontSize: 16, notifications: true};
+let appSettings = {
+  theme: "light",
+  fontSize: 16,
+  notifications: true,
+  autoSave: true,
+  reduceMotion: false,
+  productEmail: true,
+  analytics: true,
+  research: false
+};
 
 document.addEventListener("DOMContentLoaded", async () => {
-  loadAppSettings(); // load theme + font first
+  loadAppSettings();
   const userId = localStorage.getItem("user_id");
-  if (userId) { await loadProfile(userId); }
-  else { window.location.href = "setup-signin.html"; }
-})
+  if (userId) await loadProfile(userId);
+  else window.location.href = "setup-signin.html";
 
-// THEME + SETTINGS LOGIC
-function loadAppSettings(){
-  const saved = localStorage.getItem("app_settings");
-  if(saved) appSettings = JSON.parse(saved);
+  document.getElementById("notifToggleInline").addEventListener("change", (e) => {
+    appSettings.notifications = e.target.checked;
+    persistSettings();
+  });
+  document.getElementById("autoSaveToggle").addEventListener("change", (e) => {
+    appSettings.autoSave = e.target.checked;
+    persistSettings();
+  });
+});
 
-  document.getElementById("themeSelect").value = appSettings.theme;
+function loadAppSettings() {
+  try {
+    const saved = localStorage.getItem("app_settings");
+    if (saved) appSettings = { ...appSettings, ...JSON.parse(saved) };
+  } catch (_) {}
+
+  document.getElementById("themeSelect").value = appSettings.theme || "light";
   document.getElementById("fontSizeRange").value = appSettings.fontSize;
-  document.getElementById("fontSizeValue").innerText = appSettings.fontSize + 'px';
-  document.getElementById("notifToggle").checked = appSettings.notifications;
-  applyTheme();
-  document.documentElement.style.setProperty('--font-size', appSettings.fontSize + 'px');
+  document.getElementById("fontSizeValue").innerText = appSettings.fontSize + "px";
+  document.getElementById("notifToggleInline").checked = !!appSettings.notifications;
+  document.getElementById("autoSaveToggle").checked = appSettings.autoSave !== false;
+  document.getElementById("reduceMotionToggle").checked = !!appSettings.reduceMotion;
+  document.getElementById("productEmailToggle").checked = appSettings.productEmail !== false;
+  document.getElementById("analyticsToggle").checked = appSettings.analytics !== false;
+  document.getElementById("researchToggle").checked = !!appSettings.research;
+
+  document.documentElement.style.setProperty("--font-size", appSettings.fontSize + "px");
   updateSummary();
 }
 
-function saveAppSettings(){
-  appSettings.theme = document.getElementById("themeSelect").value;
-  appSettings.fontSize = document.getElementById("fontSizeRange").value;
-  appSettings.notifications = document.getElementById("notifToggle").checked;
+function persistSettings() {
   localStorage.setItem("app_settings", JSON.stringify(appSettings));
-  applyTheme();
-  document.documentElement.style.setProperty('--font-size', appSettings.fontSize + 'px');
-  updateSummary();
-  closeModal('appModal');
-}
-
-function applyTheme(){
-  if(appSettings.theme === 'system'){
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    document.documentElement.setAttribute('data-theme', prefersDark? 'dark' : 'light');
-  } else {
-    document.documentElement.setAttribute('data-theme', appSettings.theme);
+  const uid = localStorage.getItem("user_id");
+  if (uid) {
+    fetch(`${API_URL}/settings`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_id: uid,
+        theme: appSettings.theme,
+        font_size: appSettings.fontSize,
+        notifications: appSettings.notifications,
+        auto_save: appSettings.autoSave
+      })
+    }).catch(() => {});
   }
 }
 
-function updateSummary(){
+function saveAppSettings() {
+  appSettings.theme = document.getElementById("themeSelect").value;
+  appSettings.fontSize = Number(document.getElementById("fontSizeRange").value);
+  appSettings.reduceMotion = document.getElementById("reduceMotionToggle").checked;
+  persistSettings();
+  document.documentElement.style.setProperty("--font-size", appSettings.fontSize + "px");
+  updateSummary();
+  closeModal("appModal");
+}
+
+function updateSummary() {
   document.getElementById("appSettingSummary").innerText =
-    `Theme: ${appSettings.theme}, Text: ${appSettings.fontSize}px`;
+    `Theme: ${appSettings.theme} · Text: ${appSettings.fontSize}px`;
 }
 
-document.getElementById("fontSizeRange").oninput = (e)=>{
-  document.getElementById("fontSizeValue").innerText = e.target.value + 'px';
-}
+document.getElementById("fontSizeRange").oninput = (e) => {
+  document.getElementById("fontSizeValue").innerText = e.target.value + "px";
+};
 
-// PROFILE + API
 async function loadProfile(userId) {
-  const res = await fetch(`${API_URL}/me?user_id=${userId}`);
-  const data = await res.json();
-  if(res.ok){
-    currentUser = data.user;
-    document.getElementById("profileAvatar").childNodes[0].nodeValue = currentUser.username[0].toUpperCase();
-    document.getElementById("profileName").innerText = currentUser.username;
-    document.getElementById("profileEmail").innerText = currentUser.email;
-    document.getElementById("emailForCode").innerText = currentUser.email;
-  } else { logout(); }
+  try {
+    const res = await fetch(`${API_URL}/me?user_id=${userId}`);
+    const data = await res.json();
+    if (res.ok && data.user) {
+      currentUser = data.user;
+      const initial = (currentUser.username || "U")[0].toUpperCase();
+      document.getElementById("profileAvatar").childNodes[0].nodeValue = initial;
+      document.getElementById("profileName").innerText = currentUser.username || "User";
+      document.getElementById("profileEmail").innerText = currentUser.email || "";
+      document.getElementById("emailForCode").innerText = currentUser.email || "your email";
+      document.getElementById("displayEmail").value = currentUser.email || "";
+    } else {
+      logout();
+    }
+  } catch (_) {}
 }
 
-function toggleUpgrade(){
+function toggleUpgrade() {
   const plans = document.getElementById("upgradePlans");
   const arrow = document.getElementById("upgradeArrow");
-  plans.style.display = plans.style.display === "none"? "block" : "none";
-  arrow.innerText = plans.style.display === "none"? ">" : "v";
+  const hidden = plans.style.display === "none";
+  plans.style.display = hidden ? "block" : "none";
+  arrow.innerText = hidden ? "▾" : "▸";
 }
 
-function selectPlan(plan){
-  alert(`${plan} Plan selected. Connect to payment API here.`);
+function selectPlan(plan) {
+  alert(`${plan} plan selected.\n\nConnect your payment provider here to complete upgrade.`);
 }
 
-async function sendPasswordCode(){
-  const res=await fetch(`${API_URL}/request-reset`,{
-    method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({email:currentUser.email,purpose:"change_password"})
+async function sendPasswordCode() {
+  if (!currentUser?.email) return;
+  const res = await fetch(`${API_URL}/request-reset`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: currentUser.email, purpose: "change_password" })
   });
-  const data=await res.json();
-  showAlert(data.message||data.error,res.ok?"success":"error");
-  if(res.ok) document.getElementById("passwordForm").style.display="block";
+  const data = await res.json().catch(() => ({}));
+  showAlert(data.message || data.error || (res.ok ? "Code sent" : "Failed"), res.ok ? "success" : "error");
+  if (res.ok) document.getElementById("passwordForm").style.display = "block";
 }
 
-async function changePassword(){
-  const code=document.getElementById("codeInput").value;
-  const new_password=document.getElementById("newPassInput").value;
-  const res=await fetch(`${API_URL}/change-password`,{
-    method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({user_id:currentUser.id,code,new_password})
+async function changePassword() {
+  const code = document.getElementById("codeInput").value.trim();
+  const new_password = document.getElementById("newPassInput").value;
+  const confirm = document.getElementById("confirmPassInput").value;
+  if (!code || !new_password) {
+    showAlert("Enter the code and a new password", "error");
+    return;
+  }
+  if (new_password.length < 8) {
+    showAlert("Password must be at least 8 characters", "error");
+    return;
+  }
+  if (new_password !== confirm) {
+    showAlert("Passwords do not match", "error");
+    return;
+  }
+  let res = await fetch(`${API_URL}/change-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ user_id: currentUser.id, code, new_password })
   });
-  const data=await res.json();
-  showAlert(data.message||data.error,res.ok?"success":"error");
-  if(res.ok) setTimeout(()=>closeModal('passwordModal'),1500);
+  if (res.status === 404) {
+    res = await fetch(`${API_URL}/reset-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: currentUser.email, code, new_password })
+    });
+  }
+  const data = await res.json().catch(() => ({}));
+  showAlert(data.message || data.error || (res.ok ? "Updated" : "Failed"), res.ok ? "success" : "error");
+  if (res.ok) setTimeout(() => closeModal("passwordModal"), 1400);
 }
 
-function showAlert(msg,type){
-  document.getElementById("alertBox").innerHTML=`<div class="alert ${type}">${msg}</div>`;
-  setTimeout(()=>document.getElementById("alertBox").innerHTML="",3000);
+function showAlert(msg, type) {
+  document.getElementById("alertBox").innerHTML = `<div class="alert ${type}">${msg}</div>`;
+  setTimeout(() => { document.getElementById("alertBox").innerHTML = ""; }, 4000);
 }
-function openModal(id){ document.getElementById(id).classList.add("show"); }
-function closeModal(id){ document.getElementById(id).classList.remove("show"); }
-function logout(){localStorage.removeItem("user_id");window.location.href="setup-signin.html"}
 
-// Listen for system theme change
-window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+function saveEmailPrefs() {
+  appSettings.productEmail = document.getElementById("productEmailToggle").checked;
+  persistSettings();
+  closeModal("emailModal");
+}
+
+function savePrivacy() {
+  appSettings.analytics = document.getElementById("analyticsToggle").checked;
+  appSettings.research = document.getElementById("researchToggle").checked;
+  persistSettings();
+  closeModal("privacyModal");
+}
+
+function exportData() {
+  const payload = {
+    exported_at: new Date().toISOString(),
+    user: currentUser,
+    settings: appSettings,
+    note: "Papers and chat history can be exported from the dashboard Recent Papers list when available."
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `monkey-scout-export-${Date.now()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function confirmLogout() {
+  if (confirm("Sign out of Monkey Scout on this device?")) logout();
+}
+
+async function deleteAccount() {
+  const confirmText = document.getElementById("deleteConfirmInput").value.trim();
+  if (confirmText !== "DELETE") {
+    alert("Type DELETE in capital letters to confirm.");
+    return;
+  }
+  alert("Account deletion is not yet enabled on the server. Contact support if you need your data removed.");
+  closeModal("deleteModal");
+}
+
+function openModal(id) { document.getElementById(id).classList.add("show"); }
+function closeModal(id) { document.getElementById(id).classList.remove("show"); }
+function logout() {
+  localStorage.removeItem("user_id");
+  window.location.href = "setup-signin.html";
+}
 </script>
-
 </body>
 </html>
