@@ -269,6 +269,11 @@ svg { display: block; }
 }
 .a4-content thead th { background: #f1f5f9; font-weight: 700; }
 .page-number {
+.a4-page.toc-page .a4-content { text-align: left; }
+.toc-row { display: flex; align-items: baseline; gap: 12px; width: 100%; margin: 0 0 6px; line-height: 1.5; }
+.toc-label { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.toc-page { flex: 0 0 40px; margin-left: auto; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+
   position: absolute;
   bottom: 16px;
   right: 20px;
@@ -837,6 +842,65 @@ svg { display: block; }
       : `${words} words · ${pages} page${pages === 1 ? "" : "s"}`;
   }
 
+
+  /* ---------- TOC fixer (glued page numbers) ---------- */
+  function expandJammedTocInEditor(text) {
+    if (!text) return "";
+    const lines = String(text || "").split(/\n/);
+    const out = [];
+    for (let line of lines) {
+      const t = line.trim();
+      if (!t) { out.push(""); continue; }
+      // Detect glued roman or arabic at end (no space before the number)
+      const glued = t.match(/^(.+?)([ivxlcdm]+|\d+)$/i);
+      if (glued && glued[1].length > 4 && /[a-zA-Z]$/.test(glued[1]) && !/\s/.test(t.slice(-Math.min(5, t.length)))) {
+        const label = glued[1].replace(/[\s.]+$/, "").trim();
+        const page = glued[2];
+        out.push(label + "  ........  " + page);
+        continue;
+      }
+      out.push(t);
+    }
+    return out.join("\n");
+  }
+
+  function fixTocPages() {
+    if (!pagesRoot) return;
+    pagesRoot.querySelectorAll(".a4-page").forEach(page => {
+      const content = page.querySelector(".a4-content");
+      if (!content) return;
+      const text = (content.innerText || "").trim();
+      if (!/TABLE OF CONTENTS|table of contents|Cover Page|Chapter\s*1/i.test(text)) return;
+
+      page.classList.add("toc-page");
+
+      const expanded = expandJammedTocInEditor(text);
+      const lines = expanded.split(/\n/).map(l => l.trim()).filter(Boolean);
+      if (lines.length < 3) return;
+
+      const rows = [];
+      lines.forEach(line => {
+        if (/^table of contents$/i.test(line)) {
+          rows.push('<h2 style="font-weight:800;text-align:left;margin:0 0 18px">TABLE OF CONTENTS</h2>');
+          return;
+        }
+        let m = line.match(/^(.+?)\s*(?:\.{2,}|…+|\s{2,})\s*([ivxlcdm]+|\d+)\s*$/i);
+        if (!m) m = line.match(/^(.+?)\s+([ivxlcdm]+|\d+)\s*$/i);
+        if (m && m[1].length > 2) {
+          const label = m[1].replace(/[\s.]+$/, "").trim();
+          const pageNum = m[2];
+          rows.push('<div class="toc-row"><span class="toc-label">' + label + '</span><span class="toc-page">' + pageNum + '</span></div>');
+        } else {
+          rows.push('<div class="toc-row"><span class="toc-label">' + line + '</span></div>');
+        }
+      });
+
+      if (rows.length > 2) {
+        content.innerHTML = rows.join("");
+      }
+    });
+  }
+
   /* ---------- Editing ---------- */
   function bindEditorEvents() {
     pagesRoot.querySelectorAll(".a4-content").forEach(content => {
@@ -1346,6 +1410,13 @@ svg { display: block; }
   });
 
   // Boot
+  fixTocPages();
+
+  // Fix missing spaces after numbered headings (1.1Definition → 1.1 Definition)
+  pagesRoot.querySelectorAll(".a4-content").forEach(c => {
+    c.innerHTML = c.innerHTML.replace(/(\d+(?:\.\d+)+)([A-Z])/g, "$1 $2");
+  });
+
   loadDocument();
 })();
 </script>
