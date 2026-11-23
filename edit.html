@@ -1,5 +1,40 @@
 <!doctype html>
 <html lang="en">
+<script>
+/* GitHub Pages does not support .htaccess — hide .html in the address bar */
+(function () {
+  try {
+    var path = location.pathname || "";
+    if (/\.html$/i.test(path) && path.toLowerCase() !== "/index.html") {
+      var clean = path.replace(/\.html$/i, "");
+      if (clean.length > 1 && clean.endsWith("/")) clean = clean.slice(0, -1);
+      history.replaceState(null, "", clean + location.search + location.hash);
+    }
+  } catch (e) {}
+})();
+
+/* Collapse progressive partial lines in References (Adelson, / Adelson, B. / ... ) */
+function collapseProgressiveReferences(html) {
+  if (!html || !/Adelson|references?/i.test(html)) return html;
+  const tmp = document.createElement("div");
+  tmp.innerHTML = html;
+  const texts = [...tmp.querySelectorAll("p, div, li")].map(el => (el.textContent || "").trim()).filter(Boolean);
+  if (texts.length < 4) return html;
+
+  // If consecutive lines are strict prefixes of later ones, keep only the longest complete ones
+  const kept = [];
+  for (let i = 0; i < texts.length; i++) {
+    const cur = texts[i];
+    const isPrefix = texts.slice(i + 1).some(later => later.startsWith(cur) && later.length > cur.length + 5);
+    if (!isPrefix) kept.push(cur);
+  }
+  if (kept.length === texts.length) return html;
+
+  // Rebuild simple paragraphs
+  return kept.map(t => `<p>${t.replace(/</g, "<")}</p>`).join("");
+}
+
+</script>
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
