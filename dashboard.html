@@ -15,6 +15,28 @@
     }
   } catch (e) {}
 })();
+
+/* Collapse progressive partial lines in References (Adelson, / Adelson, B. / ... ) */
+function collapseProgressiveReferences(html) {
+  if (!html || !/Adelson|references?/i.test(html)) return html;
+  const tmp = document.createElement("div");
+  tmp.innerHTML = html;
+  const texts = [...tmp.querySelectorAll("p, div, li")].map(el => (el.textContent || "").trim()).filter(Boolean);
+  if (texts.length < 4) return html;
+
+  // If consecutive lines are strict prefixes of later ones, keep only the longest complete ones
+  const kept = [];
+  for (let i = 0; i < texts.length; i++) {
+    const cur = texts[i];
+    const isPrefix = texts.slice(i + 1).some(later => later.startsWith(cur) && later.length > cur.length + 5);
+    if (!isPrefix) kept.push(cur);
+  }
+  if (kept.length === texts.length) return html;
+
+  // Rebuild simple paragraphs
+  return kept.map(t => `<p>${t.replace(/</g, "<")}</p>`).join("");
+}
+
 </script>
 
 <title>Monkey Scout | Term Paper Generation & Academic Workspace</title>
@@ -5548,9 +5570,31 @@ function renderMergedPaper(value){
       <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
       Download as PDF
     </button>
+    <button type="button" class="merged-download-btn" id="editMergedPaperBtn" title="Edit complete paper">
+      ✎ Edit Paper
+    </button>
   `;
   wrap.appendChild(bar);
   document.getElementById("chatArea").appendChild(wrap);
+  document.getElementById("editMergedPaperBtn")?.addEventListener("click", () => {
+    try {
+      localStorage.setItem("monkeyScoutEditorDoc", pages.innerHTML);
+      localStorage.setItem("monkeyScoutEditorReturn", "dashboard");
+      // Live DB context for edit.html → POST /pull-next action=edit_merged
+      const uid = localStorage.getItem("user_id") || "";
+      if (uid) localStorage.setItem("monkeyScoutEditorUserId", uid);
+      if (activePaperProjectId) localStorage.setItem("monkeyScoutEditorProjectId", String(activePaperProjectId));
+      localStorage.setItem("monkeyScoutApiUrl", API_URL);
+    } catch (_) {}
+    window.open("edit.html", "_blank");
+  });
+  // Receive edits saved from the editor and refresh the merged paper in-place.
+  window.addEventListener("storage", (event) => {
+    if (event.key !== "monkeyScoutEditedDoc" || !event.newValue) return;
+    const root = document.getElementById("mergedPagesRoot");
+    if (root) root.innerHTML = event.newValue;
+    try { localStorage.setItem("monkeyScoutEditorDoc", event.newValue); } catch (_) {}
+  });
   document.getElementById("downloadMergedPdfBtn")?.addEventListener("click", async () => {
     const includeMonkeyScout = await chooseMonkeyScoutFooter();
     if (includeMonkeyScout !== null) downloadMergedAsPDF(includeMonkeyScout);
