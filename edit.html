@@ -699,6 +699,7 @@ svg { display: block; }
   const LS_API = "monkeyScoutApiUrl";
   const LS_DIRTY = "monkeyScoutEditorDirty";
   const RICH_MARKER = "[[TEMPAPER_RICH_HTML]]";
+  const PAGES_MARKER = "[[MERGED_PAGES_HTML]]";
 
   const pagesRoot = document.getElementById("pagesRoot");
   const workspace = document.getElementById("workspace");
@@ -844,7 +845,13 @@ svg { display: block; }
   }
 
   function serializeRichForServer() {
-    // Flatten page contents into one rich HTML blob for backend storage
+    // Prefer full A4 page snapshot so figures, captions, TOC rows and layout survive
+    // round-trip through /pull-next action=edit_merged (backend stores [[MERGED_PAGES_HTML]]).
+    const pagesHtml = serializePages();
+    if (pagesHtml && /a4-page|tp-figure|toc-row/i.test(pagesHtml)) {
+      return PAGES_MARKER + pagesHtml;
+    }
+    // Fallback: flatten page contents into one rich HTML blob
     const parts = [];
     pagesRoot.querySelectorAll(".a4-content").forEach(c => {
       const clone = c.cloneNode(true);
@@ -878,7 +885,7 @@ svg { display: block; }
   }
 
 
-  /* ---------- TOC fixer (glued page numbers) ---------- */
+  /* ---------- TOC fixer (glued page numbers like "Declarationii", "Chapter 1. Intro1") ---------- */
   function expandJammedTocInEditor(text) {
     if (!text) return "";
     const lines = String(text || "").split(/\n/);
@@ -886,17 +893,42 @@ svg { display: block; }
     for (let line of lines) {
       const t = line.trim();
       if (!t) { out.push(""); continue; }
-      // Detect glued roman or arabic at end (no space before the number)
-      const glued = t.match(/^(.+?)([ivxlcdm]+|\d+)$/i);
-      if (glued && glued[1].length > 4 && /[a-zA-Z]$/.test(glued[1]) && !/\s/.test(t.slice(-Math.min(5, t.length)))) {
-        const label = glued[1].replace(/[\s.]+$/, "").trim();
-        const page = glued[2];
-        out.push(label + "  ........  " + page);
+      // Already has leader dots
+      if (/\.{2,}|…/.test(t)) { out.push(t); continue; }
+      // Space-separated trailing page number
+      let m = t.match(/^(.+?)\s+([ivxlcdm]+|\d+)\s*$/i);
+      if (m && m[1].length > 2 && !/^\d+(?:\.\d+)*$/.test(m[1])) {
+        out.push(m[1].replace(/[\s.]+$/, "").trim() + "  ........  " + m[2]);
         continue;
+      }
+      // Glued arabic at end: "Chapter 1. Introduction to Flotation1"
+      m = t.match(/^(.+[A-Za-z\)\]])(\d{1,3})$/);
+      if (m && m[1].length > 4) {
+        out.push(m[1].replace(/[\s.]+$/, "").trim() + "  ........  " + m[2]);
+        continue;
+      }
+      // Glued roman at end: "Declarationii", "Abstractv", "Acknowledgementsiv"
+      m = t.match(/^(.+[A-Za-z])((?:x{0,3})(?:ix|iv|v?i{0,3}))$/i);
+      if (m && m[1].length > 4 && m[2].length >= 1) {
+        // Avoid splitting words that end in normal letters that look like roman (e.g. "Analysis")
+        const rom = m[2].toLowerCase();
+        const looksRoman = /^(i|ii|iii|iv|v|vi|vii|viii|ix|x|xi|xii|xiii|xiv|xv|xvi|xvii|xviii|xix|xx)$/.test(rom);
+        if (looksRoman) {
+          out.push(m[1].replace(/[\s.]+$/, "").trim() + "  ........  " + rom);
+          continue;
+        }
       }
       out.push(t);
     }
     return out.join("\n");
+  }
+
+  function escapeTocHtml(s) {
+    return String(s || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
   }
 
   function fixTocPages() {
@@ -904,8 +936,13 @@ svg { display: block; }
     pagesRoot.querySelectorAll(".a4-page").forEach(page => {
       const content = page.querySelector(".a4-content");
       if (!content) return;
+      // Skip if already properly structured with toc-row
+      if (content.querySelectorAll(".toc-row").length >= 3) {
+        page.classList.add("toc-page");
+        return;
+      }
       const text = (content.innerText || "").trim();
-      if (!/TABLE OF CONTENTS|table of contents|Cover Page|Chapter\s*1/i.test(text)) return;
+      if (!/TABLE OF CONTENTS|table of contents|Cover Page|Chapter\s*1|List of (Figures|Tables)/i.test(text)) return;
 
       page.classList.add("toc-page");
 
@@ -919,14 +956,18 @@ svg { display: block; }
           rows.push('<h2 style="font-weight:800;text-align:left;margin:0 0 18px">TABLE OF CONTENTS</h2>');
           return;
         }
-        let m = line.match(/^(.+?)\s*(?:\.{2,}|…+|\s{2,})\s*([ivxlcdm]+|\d+)\s*$/i);
+        let m = line.match(/^(.+?)\s*(?:\.{2,}|…+)\s*([ivxlcdm]+|\d+)\s*$/i);
+        if (!m) m = line.match(/^(.+?)\s{2,}([ivxlcdm]+|\d+)\s*$/i);
         if (!m) m = line.match(/^(.+?)\s+([ivxlcdm]+|\d+)\s*$/i);
         if (m && m[1].length > 2) {
           const label = m[1].replace(/[\s.]+$/, "").trim();
           const pageNum = m[2];
-          rows.push('<div class="toc-row"><span class="toc-label">' + label + '</span><span class="toc-page">' + pageNum + '</span></div>');
+          rows.push(
+            '<div class="toc-row"><span class="toc-label">' + escapeTocHtml(label) +
+            '</span><span class="toc-page">' + escapeTocHtml(pageNum) + '</span></div>'
+          );
         } else {
-          rows.push('<div class="toc-row"><span class="toc-label">' + line + '</span></div>');
+          rows.push('<div class="toc-row"><span class="toc-label">' + escapeTocHtml(line) + '</span></div>');
         }
       });
 
@@ -1444,15 +1485,20 @@ svg { display: block; }
     e.returnValue = "";
   });
 
-  // Boot
-  fixTocPages();
-
-  // Fix missing spaces after numbered headings (1.1Definition → 1.1 Definition)
-  pagesRoot.querySelectorAll(".a4-content").forEach(c => {
-    c.innerHTML = c.innerHTML.replace(/(\d+(?:\.\d+)+)([A-Z])/g, "$1 $2");
-  });
-
+  // Boot: load first, then fix TOC / jammed headings on the real content
   loadDocument();
+  fixTocPages();
+  pagesRoot.querySelectorAll(".a4-content").forEach(c => {
+    // Fix missing spaces after numbered headings (1.1Definition → 1.1 Definition)
+    if (!c.querySelector(".toc-row")) {
+      c.innerHTML = c.innerHTML.replace(/(\d+(?:\.\d+)+)([A-Z])/g, "$1 $2");
+    }
+  });
+  // Re-serialize baseline after structural TOC fix so Save is not forced dirty
+  try {
+    originalHTML = serializePages();
+    markDirty(false);
+  } catch (_) {}
 })();
 </script>
 </body>
