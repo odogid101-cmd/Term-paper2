@@ -5593,13 +5593,33 @@ async function mergeCurrentPaper(){
 }
 
 function renderMergedPaper(value){
-  // Reuse the saved section cards as the source of truth: do not flatten the
-  // paper into one HTML stream and paginate it again.
+  // Prefer an editor-saved full page snapshot (includes figures/layout from edit.html).
+  // Fall back to cloning live section cards when no snapshot exists yet.
   const old=document.getElementById("mergedPaperOutput");if(old)old.remove();
   const wrap=document.createElement("div");wrap.className="chat-msg";wrap.id="mergedPaperOutput";wrap.dataset.mergedContent=String(value||"");
   const title=document.createElement("div");title.className="merged-paper-heading";
   title.textContent="Complete Merged Term Paper";wrap.appendChild(title);
   const pages=document.createElement("div");pages.className="merged-pages";pages.id="mergedPagesRoot";
+  const rawMerged = String(value || "");
+  const PAGES_MARKER = "[[MERGED_PAGES_HTML]]";
+  const RICH_MARKER = "[[TEMPAPER_RICH_HTML]]";
+
+  // 1) Full A4 snapshot saved by the paper editor (figures + TOC rows preserved)
+  if (rawMerged.startsWith(PAGES_MARKER)) {
+    const tmp = document.createElement("div");
+    tmp.innerHTML = rawMerged.slice(PAGES_MARKER.length);
+    const snapPages = [...tmp.querySelectorAll(".a4-page")];
+    if (snapPages.length) {
+      snapPages.forEach(p => {
+        p.classList.add("merged-page");
+        p.querySelectorAll(".tp-figure").forEach(f => { delete f.dataset.bound; f.classList.remove("selected"); });
+        pages.appendChild(p);
+      });
+    }
+  }
+
+  // 2) Otherwise rebuild from section cards currently in the workspace
+  if (!pages.children.length) {
   const cards=[...document.querySelectorAll('#chatArea .chat-msg[data-kind]')]
     .filter(card=>card.dataset.kind!=="toc" && card.dataset.kind!=="status" && card.querySelector(".pages-container"));
   let arabicPage=1,romanPage=1;
@@ -5634,15 +5654,28 @@ function renderMergedPaper(value){
       if(firstBody)pages.insertBefore(page,firstBody);else pages.appendChild(page);
     });
   }
-  if(!pages.children.length){
-    // Legacy fallback for merged records whose sections are not loaded in the view.
-    const marker="[[TEMPAPER_RICH_HTML]]",raw=String(value||"");
-    const html=raw.startsWith(marker)?raw.slice(marker.length):markdownToHTML(cleanPaperText(raw));
-    const fallback=document.createElement("div");
-    fallback.innerHTML=createA4Pages(html,html.replace(/<[^>]*>/g," ").split(/\s+/).filter(Boolean).length,{kind:"normal",startPage:1});
-    fallback.querySelectorAll(".document-stats").forEach(n=>n.remove());
-    fallback.querySelectorAll(".pages-container > .a4-page").forEach(n=>pages.appendChild(n));
   }
+
+  // 3) Legacy fallbacks: rich HTML blob or plain markdown
+  if(!pages.children.length){
+    let html = rawMerged;
+    if (html.startsWith(RICH_MARKER)) html = html.slice(RICH_MARKER.length);
+    else if (!/</.test(html)) html = markdownToHTML(cleanPaperText(html));
+    // If the rich blob already contains full a4 pages, use them directly
+    const tmp2 = document.createElement("div");
+    tmp2.innerHTML = html;
+    const embedded = [...tmp2.querySelectorAll(".a4-page")];
+    if (embedded.length) {
+      embedded.forEach(p => { p.classList.add("merged-page"); pages.appendChild(p); });
+    } else {
+      const fallback=document.createElement("div");
+      fallback.innerHTML=createA4Pages(html,html.replace(/<[^>]*>/g," ").split(/\s+/).filter(Boolean).length,{kind:"normal",startPage:1});
+      fallback.querySelectorAll(".document-stats").forEach(n=>n.remove());
+      fallback.querySelectorAll(".pages-container > .a4-page").forEach(n=>pages.appendChild(n));
+    }
+  }
+  // Re-bind figure handles on the merged view
+  try { bindFigureInteractions(pages); } catch (_) {}
   wrap.appendChild(pages);
   const note=document.createElement("div");note.className="workflow-merged-note";
   note.textContent="Merged document. Inline Groq refinement is disabled. Individual section edits remain saved through the existing backend.";
@@ -5680,10 +5713,19 @@ function renderMergedPaper(value){
     window.open("edit.html", "_blank");
   });
   // Receive edits saved from the editor and refresh the merged paper in-place.
+  // storage events fire across tabs/windows on the same origin.
   window.addEventListener("storage", (event) => {
     if (event.key !== "monkeyScoutEditedDoc" || !event.newValue) return;
     const root = document.getElementById("mergedPagesRoot");
-    if (root) root.innerHTML = event.newValue;
+    const output = document.getElementById("mergedPaperOutput");
+    if (root) {
+      root.innerHTML = event.newValue;
+      try { bindFigureInteractions(root); } catch (_) {}
+    }
+    // Keep server-shaped snapshot so refresh/reopen restores figures
+    if (output) {
+      output.dataset.mergedContent = "[[MERGED_PAGES_HTML]]" + event.newValue;
+    }
     try { localStorage.setItem("monkeyScoutEditorDoc", event.newValue); } catch (_) {}
   });
   document.getElementById("downloadMergedPdfBtn")?.addEventListener("click", async () => {
