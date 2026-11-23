@@ -91,6 +91,7 @@ body {
   background-attachment: fixed;
   color: var(--text);
   width: 100vw;
+  min-width: 1280px; /* lock desktop width — scale script fits it on phone */
   height: 100vh;
   height: 100dvh;
   overflow: hidden;
@@ -1079,36 +1080,20 @@ svg { display: block; }
   stroke: currentColor; fill: none; stroke-width: 2;
 }
 
-/* Mobile view matches desktop layout: sidebar stays visible, paper keeps full academic padding.
-   On very narrow screens the workspace scrolls horizontally so the A4 pages stay true to size. */
 @media (max-width: 900px) {
-  body { overflow-x: auto; }
-  .sidebar {
-    transform: none;
-    width: 220px;
-  }
-  .main {
-    margin-left: 220px;
-    width: calc(100% - 220px);
-    min-width: 640px;
-  }
-  .nav-toggle { display: none; }
-  .topbar { padding: 0 20px; }
-  .chat-area { padding: 20px; }
-  .a4-page { padding: 56px 48px; min-height: 900px; }
-  .input-container { padding: 14px 20px 20px; }
-  .ai-chat-window {
-    width: min(86vw, 380px);
-    height: 500px;
-    right: 14px;
-    bottom: 120px;
-  }
+  /* Force desktop layout — no responsive changes. Scale script handles fitting. */
+  .sidebar { transform: none !important; }
+  .main { width: calc(100% - var(--sidebar-width)) !important; margin-left: var(--sidebar-width) !important; }
+  .nav-toggle { display: none !important; }
+  .topbar { padding: 0 26px !important; }
+  .chat-area { padding: 28px 24px 30px !important; }
+  .a4-page { padding: 70px 80px !important; min-height: 1056px !important; }
+  .input-container { padding: 16px 24px 24px !important; }
 }
 
 @media (max-width: 520px) {
-  .topbar .heading { font-size: 14px; }
-  .welcome-placeholder { padding: 22px 18px; }
-  .input-hint { text-align: left; padding-right: 0; }
+  /* Keep desktop styles */
+  .topbar .heading { font-size: 15px !important; }
 }
 
 @media print {
@@ -2096,7 +2081,7 @@ body { background-color: var(--bg); color: var(--text); }
 
   <div class="input-container">
     <div class="input-bar">
-      <textarea class="input" id="promptInput" rows="1" placeholder="Write a research paper outline on..." autocomplete="off" spellcheck="false" autocorrect="off" autocapitalize="off"></textarea>
+      <textarea class="input" id="promptInput" rows="1" placeholder="Write a research paper outline on..."></textarea>
       <div class="action-buttons">
         <button class="btn-icon" id="micBtn" aria-label="Voice Input">
           <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/></svg>
@@ -2221,6 +2206,11 @@ function cleanPaperText(text){
     .replace(/\b((?:Fig\.?|Figure)\s*\d+(?:\.\d+)*)\s+\1\b/gi, '$1')
     .replace(/\n{3,}/g,'\n\n')
     .trim();
+
+  // Collapse progressive prefix lines (e.g. "Adopt" / "Adopt a" / "Adopt a staged" ...)
+  // that appear when streaming output is accidentally stored as separate lines.
+  t = collapseProgressiveLines(t);
+
   const lines = t.split(/\n/);
   const fixed = [];
   let i = 0;
@@ -2270,6 +2260,51 @@ function cleanPaperText(text){
     i++;
   }
   return fixed.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+/** Collapse sequences of lines where each is a prefix of the next (streaming artifacts). */
+function collapseProgressiveLines(text) {
+  if (!text) return text;
+  const lines = String(text).split(/\n/);
+  const out = [];
+  let i = 0;
+  while (i < lines.length) {
+    const raw = lines[i];
+    const cur = raw.trim();
+    if (!cur || cur.length < 8) {
+      out.push(raw);
+      i++;
+      continue;
+    }
+    let best = cur;
+    let bestRaw = raw;
+    let j = i + 1;
+    let extended = false;
+    while (j < lines.length) {
+      const nextRaw = lines[j];
+      const next = nextRaw.trim();
+      if (!next) break;
+      // next is a longer version of best, or best is a longer version of next
+      if (next.startsWith(best) || best.startsWith(next)) {
+        if (next.length > best.length) {
+          best = next;
+          bestRaw = nextRaw;
+        }
+        extended = true;
+        j++;
+      } else {
+        break;
+      }
+    }
+    if (extended) {
+      out.push(bestRaw);
+      i = j;
+    } else {
+      out.push(raw);
+      i++;
+    }
+  }
+  return out.join("\n");
 }
 
 // Improved markdown -> HTML
@@ -7404,6 +7439,43 @@ if (window.visualViewport) {
 }
 
 window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
+
+// Lock desktop layout and scale the whole canvas to fit the phone width.
+// No responsive reflow — it always looks exactly like desktop, just smaller.
+(function fitDesktopOnMobile() {
+  const DESKTOP_WIDTH = 1280;
+  function applyScale() {
+    const vw = Math.min(window.innerWidth, document.documentElement.clientWidth || window.innerWidth);
+    const html = document.documentElement;
+    const body = document.body;
+    if (vw >= DESKTOP_WIDTH - 20) {
+      html.style.transform = "";
+      html.style.width = "";
+      html.style.height = "";
+      html.style.transformOrigin = "";
+      html.style.overflow = "";
+      body.style.width = "";
+      body.style.minHeight = "";
+      body.style.overflow = "";
+      return;
+    }
+    const scale = vw / DESKTOP_WIDTH;
+    html.style.transformOrigin = "top left";
+    html.style.transform = `scale(${scale})`;
+    html.style.width = DESKTOP_WIDTH + "px";
+    html.style.height = "auto";
+    html.style.overflow = "hidden";
+    body.style.width = DESKTOP_WIDTH + "px";
+    body.style.minHeight = (window.innerHeight / scale) + "px";
+    body.style.overflowX = "hidden";
+    body.style.overflowY = "auto";
+  }
+  applyScale();
+  window.addEventListener("resize", applyScale);
+  window.addEventListener("orientationchange", applyScale);
+  // Re-apply after fonts/images load
+  window.addEventListener("load", applyScale);
+})();
 </script>
 </body>
 </html>
