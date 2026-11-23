@@ -541,18 +541,6 @@ svg { display: block; }
   margin-bottom: 10px;
 }
 
-@media (max-width: 720px) {
-  .a4-page {
-    min-height: auto;
-    padding: 28px 16px 48px;
-    font-size: 14px;
-  }
-  .a4-content { min-height: 420px; }
-  .a4-content h1 { font-size: 20px; }
-  .top-title { display: none; }
-  .brand span { display: none; }
-  .chip-btn { padding: 0 10px; }
-}
 @media print {
   .topbar, .toolbar, .status-bar, .image-panel-backdrop { display: none !important; }
   .workspace { padding: 0; overflow: visible; background: #fff; }
@@ -1225,7 +1213,14 @@ svg { display: block; }
       bindPlaceholders(pagesRoot);
       markDirty(true);
       updateWordCount();
-      imageStatus.textContent = `Inserted as ${label}`;
+      // Immediately persist to localStorage so dashboard and other tabs/devices (via later sync) see the image
+      try {
+        const htmlNow = serializePages();
+        localStorage.setItem(LS_EDITED, htmlNow);
+        localStorage.setItem(LS_DOC, htmlNow);
+        localStorage.setItem("monkeyScoutEditorSavedAt", String(Date.now()));
+      } catch (_) {}
+      imageStatus.textContent = `Inserted as ${label} — saved locally`;
       imageStatus.className = "status-line success";
       setTimeout(closeImagePanel, 700);
     } catch (err) {
