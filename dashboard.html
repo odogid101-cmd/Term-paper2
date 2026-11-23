@@ -2306,6 +2306,8 @@ function cleanPaperText(text){
     .replace(/\\[a-zA-Z]+/g, '')
     .replace(/^\s*\*\*\s*([0-9A-Za-z\.\-\,\s\(\)\"\'\’\“]+?)\s*\*\*\s*$/gm, '### $1')
     .replace(/^\s*\*\*\s*(.+?)\s*\*\*\s*$/gm, '### $1')
+    // Collapse runaway markdown heading markers (##### / ###### → ###)
+    .replace(/^\s*#{4,}\s+/gm, '### ')
     .replace(/\b((?:Fig\.?|Figure)\s*\d+(?:\.\d+)*)\s+\1\b/gi, '$1')
     .replace(/\n{3,}/g,'\n\n')
     .trim();
@@ -5228,6 +5230,50 @@ function repairPipeTablesInHTML(html){
   return tmp.innerHTML;
 }
 
+/** Turn leftover literal markdown hashes inside HTML into real heading tags. */
+function convertHashHeadingsInHTML(html) {
+  if (!html || !/#{1,6}\s+/.test(html)) return html;
+  const tmp = document.createElement("div");
+  tmp.innerHTML = html;
+  tmp.querySelectorAll("p, div, li, span").forEach(el => {
+    if (el.querySelector("h1,h2,h3,img,table,.tp-figure")) return;
+    const text = (el.textContent || "").trim();
+    const m = text.match(/^(#{1,6})\s+(.+)$/);
+    if (!m) return;
+    // Only convert when the whole block is essentially the heading line
+    if (text.length > m[0].length + 8 && text.includes("\n")) {
+      // Multi-line: first line heading, rest paragraphs
+      const lines = text.split(/\n/).map(s => s.trim()).filter(Boolean);
+      const hm = lines[0].match(/^(#{1,6})\s+(.+)$/);
+      if (!hm) return;
+      const level = Math.min(3, hm[1].length);
+      const frag = document.createDocumentFragment();
+      const h = document.createElement("h" + level);
+      h.textContent = hm[2].trim();
+      frag.appendChild(h);
+      lines.slice(1).forEach(line => {
+        const pm = line.match(/^(#{1,6})\s+(.+)$/);
+        if (pm) {
+          const hh = document.createElement("h" + Math.min(3, pm[1].length));
+          hh.textContent = pm[2].trim();
+          frag.appendChild(hh);
+        } else {
+          const p = document.createElement("p");
+          p.textContent = line;
+          frag.appendChild(p);
+        }
+      });
+      el.replaceWith(frag);
+      return;
+    }
+    const level = Math.min(3, m[1].length);
+    const h = document.createElement("h" + level);
+    h.textContent = m[2].trim();
+    el.replaceWith(h);
+  });
+  return tmp.innerHTML;
+}
+
 function workflowContentHTML(value, opts={}){
   const marker="[[TEMPAPER_RICH_HTML]]";
   const raw=String(value||"");
@@ -5243,6 +5289,8 @@ function workflowContentHTML(value, opts={}){
   } else {
     html = markdownToHTML(cleanPaperText(raw));
   }
+  // Strip visible ##### / ### artifacts that leaked into rich HTML
+  html = convertHashHeadingsInHTML(html);
   // Collapse progressive / partial citation lines in References sections
   const titleHint = String(opts.title || "");
   const kindHint = String(opts.kind || "");
@@ -5712,22 +5760,42 @@ function renderMergedPaper(value){
     } catch (_) {}
     window.open("edit.html", "_blank");
   });
-  // Receive edits saved from the editor and refresh the merged paper in-place.
-  // storage events fire across tabs/windows on the same origin.
-  window.addEventListener("storage", (event) => {
-    if (event.key !== "monkeyScoutEditedDoc" || !event.newValue) return;
+  // Apply HTML coming back from the paper editor (images, TOC fixes, heading cleanup)
+  function applyEditorSnapshot(html) {
+    if (!html) return;
     const root = document.getElementById("mergedPagesRoot");
     const output = document.getElementById("mergedPaperOutput");
     if (root) {
-      root.innerHTML = event.newValue;
+      root.innerHTML = html;
       try { bindFigureInteractions(root); } catch (_) {}
     }
-    // Keep server-shaped snapshot so refresh/reopen restores figures
     if (output) {
-      output.dataset.mergedContent = "[[MERGED_PAGES_HTML]]" + event.newValue;
+      output.dataset.mergedContent = "[[MERGED_PAGES_HTML]]" + html;
     }
-    try { localStorage.setItem("monkeyScoutEditorDoc", event.newValue); } catch (_) {}
+    try { localStorage.setItem("monkeyScoutEditorDoc", html); } catch (_) {}
+  }
+  // storage events fire across tabs/windows on the same origin.
+  window.addEventListener("storage", (event) => {
+    if (event.key !== "monkeyScoutEditedDoc" || !event.newValue) return;
+    applyEditorSnapshot(event.newValue);
   });
+  // postMessage from edit.html (opener) — updates dashboard without refresh
+  window.addEventListener("message", (event) => {
+    const data = event && event.data;
+    if (!data || data.type !== "monkeyScoutEditorSaved" || !data.html) return;
+    applyEditorSnapshot(data.html);
+  });
+  // BroadcastChannel fallback
+  try {
+    if (typeof BroadcastChannel !== "undefined") {
+      const bc = new BroadcastChannel("monkeyScoutEditor");
+      bc.onmessage = (event) => {
+        const data = event && event.data;
+        if (!data || data.type !== "monkeyScoutEditorSaved" || !data.html) return;
+        applyEditorSnapshot(data.html);
+      };
+    }
+  } catch (_) {}
   document.getElementById("downloadMergedPdfBtn")?.addEventListener("click", async () => {
     const includeMonkeyScout = await chooseMonkeyScoutFooter();
     if (includeMonkeyScout !== null) downloadMergedAsPDF(includeMonkeyScout);
