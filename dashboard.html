@@ -16,25 +16,94 @@
   } catch (e) {}
 })();
 
-/* Collapse progressive partial lines in References (Adelson, / Adelson, B. / ... ) */
+/* Collapse progressive partial lines in References
+   (e.g. "E. Di-Ghari Hassan," → "E. Di-Ghari Hassan, Gruber" → full citation).
+   Keeps only the longest complete form of each growing prefix chain. */
 function collapseProgressiveReferences(html) {
-  if (!html || !/Adelson|references?/i.test(html)) return html;
+  if (!html) return html;
   const tmp = document.createElement("div");
   tmp.innerHTML = html;
-  const texts = [...tmp.querySelectorAll("p, div, li")].map(el => (el.textContent || "").trim()).filter(Boolean);
-  if (texts.length < 4) return html;
+  const nodes = [...tmp.querySelectorAll("p, div, li")].filter(el => {
+    // Skip nested containers that only wrap other block nodes
+    if (el.children.length && [...el.children].every(c => /^(P|DIV|LI|UL|OL|H[1-6])$/.test(c.tagName))) return false;
+    return true;
+  });
+  const texts = nodes.map(el => (el.textContent || "").replace(/\s+/g, " ").trim()).filter(Boolean);
+  if (texts.length < 3) return html;
 
-  // If consecutive lines are strict prefixes of later ones, keep only the longest complete ones
+  // Detect progressive prefix chains (each line is a strict prefix of a later line)
+  const isPrefixOf = (a, b) => b.startsWith(a) && b.length > a.length + 3;
+  let progressiveCount = 0;
+  for (let i = 0; i < texts.length - 1; i++) {
+    if (texts.slice(i + 1).some(later => isPrefixOf(texts[i], later))) progressiveCount++;
+  }
+  // Only collapse when a meaningful share of lines look progressive (References stream)
+  if (progressiveCount < 2 && !/references?/i.test(html)) return html;
+
   const kept = [];
+  const keptNorm = [];
   for (let i = 0; i < texts.length; i++) {
     const cur = texts[i];
-    const isPrefix = texts.slice(i + 1).some(later => later.startsWith(cur) && later.length > cur.length + 5);
-    if (!isPrefix) kept.push(cur);
+    const isPrefix = texts.slice(i + 1).some(later => isPrefixOf(cur, later));
+    if (isPrefix) continue;
+    // Also drop exact duplicates
+    const norm = cur.toLowerCase().replace(/\s+/g, " ");
+    if (keptNorm.includes(norm)) continue;
+    kept.push(cur);
+    keptNorm.push(norm);
   }
   if (kept.length === texts.length) return html;
+  if (kept.length === 0) return html;
 
-  // Rebuild simple paragraphs
-  return kept.map(t => `<p>${t.replace(/</g, "<")}</p>`).join("");
+  // Rebuild as simple paragraphs (preserve any leading "References" heading if present)
+  const headingMatch = html.match(/<h[1-3][^>]*>\s*References?\s*<\/h[1-3]>/i);
+  const heading = headingMatch ? headingMatch[0] : "";
+  const body = kept.map(t => `<p>${String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>`).join("");
+  return heading + body;
+}
+
+/** Ensure chapter body HTML begins with a proper "Chapter N" + chapter name heading. */
+function ensureChapterHeadingHTML(html, title, orderNo) {
+  const content = String(html || "");
+  const t = String(title || "").trim();
+  // Never treat end-matter / prelim as a numbered chapter
+  if (/^(references?|bibliography|works\s+cited|conclusions?|recommendations?|appendi(?:x|ces)|abstract|certification|declaration|dedication|acknowledgements?|table\s+of\s+contents|list\s+of\b|cover\b|preliminary\b)/i.test(t)) {
+    return content;
+  }
+  // Already has a Chapter / CHAPTER heading near the start — leave alone
+  const plainStart = content.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 120);
+  if (/^chapter\s+(\d+|[ivxlcdm]+|one|two|three|four|five|six|seven|eight|nine|ten)\b/i.test(plainStart)) {
+    return content;
+  }
+
+  let chapNum = (typeof getChapterNumberFromTitle === "function") ? getChapterNumberFromTitle(t) : 0;
+  if (!chapNum) {
+    // Try "2. Literature Review" / "2 Literature Review" / "Chapter 2: ..."
+    const m = t.match(/^\s*(?:chapter\s+)?(\d+)\s*[\.\:\-\u2013\u2014]?\s+/i);
+    if (m) chapNum = parseInt(m[1], 10);
+  }
+  // Only fall back to order_no when the title itself looks like a chapter
+  if (!chapNum && orderNo != null && Number(orderNo) > 0 && /chapter|^\s*\d+[\.\:\-\s]/i.test(t)) {
+    chapNum = Number(orderNo);
+  }
+  if (!chapNum) return content;
+
+  // Extract chapter name from title (strip "Chapter 2:", "2.", etc.)
+  let name = t
+    .replace(/^\s*chapter\s+(\d+|[ivxlcdm]+|one|two|three|four|five|six|seven|eight|nine|ten)\s*[\.\:\-\u2013\u2014]?\s*/i, "")
+    .replace(/^\s*\d+\s*[\.\:\-\u2013\u2014]\s*/, "")
+    .trim();
+  if (!name || /^chapter\b/i.test(name)) name = "";
+
+  const chapLabel = `Chapter ${chapNum}`;
+  let heading = `<h1 style="text-align:center;font-family:Inter,sans-serif;font-size:22px;font-weight:800;letter-spacing:0.04em;margin:0 0 8px;border-bottom:none;padding-bottom:0">${chapLabel}</h1>`;
+  if (name) {
+    const safeName = (typeof escapeHTML === "function") ? escapeHTML(name) : name.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    heading += `<h2 style="text-align:center;font-family:Inter,sans-serif;font-size:17px;font-weight:700;margin:0 0 22px;color:#0f172a">${safeName}</h2>`;
+  } else {
+    heading = heading.replace('margin:0 0 8px', 'margin:0 0 22px');
+  }
+  return heading + content;
 }
 
 </script>
@@ -4516,7 +4585,10 @@ function openChatSession(index) {
     session.messages.forEach(m => {
       if (m.prompt) addMessage("user", m.prompt);
       if (m.isPaper && m.result) {
-        const htmlContent = markdownToHTML(m.result);
+        let htmlContent = markdownToHTML(m.result);
+        if (/references?/i.test(String(m.result).slice(0, 500)) || /references?/i.test(htmlContent.slice(0, 500))) {
+          htmlContent = collapseProgressiveReferences(htmlContent);
+        }
         const wordCount = m.result.split(/\s+/).length;
         const pageCount = Math.max(1, Math.ceil(wordCount / 250));
         const paginatedHTML = createA4Pages(htmlContent, wordCount, pageCount);
@@ -4585,7 +4657,10 @@ async function generatePaper() {
       const cleaned = cleanPaperText(data.result);
       const wordCount = data.word_count || cleaned.split(/\\s+/).length;
       const pageCount = data.page_count || Math.max(1, Math.ceil(wordCount / 250));
-      const htmlContent = markdownToHTML(cleaned);
+      let htmlContent = markdownToHTML(cleaned);
+      if (/references?/i.test(cleaned.slice(0, 500)) || /references?/i.test(htmlContent.slice(0, 500))) {
+        htmlContent = collapseProgressiveReferences(htmlContent);
+      }
       const paginatedHTML = createA4Pages(htmlContent, wordCount, pageCount);
 
       removeLoadingMessage();
@@ -5060,12 +5135,14 @@ function rerenderWorkflowSection(container, raw, opts={}){
   const actions = `<div class="workflow-output-actions">${workflowActionsHTML(kind)}</div>`;
   const pageOpts = {kind, startPage};
   if (kind === "toc") pageOpts.plainToc = content;
-  container.innerHTML = heading + createA4Pages(workflowContentHTML(content), words, pageOpts) + actions;
+  const contentOpts = { kind, title, orderNo: container.dataset.orderNo };
+  const renderedHTML = workflowContentHTML(content, contentOpts);
+  container.innerHTML = heading + createA4Pages(renderedHTML, words, pageOpts) + actions;
   try { renumberRecommendationLists(container); } catch (_) {}
   container.dataset.pageCount = String(
     kind === "toc"
       ? (packTocPages(formatTOCHTMLFromPlain(content, {showHeading:false})).length || 1)
-      : (paginateContent(workflowContentHTML(content)).length || 1)
+      : (paginateContent(renderedHTML).length || 1)
   );
   // Figures must be re-bound after every innerHTML replace
   container.querySelectorAll(".tp-figure").forEach(fig => { delete fig.dataset.bound; });
@@ -5151,21 +5228,32 @@ function repairPipeTablesInHTML(html){
   return tmp.innerHTML;
 }
 
-function workflowContentHTML(value){
+function workflowContentHTML(value, opts={}){
   const marker="[[TEMPAPER_RICH_HTML]]";
   const raw=String(value||"");
+  let html;
   if (raw.startsWith(marker)) {
-    const html = raw.slice(marker.length);
+    html = raw.slice(marker.length);
     // Repair any leftover pipe-markdown tables so PDF/Word get real grids
     if (/\|.+\|/.test(html) && !/<table[\s>]/i.test(html)) {
-      return repairPipeTablesInHTML(html);
+      html = repairPipeTablesInHTML(html);
+    } else if (/\|.+\|/.test(html) && /<p[^>]*>\s*\|/.test(html)) {
+      html = repairPipeTablesInHTML(html);
     }
-    if (/\|.+\|/.test(html) && /<p[^>]*>\s*\|/.test(html)) {
-      return repairPipeTablesInHTML(html);
-    }
-    return html;
+  } else {
+    html = markdownToHTML(cleanPaperText(raw));
   }
-  return markdownToHTML(cleanPaperText(raw));
+  // Collapse progressive / partial citation lines in References sections
+  const titleHint = String(opts.title || "");
+  const kindHint = String(opts.kind || "");
+  if (/references?/i.test(titleHint) || kindHint === "references" || /references?/i.test(html.slice(0, 400))) {
+    html = collapseProgressiveReferences(html);
+  }
+  // Ensure chapter body starts with "Chapter N" + chapter name
+  if (kindHint === "chapter" || (!kindHint && /chapter\s+\d+/i.test(titleHint))) {
+    html = ensureChapterHeadingHTML(html, opts.title || titleHint, opts.orderNo);
+  }
+  return html;
 }
 
 function addWorkflowSection(data,isInitial=false){
@@ -5180,15 +5268,18 @@ function addWorkflowSection(data,isInitial=false){
   const start=kind==="preliminary"?1:workflowArabicPage;
   const isToc=kind==="toc";
   const actions=workflowActionsHTML(kind);
-  container.innerHTML=`<div data-section-heading style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(data.title||"Generated section")}</div>${createA4Pages(workflowContentHTML(content),words,{kind,startPage:start})}<div class="workflow-output-actions">${actions}</div>`;
+  const sectionTitle = data.title || "Generated section";
+  const contentOpts = { kind, title: sectionTitle, orderNo: data.order_no };
+  const renderedHTML = workflowContentHTML(content, contentOpts);
+  container.innerHTML=`<div data-section-heading style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(sectionTitle)}</div>${createA4Pages(renderedHTML,words,{kind,startPage:start})}<div class="workflow-output-actions">${actions}</div>`;
   try { renumberRecommendationLists(container); } catch (_) {}
-  Object.assign(container.dataset,{title:data.title||"Generated section",raw:content,kind,projectId:String(data.project_id||activePaperProjectId||""),tocCode:data.toc_code||activeTocCode||"",pageStart:kind==="preliminary"?"i":String(start)});
+  Object.assign(container.dataset,{title:sectionTitle,raw:content,kind,projectId:String(data.project_id||activePaperProjectId||""),tocCode:data.toc_code||activeTocCode||"",pageStart:kind==="preliminary"?"i":String(start)});
   if(!isToc)container.dataset.orderNo=String(data.order_no??0);
   ensureWorkflowDelegation();
   bindWorkflowButtons(container);
   bindFigureInteractions(container);
   chatArea.appendChild(container);chatArea.scrollTop=chatArea.scrollHeight;
-  const pageCount=paginateContent(workflowContentHTML(content)).length||1;
+  const pageCount=paginateContent(renderedHTML).length||1;
   container.dataset.pageCount=String(pageCount);
   if(kind==="preliminary")workflowArabicPage=1;
   else if(kind!=="toc")workflowArabicPage=Math.max(workflowArabicPage,start+pageCount);
