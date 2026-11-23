@@ -53,6 +53,7 @@ svg { display: block; }
   flex-direction: column;
   height: 100dvh;
   width: 100vw;
+  min-width: 1000px; /* lock desktop width — scale handles fitting on phone */
 }
 
 /* ===== Top chrome ===== */
@@ -1342,6 +1343,39 @@ svg { display: block; }
 
   // Boot
   loadDocument();
+
+  // Lock desktop layout and scale the whole editor to fit the phone width.
+  // No responsive reflow — it always looks exactly like desktop.
+  (function fitDesktopOnMobile() {
+    const DESKTOP_WIDTH = 1000;
+    function applyScale() {
+      const vw = Math.min(window.innerWidth, document.documentElement.clientWidth || window.innerWidth);
+      const html = document.documentElement;
+      const body = document.body;
+      if (vw >= DESKTOP_WIDTH - 20) {
+        html.style.transform = "";
+        html.style.width = "";
+        html.style.height = "";
+        html.style.transformOrigin = "";
+        body.style.width = "";
+        body.style.minHeight = "";
+        return;
+      }
+      const scale = vw / DESKTOP_WIDTH;
+      html.style.transformOrigin = "top left";
+      html.style.transform = `scale(${scale})`;
+      html.style.width = DESKTOP_WIDTH + "px";
+      html.style.height = "auto";
+      body.style.width = DESKTOP_WIDTH + "px";
+      body.style.minHeight = (window.innerHeight / scale) + "px";
+      body.style.overflowX = "hidden";
+      body.style.overflowY = "auto";
+    }
+    applyScale();
+    window.addEventListener("resize", applyScale);
+    window.addEventListener("orientationchange", applyScale);
+    window.addEventListener("load", applyScale);
+  })();
 })();
 </script>
 </body>
