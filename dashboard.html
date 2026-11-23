@@ -1079,21 +1079,24 @@ svg { display: block; }
   stroke: currentColor; fill: none; stroke-width: 2;
 }
 
+/* Mobile view matches desktop layout: sidebar stays visible, paper keeps full academic padding.
+   On very narrow screens the workspace scrolls horizontally so the A4 pages stay true to size. */
 @media (max-width: 900px) {
+  body { overflow-x: auto; }
   .sidebar {
-    transform: translateX(-100%);
+    transform: none;
+    width: 220px;
   }
-  .sidebar.open { transform: translateX(0); }
   .main {
-    width: 100%;
-    margin-left: 0;
+    margin-left: 220px;
+    width: calc(100% - 220px);
+    min-width: 640px;
   }
-  .nav-toggle { display: flex; }
-  .topbar { padding: 0 16px; }
-  .chat-area { padding: 16px; }
-  .a4-page { padding: 40px 24px; min-height: auto; }
-  .input-container { padding: 12px 16px 16px; }
-  .overlay.show { display: block; opacity: 1; }
+  .nav-toggle { display: none; }
+  .topbar { padding: 0 20px; }
+  .chat-area { padding: 20px; }
+  .a4-page { padding: 56px 48px; min-height: 900px; }
+  .input-container { padding: 14px 20px 20px; }
   .ai-chat-window {
     width: min(86vw, 380px);
     height: 500px;
@@ -2093,7 +2096,7 @@ body { background-color: var(--bg); color: var(--text); }
 
   <div class="input-container">
     <div class="input-bar">
-      <textarea class="input" id="promptInput" rows="1" placeholder="Write a research paper outline on..."></textarea>
+      <textarea class="input" id="promptInput" rows="1" placeholder="Write a research paper outline on..." autocomplete="off" spellcheck="false" autocorrect="off" autocapitalize="off"></textarea>
       <div class="action-buttons">
         <button class="btn-icon" id="micBtn" aria-label="Voice Input">
           <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/></svg>
