@@ -15,97 +15,6 @@
     }
   } catch (e) {}
 })();
-
-/* Collapse progressive partial lines in References
-   (e.g. "E. Di-Ghari Hassan," → "E. Di-Ghari Hassan, Gruber" → full citation).
-   Keeps only the longest complete form of each growing prefix chain. */
-function collapseProgressiveReferences(html) {
-  if (!html) return html;
-  const tmp = document.createElement("div");
-  tmp.innerHTML = html;
-  const nodes = [...tmp.querySelectorAll("p, div, li")].filter(el => {
-    // Skip nested containers that only wrap other block nodes
-    if (el.children.length && [...el.children].every(c => /^(P|DIV|LI|UL|OL|H[1-6])$/.test(c.tagName))) return false;
-    return true;
-  });
-  const texts = nodes.map(el => (el.textContent || "").replace(/\s+/g, " ").trim()).filter(Boolean);
-  if (texts.length < 3) return html;
-
-  // Detect progressive prefix chains (each line is a strict prefix of a later line)
-  const isPrefixOf = (a, b) => b.startsWith(a) && b.length > a.length + 3;
-  let progressiveCount = 0;
-  for (let i = 0; i < texts.length - 1; i++) {
-    if (texts.slice(i + 1).some(later => isPrefixOf(texts[i], later))) progressiveCount++;
-  }
-  // Only collapse when a meaningful share of lines look progressive (References stream)
-  if (progressiveCount < 2 && !/references?/i.test(html)) return html;
-
-  const kept = [];
-  const keptNorm = [];
-  for (let i = 0; i < texts.length; i++) {
-    const cur = texts[i];
-    const isPrefix = texts.slice(i + 1).some(later => isPrefixOf(cur, later));
-    if (isPrefix) continue;
-    // Also drop exact duplicates
-    const norm = cur.toLowerCase().replace(/\s+/g, " ");
-    if (keptNorm.includes(norm)) continue;
-    kept.push(cur);
-    keptNorm.push(norm);
-  }
-  if (kept.length === texts.length) return html;
-  if (kept.length === 0) return html;
-
-  // Rebuild as simple paragraphs (preserve any leading "References" heading if present)
-  const headingMatch = html.match(/<h[1-3][^>]*>\s*References?\s*<\/h[1-3]>/i);
-  const heading = headingMatch ? headingMatch[0] : "";
-  const body = kept.map(t => `<p>${String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>`).join("");
-  return heading + body;
-}
-
-/** Ensure chapter body HTML begins with a proper "Chapter N" + chapter name heading. */
-function ensureChapterHeadingHTML(html, title, orderNo) {
-  const content = String(html || "");
-  const t = String(title || "").trim();
-  // Never treat end-matter / prelim as a numbered chapter
-  if (/^(references?|bibliography|works\s+cited|conclusions?|recommendations?|appendi(?:x|ces)|abstract|certification|declaration|dedication|acknowledgements?|table\s+of\s+contents|list\s+of\b|cover\b|preliminary\b)/i.test(t)) {
-    return content;
-  }
-  // Already has a Chapter / CHAPTER heading near the start — leave alone
-  const plainStart = content.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 120);
-  if (/^chapter\s+(\d+|[ivxlcdm]+|one|two|three|four|five|six|seven|eight|nine|ten)\b/i.test(plainStart)) {
-    return content;
-  }
-
-  let chapNum = (typeof getChapterNumberFromTitle === "function") ? getChapterNumberFromTitle(t) : 0;
-  if (!chapNum) {
-    // Try "2. Literature Review" / "2 Literature Review" / "Chapter 2: ..."
-    const m = t.match(/^\s*(?:chapter\s+)?(\d+)\s*[\.\:\-\u2013\u2014]?\s+/i);
-    if (m) chapNum = parseInt(m[1], 10);
-  }
-  // Only fall back to order_no when the title itself looks like a chapter
-  if (!chapNum && orderNo != null && Number(orderNo) > 0 && /chapter|^\s*\d+[\.\:\-\s]/i.test(t)) {
-    chapNum = Number(orderNo);
-  }
-  if (!chapNum) return content;
-
-  // Extract chapter name from title (strip "Chapter 2:", "2.", etc.)
-  let name = t
-    .replace(/^\s*chapter\s+(\d+|[ivxlcdm]+|one|two|three|four|five|six|seven|eight|nine|ten)\s*[\.\:\-\u2013\u2014]?\s*/i, "")
-    .replace(/^\s*\d+\s*[\.\:\-\u2013\u2014]\s*/, "")
-    .trim();
-  if (!name || /^chapter\b/i.test(name)) name = "";
-
-  const chapLabel = `Chapter ${chapNum}`;
-  let heading = `<h1 style="text-align:center;font-family:Inter,sans-serif;font-size:22px;font-weight:800;letter-spacing:0.04em;margin:0 0 8px;border-bottom:none;padding-bottom:0">${chapLabel}</h1>`;
-  if (name) {
-    const safeName = (typeof escapeHTML === "function") ? escapeHTML(name) : name.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-    heading += `<h2 style="text-align:center;font-family:Inter,sans-serif;font-size:17px;font-weight:700;margin:0 0 22px;color:#0f172a">${safeName}</h2>`;
-  } else {
-    heading = heading.replace('margin:0 0 8px', 'margin:0 0 22px');
-  }
-  return heading + content;
-}
-
 </script>
 
 <title>Monkey Scout | Term Paper Generation & Academic Workspace</title>
@@ -2306,8 +2215,6 @@ function cleanPaperText(text){
     .replace(/\\[a-zA-Z]+/g, '')
     .replace(/^\s*\*\*\s*([0-9A-Za-z\.\-\,\s\(\)\"\'\’\“]+?)\s*\*\*\s*$/gm, '### $1')
     .replace(/^\s*\*\*\s*(.+?)\s*\*\*\s*$/gm, '### $1')
-    // Collapse runaway markdown heading markers (##### / ###### → ###)
-    .replace(/^\s*#{4,}\s+/gm, '### ')
     .replace(/\b((?:Fig\.?|Figure)\s*\d+(?:\.\d+)*)\s+\1\b/gi, '$1')
     .replace(/\n{3,}/g,'\n\n')
     .trim();
@@ -4587,10 +4494,7 @@ function openChatSession(index) {
     session.messages.forEach(m => {
       if (m.prompt) addMessage("user", m.prompt);
       if (m.isPaper && m.result) {
-        let htmlContent = markdownToHTML(m.result);
-        if (/references?/i.test(String(m.result).slice(0, 500)) || /references?/i.test(htmlContent.slice(0, 500))) {
-          htmlContent = collapseProgressiveReferences(htmlContent);
-        }
+        const htmlContent = markdownToHTML(m.result);
         const wordCount = m.result.split(/\s+/).length;
         const pageCount = Math.max(1, Math.ceil(wordCount / 250));
         const paginatedHTML = createA4Pages(htmlContent, wordCount, pageCount);
@@ -4659,10 +4563,7 @@ async function generatePaper() {
       const cleaned = cleanPaperText(data.result);
       const wordCount = data.word_count || cleaned.split(/\\s+/).length;
       const pageCount = data.page_count || Math.max(1, Math.ceil(wordCount / 250));
-      let htmlContent = markdownToHTML(cleaned);
-      if (/references?/i.test(cleaned.slice(0, 500)) || /references?/i.test(htmlContent.slice(0, 500))) {
-        htmlContent = collapseProgressiveReferences(htmlContent);
-      }
+      const htmlContent = markdownToHTML(cleaned);
       const paginatedHTML = createA4Pages(htmlContent, wordCount, pageCount);
 
       removeLoadingMessage();
@@ -5137,14 +5038,12 @@ function rerenderWorkflowSection(container, raw, opts={}){
   const actions = `<div class="workflow-output-actions">${workflowActionsHTML(kind)}</div>`;
   const pageOpts = {kind, startPage};
   if (kind === "toc") pageOpts.plainToc = content;
-  const contentOpts = { kind, title, orderNo: container.dataset.orderNo };
-  const renderedHTML = workflowContentHTML(content, contentOpts);
-  container.innerHTML = heading + createA4Pages(renderedHTML, words, pageOpts) + actions;
+  container.innerHTML = heading + createA4Pages(workflowContentHTML(content), words, pageOpts) + actions;
   try { renumberRecommendationLists(container); } catch (_) {}
   container.dataset.pageCount = String(
     kind === "toc"
       ? (packTocPages(formatTOCHTMLFromPlain(content, {showHeading:false})).length || 1)
-      : (paginateContent(renderedHTML).length || 1)
+      : (paginateContent(workflowContentHTML(content)).length || 1)
   );
   // Figures must be re-bound after every innerHTML replace
   container.querySelectorAll(".tp-figure").forEach(fig => { delete fig.dataset.bound; });
@@ -5230,78 +5129,21 @@ function repairPipeTablesInHTML(html){
   return tmp.innerHTML;
 }
 
-/** Turn leftover literal markdown hashes inside HTML into real heading tags. */
-function convertHashHeadingsInHTML(html) {
-  if (!html || !/#{1,6}\s+/.test(html)) return html;
-  const tmp = document.createElement("div");
-  tmp.innerHTML = html;
-  tmp.querySelectorAll("p, div, li, span").forEach(el => {
-    if (el.querySelector("h1,h2,h3,img,table,.tp-figure")) return;
-    const text = (el.textContent || "").trim();
-    const m = text.match(/^(#{1,6})\s+(.+)$/);
-    if (!m) return;
-    // Only convert when the whole block is essentially the heading line
-    if (text.length > m[0].length + 8 && text.includes("\n")) {
-      // Multi-line: first line heading, rest paragraphs
-      const lines = text.split(/\n/).map(s => s.trim()).filter(Boolean);
-      const hm = lines[0].match(/^(#{1,6})\s+(.+)$/);
-      if (!hm) return;
-      const level = Math.min(3, hm[1].length);
-      const frag = document.createDocumentFragment();
-      const h = document.createElement("h" + level);
-      h.textContent = hm[2].trim();
-      frag.appendChild(h);
-      lines.slice(1).forEach(line => {
-        const pm = line.match(/^(#{1,6})\s+(.+)$/);
-        if (pm) {
-          const hh = document.createElement("h" + Math.min(3, pm[1].length));
-          hh.textContent = pm[2].trim();
-          frag.appendChild(hh);
-        } else {
-          const p = document.createElement("p");
-          p.textContent = line;
-          frag.appendChild(p);
-        }
-      });
-      el.replaceWith(frag);
-      return;
-    }
-    const level = Math.min(3, m[1].length);
-    const h = document.createElement("h" + level);
-    h.textContent = m[2].trim();
-    el.replaceWith(h);
-  });
-  return tmp.innerHTML;
-}
-
-function workflowContentHTML(value, opts={}){
+function workflowContentHTML(value){
   const marker="[[TEMPAPER_RICH_HTML]]";
   const raw=String(value||"");
-  let html;
   if (raw.startsWith(marker)) {
-    html = raw.slice(marker.length);
+    const html = raw.slice(marker.length);
     // Repair any leftover pipe-markdown tables so PDF/Word get real grids
     if (/\|.+\|/.test(html) && !/<table[\s>]/i.test(html)) {
-      html = repairPipeTablesInHTML(html);
-    } else if (/\|.+\|/.test(html) && /<p[^>]*>\s*\|/.test(html)) {
-      html = repairPipeTablesInHTML(html);
+      return repairPipeTablesInHTML(html);
     }
-  } else {
-    html = markdownToHTML(cleanPaperText(raw));
+    if (/\|.+\|/.test(html) && /<p[^>]*>\s*\|/.test(html)) {
+      return repairPipeTablesInHTML(html);
+    }
+    return html;
   }
-  // Strip visible ##### / ### artifacts that leaked into rich HTML
-  html = convertHashHeadingsInHTML(html);
-  // Collapse progressive / partial citation lines in References sections
-  const titleHint = String(opts.title || "");
-  const kindHint = String(opts.kind || "");
-  if (/references?/i.test(titleHint) || kindHint === "references" || /references?/i.test(html.slice(0, 400))) {
-    html = collapseProgressiveReferences(html);
-  }
-  // Ensure chapter body starts with "Chapter N" + chapter name
-  if (kindHint === "chapter" || (!kindHint && /chapter\s+\d+/i.test(titleHint))) {
-    html = ensureChapterHeadingHTML(html, opts.title || titleHint, opts.orderNo);
-  }
-  return html;
+  return markdownToHTML(cleanPaperText(raw));
 }
 
 function addWorkflowSection(data,isInitial=false){
@@ -5316,18 +5158,15 @@ function addWorkflowSection(data,isInitial=false){
   const start=kind==="preliminary"?1:workflowArabicPage;
   const isToc=kind==="toc";
   const actions=workflowActionsHTML(kind);
-  const sectionTitle = data.title || "Generated section";
-  const contentOpts = { kind, title: sectionTitle, orderNo: data.order_no };
-  const renderedHTML = workflowContentHTML(content, contentOpts);
-  container.innerHTML=`<div data-section-heading style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(sectionTitle)}</div>${createA4Pages(renderedHTML,words,{kind,startPage:start})}<div class="workflow-output-actions">${actions}</div>`;
+  container.innerHTML=`<div data-section-heading style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(data.title||"Generated section")}</div>${createA4Pages(workflowContentHTML(content),words,{kind,startPage:start})}<div class="workflow-output-actions">${actions}</div>`;
   try { renumberRecommendationLists(container); } catch (_) {}
-  Object.assign(container.dataset,{title:sectionTitle,raw:content,kind,projectId:String(data.project_id||activePaperProjectId||""),tocCode:data.toc_code||activeTocCode||"",pageStart:kind==="preliminary"?"i":String(start)});
+  Object.assign(container.dataset,{title:data.title||"Generated section",raw:content,kind,projectId:String(data.project_id||activePaperProjectId||""),tocCode:data.toc_code||activeTocCode||"",pageStart:kind==="preliminary"?"i":String(start)});
   if(!isToc)container.dataset.orderNo=String(data.order_no??0);
   ensureWorkflowDelegation();
   bindWorkflowButtons(container);
   bindFigureInteractions(container);
   chatArea.appendChild(container);chatArea.scrollTop=chatArea.scrollHeight;
-  const pageCount=paginateContent(renderedHTML).length||1;
+  const pageCount=paginateContent(workflowContentHTML(content)).length||1;
   container.dataset.pageCount=String(pageCount);
   if(kind==="preliminary")workflowArabicPage=1;
   else if(kind!=="toc")workflowArabicPage=Math.max(workflowArabicPage,start+pageCount);
@@ -5641,33 +5480,13 @@ async function mergeCurrentPaper(){
 }
 
 function renderMergedPaper(value){
-  // Prefer an editor-saved full page snapshot (includes figures/layout from edit.html).
-  // Fall back to cloning live section cards when no snapshot exists yet.
+  // Reuse the saved section cards as the source of truth: do not flatten the
+  // paper into one HTML stream and paginate it again.
   const old=document.getElementById("mergedPaperOutput");if(old)old.remove();
   const wrap=document.createElement("div");wrap.className="chat-msg";wrap.id="mergedPaperOutput";wrap.dataset.mergedContent=String(value||"");
   const title=document.createElement("div");title.className="merged-paper-heading";
   title.textContent="Complete Merged Term Paper";wrap.appendChild(title);
   const pages=document.createElement("div");pages.className="merged-pages";pages.id="mergedPagesRoot";
-  const rawMerged = String(value || "");
-  const PAGES_MARKER = "[[MERGED_PAGES_HTML]]";
-  const RICH_MARKER = "[[TEMPAPER_RICH_HTML]]";
-
-  // 1) Full A4 snapshot saved by the paper editor (figures + TOC rows preserved)
-  if (rawMerged.startsWith(PAGES_MARKER)) {
-    const tmp = document.createElement("div");
-    tmp.innerHTML = rawMerged.slice(PAGES_MARKER.length);
-    const snapPages = [...tmp.querySelectorAll(".a4-page")];
-    if (snapPages.length) {
-      snapPages.forEach(p => {
-        p.classList.add("merged-page");
-        p.querySelectorAll(".tp-figure").forEach(f => { delete f.dataset.bound; f.classList.remove("selected"); });
-        pages.appendChild(p);
-      });
-    }
-  }
-
-  // 2) Otherwise rebuild from section cards currently in the workspace
-  if (!pages.children.length) {
   const cards=[...document.querySelectorAll('#chatArea .chat-msg[data-kind]')]
     .filter(card=>card.dataset.kind!=="toc" && card.dataset.kind!=="status" && card.querySelector(".pages-container"));
   let arabicPage=1,romanPage=1;
@@ -5702,28 +5521,15 @@ function renderMergedPaper(value){
       if(firstBody)pages.insertBefore(page,firstBody);else pages.appendChild(page);
     });
   }
-  }
-
-  // 3) Legacy fallbacks: rich HTML blob or plain markdown
   if(!pages.children.length){
-    let html = rawMerged;
-    if (html.startsWith(RICH_MARKER)) html = html.slice(RICH_MARKER.length);
-    else if (!/</.test(html)) html = markdownToHTML(cleanPaperText(html));
-    // If the rich blob already contains full a4 pages, use them directly
-    const tmp2 = document.createElement("div");
-    tmp2.innerHTML = html;
-    const embedded = [...tmp2.querySelectorAll(".a4-page")];
-    if (embedded.length) {
-      embedded.forEach(p => { p.classList.add("merged-page"); pages.appendChild(p); });
-    } else {
-      const fallback=document.createElement("div");
-      fallback.innerHTML=createA4Pages(html,html.replace(/<[^>]*>/g," ").split(/\s+/).filter(Boolean).length,{kind:"normal",startPage:1});
-      fallback.querySelectorAll(".document-stats").forEach(n=>n.remove());
-      fallback.querySelectorAll(".pages-container > .a4-page").forEach(n=>pages.appendChild(n));
-    }
+    // Legacy fallback for merged records whose sections are not loaded in the view.
+    const marker="[[TEMPAPER_RICH_HTML]]",raw=String(value||"");
+    const html=raw.startsWith(marker)?raw.slice(marker.length):markdownToHTML(cleanPaperText(raw));
+    const fallback=document.createElement("div");
+    fallback.innerHTML=createA4Pages(html,html.replace(/<[^>]*>/g," ").split(/\s+/).filter(Boolean).length,{kind:"normal",startPage:1});
+    fallback.querySelectorAll(".document-stats").forEach(n=>n.remove());
+    fallback.querySelectorAll(".pages-container > .a4-page").forEach(n=>pages.appendChild(n));
   }
-  // Re-bind figure handles on the merged view
-  try { bindFigureInteractions(pages); } catch (_) {}
   wrap.appendChild(pages);
   const note=document.createElement("div");note.className="workflow-merged-note";
   note.textContent="Merged document. Inline Groq refinement is disabled. Individual section edits remain saved through the existing backend.";
@@ -5734,6 +5540,9 @@ function renderMergedPaper(value){
   bar.className="merged-download-bar";
   bar.innerHTML=`
     <span class="download-label">Export complete paper</span>
+    <button type="button" class="merged-download-btn primary" id="editMergedInWordBtn" title="Open the complete paper in the full-screen Monkey Scout editor">
+      Edit complete paper
+    </button>
     <button type="button" class="merged-download-btn" id="downloadMergedDocxBtn" title="Download as Microsoft Word">
       <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
       Download as Word (.docx)
@@ -5742,60 +5551,11 @@ function renderMergedPaper(value){
       <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
       Download as PDF
     </button>
-    <button type="button" class="merged-download-btn" id="editMergedPaperBtn" title="Edit complete paper">
-      ✎ Edit Paper
-    </button>
   `;
   wrap.appendChild(bar);
   document.getElementById("chatArea").appendChild(wrap);
-  document.getElementById("editMergedPaperBtn")?.addEventListener("click", () => {
-    try {
-      localStorage.setItem("monkeyScoutEditorDoc", pages.innerHTML);
-      localStorage.setItem("monkeyScoutEditorReturn", "dashboard");
-      // Live DB context for edit.html → POST /pull-next action=edit_merged
-      const uid = localStorage.getItem("user_id") || "";
-      if (uid) localStorage.setItem("monkeyScoutEditorUserId", uid);
-      if (activePaperProjectId) localStorage.setItem("monkeyScoutEditorProjectId", String(activePaperProjectId));
-      localStorage.setItem("monkeyScoutApiUrl", API_URL);
-    } catch (_) {}
-    window.open("edit.html", "_blank");
-  });
-  // Apply HTML coming back from the paper editor (images, TOC fixes, heading cleanup)
-  function applyEditorSnapshot(html) {
-    if (!html) return;
-    const root = document.getElementById("mergedPagesRoot");
-    const output = document.getElementById("mergedPaperOutput");
-    if (root) {
-      root.innerHTML = html;
-      try { bindFigureInteractions(root); } catch (_) {}
-    }
-    if (output) {
-      output.dataset.mergedContent = "[[MERGED_PAGES_HTML]]" + html;
-    }
-    try { localStorage.setItem("monkeyScoutEditorDoc", html); } catch (_) {}
-  }
-  // storage events fire across tabs/windows on the same origin.
-  window.addEventListener("storage", (event) => {
-    if (event.key !== "monkeyScoutEditedDoc" || !event.newValue) return;
-    applyEditorSnapshot(event.newValue);
-  });
-  // postMessage from edit.html (opener) — updates dashboard without refresh
-  window.addEventListener("message", (event) => {
-    const data = event && event.data;
-    if (!data || data.type !== "monkeyScoutEditorSaved" || !data.html) return;
-    applyEditorSnapshot(data.html);
-  });
-  // BroadcastChannel fallback
-  try {
-    if (typeof BroadcastChannel !== "undefined") {
-      const bc = new BroadcastChannel("monkeyScoutEditor");
-      bc.onmessage = (event) => {
-        const data = event && event.data;
-        if (!data || data.type !== "monkeyScoutEditorSaved" || !data.html) return;
-        applyEditorSnapshot(data.html);
-      };
-    }
-  } catch (_) {}
+  window.__msQuillPreviewPromise=loadMonkeyScoutEditedPreview();
+  document.getElementById("editMergedInWordBtn")?.addEventListener("click", openMonkeyScoutWordEditor);
   document.getElementById("downloadMergedPdfBtn")?.addEventListener("click", async () => {
     const includeMonkeyScout = await chooseMonkeyScoutFooter();
     if (includeMonkeyScout !== null) downloadMergedAsPDF(includeMonkeyScout);
@@ -6211,6 +5971,7 @@ function chooseMonkeyScoutFooter(){
 }
 
 async function downloadMergedAsPDF(includeMonkeyScout = false){
+  if(window.__msQuillPreviewPromise){try{await window.__msQuillPreviewPromise;}catch(_){}}
   const btn = document.getElementById("downloadMergedPdfBtn");
   if (!btn) return;
   const originalLabel = btn.innerHTML;
@@ -6407,7 +6168,60 @@ async function downloadMergedAsPDF(includeMonkeyScout = false){
   }
 }
 
+
+/* ===== Monkey Scout full-screen Quill editor integration ===== */
+function openMonkeyScoutWordEditor(){
+  const button=document.getElementById("editMergedInWordBtn");
+  const userId=getWorkflowUserId(), projectId=activePaperProjectId;
+  if(!userId || !projectId){
+    alert("Please sign in and open a saved, merged paper before editing it.");
+    return;
+  }
+  if(!document.getElementById("mergedPagesRoot")){
+    alert("Merge the complete paper first, then open the editor.");
+    return;
+  }
+  const oldLabel=button?.textContent||"Edit complete paper";
+  if(button){button.disabled=true;button.textContent="Opening editor…";}
+  try{
+    const returnTo=location.href;
+    const url=`${API_URL}/monkey-scout/editor?project_id=${encodeURIComponent(projectId)}&user_id=${encodeURIComponent(userId)}&return_to=${encodeURIComponent(returnTo)}`;
+    location.assign(url);
+  }catch(err){
+    console.error(err);
+    alert(err.message||"Could not open the Monkey Scout editor.");
+    if(button){button.disabled=false;button.textContent=oldLabel;}
+  }
+}
+
+async function loadMonkeyScoutEditedPreview(){
+  const userId=getWorkflowUserId(), projectId=activePaperProjectId;
+  const root=document.getElementById("mergedPagesRoot");
+  if(!userId || !projectId || !root) return false;
+  try{
+    const url=`${API_URL}/api/monkey-scout/quill/load?project_id=${encodeURIComponent(projectId)}&user_id=${encodeURIComponent(userId)}`;
+    const response=await fetch(url,{credentials:"include"});
+    if(response.status===404 || response.status===409) return false;
+    if(!response.ok) return false;
+    const data=await response.json();
+    if(!data.content_html) return false;
+    const cleanHtml=String(data.content_html);
+    const words=cleanHtml.replace(/<[^>]*>/g," ").replace(/\s+/g," ").trim().split(" ").filter(Boolean).length;
+    root.innerHTML=createA4Pages(cleanHtml,words,{kind:"normal",startPage:1});
+    const output=document.getElementById("mergedPaperOutput");
+    if(output) output.dataset.mergedContent="[[TEMPAPER_RICH_HTML]]"+cleanHtml;
+    root.dataset.editedRevision=String(Date.now());
+    const note=document.querySelector("#mergedPaperOutput .workflow-merged-note");
+    if(note) note.textContent="This preview uses your latest saved Quill revision. Word and PDF exports are generated from this same saved document.";
+    return true;
+  }catch(err){
+    console.warn("Could not refresh the Quill editor preview:",err);
+    return false;
+  }
+}
+
 async function downloadMergedAsDocx(includeMonkeyScout = false){
+  if(window.__msQuillPreviewPromise){try{await window.__msQuillPreviewPromise;}catch(_){}}
   const btn = document.getElementById("downloadMergedDocxBtn");
   if (!btn) return;
   if (!window.docx || !window.docxHtml || !window.docxHtml.htmlToContent || typeof saveAs === "undefined") {
@@ -6729,6 +6543,9 @@ async function downloadMergedAsDocx(includeMonkeyScout = false){
 
     const blob = await docx.Packer.toBlob(wordDoc);
     if (!blob || blob.size < 1000) throw new Error("The Word file was not generated correctly.");
+    if (options && options.returnBlob) {
+      return { blob, filename: getMergedExportTitle() + ".docx" };
+    }
     saveAs(blob, getMergedExportTitle() + ".docx");
   } catch (err) {
     console.error(err);
