@@ -373,7 +373,7 @@ svg { display: block; }
 .dropdown-menu div {
   padding: 11px 14px;
   font-size: 13px;
-  color: var(--text);
+  color: white;
   cursor: pointer;
   transition: background 0.15s ease;
 }
@@ -2087,10 +2087,6 @@ body { background-color: var(--bg); color: var(--text); }
     </div>
   </div>
 
-  <div class="chat-actions" id="chatActions">
-    <button class="copy-latest-btn" id="copyLatestBtn">Copy</button>
-  </div>
-
   <div class="input-container">
     <div class="input-bar">
       <textarea class="input" id="promptInput" rows="1" placeholder="Write a research paper outline on..."></textarea>
@@ -2115,7 +2111,7 @@ body { background-color: var(--bg); color: var(--text); }
   <div class="ai-chat-header" id="aiChatHeader">
     <div class="title">
       <div class="dot"></div>
-      Monkey Scout Copilot
+      Monkey Scout Asistance
     </div>
     <div class="controls">
       <button id="aiMinimizeBtn" aria-label="Minimize">−</button>
@@ -2124,7 +2120,7 @@ body { background-color: var(--bg); color: var(--text); }
   </div>
 
   <div class="ai-chat-body" id="aiChatBody">
-    <div class="ai-chat-msg ai">Hello! Paste a saved five-character prompt code here to create its table of contents, or ask a question.</div>
+    <div class="ai-chat-msg ai">Hello! What do we have today. Still confused, let me help you out.</div>
   </div>
 
   <div class="ai-chat-input">
@@ -3763,7 +3759,7 @@ function renderPromptBuilderView() {
             <div class="prompt-toc-kicker">Prompt Builder</div>
             <h2>Generated Prompt</h2>
           </div>
-          <button class="prompt-toc-switch primary" id="switchToTocFromResultBtn" type="button">Switch to Table of Contents</button>
+          <button class="prompt-toc-switch primary" style=" id="switchToTocFromResultBtn" type="button">Switch to Table of Contents</button>
         </div>
         <div class="ai-message-board">
           <div class="ai-message">
