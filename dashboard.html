@@ -5540,9 +5540,6 @@ function renderMergedPaper(value){
   bar.className="merged-download-bar";
   bar.innerHTML=`
     <span class="download-label">Export complete paper</span>
-    <button type="button" class="merged-download-btn primary" id="editMergedInWordBtn" title="Open the complete paper in the full-screen Monkey Scout editor">
-      Edit complete paper
-    </button>
     <button type="button" class="merged-download-btn" id="downloadMergedDocxBtn" title="Download as Microsoft Word">
       <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
       Download as Word (.docx)
@@ -5554,8 +5551,6 @@ function renderMergedPaper(value){
   `;
   wrap.appendChild(bar);
   document.getElementById("chatArea").appendChild(wrap);
-  window.__msQuillPreviewPromise=loadMonkeyScoutEditedPreview();
-  document.getElementById("editMergedInWordBtn")?.addEventListener("click", openMonkeyScoutWordEditor);
   document.getElementById("downloadMergedPdfBtn")?.addEventListener("click", async () => {
     const includeMonkeyScout = await chooseMonkeyScoutFooter();
     if (includeMonkeyScout !== null) downloadMergedAsPDF(includeMonkeyScout);
@@ -5971,7 +5966,6 @@ function chooseMonkeyScoutFooter(){
 }
 
 async function downloadMergedAsPDF(includeMonkeyScout = false){
-  if(window.__msQuillPreviewPromise){try{await window.__msQuillPreviewPromise;}catch(_){}}
   const btn = document.getElementById("downloadMergedPdfBtn");
   if (!btn) return;
   const originalLabel = btn.innerHTML;
@@ -6168,60 +6162,7 @@ async function downloadMergedAsPDF(includeMonkeyScout = false){
   }
 }
 
-
-/* ===== Monkey Scout full-screen Quill editor integration ===== */
-function openMonkeyScoutWordEditor(){
-  const button=document.getElementById("editMergedInWordBtn");
-  const userId=getWorkflowUserId(), projectId=activePaperProjectId;
-  if(!userId || !projectId){
-    alert("Please sign in and open a saved, merged paper before editing it.");
-    return;
-  }
-  if(!document.getElementById("mergedPagesRoot")){
-    alert("Merge the complete paper first, then open the editor.");
-    return;
-  }
-  const oldLabel=button?.textContent||"Edit complete paper";
-  if(button){button.disabled=true;button.textContent="Opening editor…";}
-  try{
-    const returnTo=location.href;
-    const url=`${API_URL}/monkey-scout/editor?project_id=${encodeURIComponent(projectId)}&user_id=${encodeURIComponent(userId)}&return_to=${encodeURIComponent(returnTo)}`;
-    location.assign(url);
-  }catch(err){
-    console.error(err);
-    alert(err.message||"Could not open the Monkey Scout editor.");
-    if(button){button.disabled=false;button.textContent=oldLabel;}
-  }
-}
-
-async function loadMonkeyScoutEditedPreview(){
-  const userId=getWorkflowUserId(), projectId=activePaperProjectId;
-  const root=document.getElementById("mergedPagesRoot");
-  if(!userId || !projectId || !root) return false;
-  try{
-    const url=`${API_URL}/api/monkey-scout/quill/load?project_id=${encodeURIComponent(projectId)}&user_id=${encodeURIComponent(userId)}`;
-    const response=await fetch(url,{credentials:"include"});
-    if(response.status===404 || response.status===409) return false;
-    if(!response.ok) return false;
-    const data=await response.json();
-    if(!data.content_html) return false;
-    const cleanHtml=String(data.content_html);
-    const words=cleanHtml.replace(/<[^>]*>/g," ").replace(/\s+/g," ").trim().split(" ").filter(Boolean).length;
-    root.innerHTML=createA4Pages(cleanHtml,words,{kind:"normal",startPage:1});
-    const output=document.getElementById("mergedPaperOutput");
-    if(output) output.dataset.mergedContent="[[TEMPAPER_RICH_HTML]]"+cleanHtml;
-    root.dataset.editedRevision=String(Date.now());
-    const note=document.querySelector("#mergedPaperOutput .workflow-merged-note");
-    if(note) note.textContent="This preview uses your latest saved Quill revision. Word and PDF exports are generated from this same saved document.";
-    return true;
-  }catch(err){
-    console.warn("Could not refresh the Quill editor preview:",err);
-    return false;
-  }
-}
-
 async function downloadMergedAsDocx(includeMonkeyScout = false){
-  if(window.__msQuillPreviewPromise){try{await window.__msQuillPreviewPromise;}catch(_){}}
   const btn = document.getElementById("downloadMergedDocxBtn");
   if (!btn) return;
   if (!window.docx || !window.docxHtml || !window.docxHtml.htmlToContent || typeof saveAs === "undefined") {
@@ -6543,9 +6484,6 @@ async function downloadMergedAsDocx(includeMonkeyScout = false){
 
     const blob = await docx.Packer.toBlob(wordDoc);
     if (!blob || blob.size < 1000) throw new Error("The Word file was not generated correctly.");
-    if (options && options.returnBlob) {
-      return { blob, filename: getMergedExportTitle() + ".docx" };
-    }
     saveAs(blob, getMergedExportTitle() + ".docx");
   } catch (err) {
     console.error(err);
