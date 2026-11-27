@@ -2116,7 +2116,7 @@ body { background-color: var(--bg); color: var(--text); }
   <div class="ai-chat-header" id="aiChatHeader">
     <div class="title">
       <div class="dot"></div>
-      Monkey Scout Copilot
+      Monkey Scout Assistant
     </div>
     <div class="controls">
       <button id="aiMinimizeBtn" aria-label="Minimize">−</button>
@@ -2125,7 +2125,7 @@ body { background-color: var(--bg); color: var(--text); }
   </div>
 
   <div class="ai-chat-body" id="aiChatBody">
-    <div class="ai-chat-msg ai">Hello! Paste a saved five-character prompt code here to create its table of contents, or ask a question.</div>
+    <div class="ai-chat-msg ai">Hello! Having Problem with your Termpaper, let's help you out.</div>
   </div>
 
   <div class="ai-chat-input">
@@ -3764,7 +3764,7 @@ function renderPromptBuilderView() {
             <div class="prompt-toc-kicker">Prompt Builder</div>
             <h2>Generated Prompt</h2>
           </div>
-          <button class="prompt-toc-switch primary" id="switchToTocFromResultBtn" type="button">Switch to Table of Contents</button>
+          <button style="color: white;" class="prompt-toc-switch primary" id="switchToTocFromResultBtn" type="button">Switch to Table of Contents</button>
         </div>
         <div class="ai-message-board">
           <div class="ai-message">
@@ -3830,9 +3830,9 @@ function renderPromptBuilderView() {
           <div class="form-field full image-mode-field">
             <label class="image-mode-label" for="pbImages">Illustrations in this paper</label>
             <div class="checkbox-row image-mode-row">
-              <label><input type="checkbox" id="pbImages" name="pbImages" ${draft.include_images ? "checked" : ""}> Ask Groq to mark useful image positions</label>
+              <label><input type="checkbox" id="pbImages" name="pbImages" ${draft.include_images ? "checked" : ""}></label>
             </div>
-            <small class="image-mode-help">When enabled, Groq adds labelled “ADD IMAGE HERE” positions. You upload the actual pictures. You can also add images manually in any chapter even when this is OFF.</small>
+            <small class="image-mode-help">When enabled, Monkey Scout adds labelled “ADD IMAGE HERE” positions. You upload the actual pictures. You can also add images manually in any chapter even when this is OFF.</small>
           </div>
 
           <div class="form-field">
@@ -4147,7 +4147,7 @@ function renderTOCView() {
           <div class="prompt-toc-kicker">Table of Contents</div>
           <h2>Generate a Table of Contents</h2>
         </div>
-        <button class="prompt-toc-switch primary" id="switchBackToPromptBtn" type="button">Switch Back to Prompts</button>
+        <button style="color: white;" class="prompt-toc-switch primary" id="switchBackToPromptBtn" type="button">Switch Back to Prompts</button>
       </div>
 
       <div class="prompt-toc-panel">
