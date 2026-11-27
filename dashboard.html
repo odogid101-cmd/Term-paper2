@@ -18,8 +18,7 @@
 </script>
 
 <title>Monkey Scout | Term Paper Generation & Academic Workspace</title>
-<!-- Desktop layout on all devices: fixed layout width, browser scales to fit -->
-<meta name="viewport" content="width=1100" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <meta property="og:image" content="https://i.postimg.cc/3xqH7Z6F/20261110-205017.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2027,6 +2026,126 @@ body { background-color: var(--bg); color: var(--text); }
 }
 @media print {
   .merged-download-bar { display: none !important; }
+  .ms-ad-slot, .ms-ad-section, .ms-ad-sidebar, .ms-ad-prompt, .ms-social-bar { display: none !important; }
+}
+
+/* ---------- Native / social ad slots (non-blocking) ---------- */
+.ms-ad-slot {
+  width: 100%;
+  max-width: 860px;
+  margin: 10px auto 14px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(7, 63, 45, 0.14);
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(7, 63, 45, 0.06);
+  overflow: visible;
+  min-height: 90px;
+}
+.ms-ad-slot .ms-ad-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7a9186;
+  margin-bottom: 6px;
+  font-family: Inter, system-ui, sans-serif;
+}
+.ms-ad-slot .ms-ad-body {
+  min-height: 70px;
+  overflow: visible;
+  width: 100%;
+}
+.ms-ad-slot .ms-ad-body > div,
+.ms-ad-slot .ms-ad-body iframe,
+.ms-ad-slot .ms-ad-body ins {
+  max-width: 100% !important;
+  margin: 0 auto !important;
+}
+.ms-ad-section {
+  margin-top: 4px;
+  margin-bottom: 18px;
+}
+.ms-ad-sidebar {
+  margin: 12px 8px 8px;
+  padding: 10px 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(0,0,0,0.22);
+  overflow: visible;
+  min-height: 80px;
+}
+.ms-ad-sidebar .ms-ad-label {
+  color: rgba(235,255,242,0.55);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  font-family: Inter, system-ui, sans-serif;
+}
+.ms-ad-sidebar .ms-ad-body {
+  min-height: 60px;
+  overflow: visible;
+  width: 100%;
+}
+.ms-ad-prompt {
+  max-width: none;
+  margin: 0 0 14px;
+  border-style: solid;
+  border-color: rgba(7, 63, 45, 0.12);
+  background: #f7fbf8;
+}
+.ms-social-bar {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  z-index: 2147483000;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 10px 12px 12px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid rgba(7, 63, 45, 0.16);
+  box-shadow: 0 16px 40px rgba(7, 63, 45, 0.22);
+  font-family: Inter, system-ui, sans-serif;
+  animation: msSocialIn 0.22s ease;
+}
+@keyframes msSocialIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.ms-social-bar .ms-social-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.ms-social-bar .ms-social-top strong {
+  font-size: 12px;
+  color: #17352a;
+}
+.ms-social-bar .ms-social-top button {
+  border: 0;
+  background: #f1f5f3;
+  color: #334155;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ms-social-bar .ms-social-body {
+  min-height: 48px;
+  max-height: 110px;
+  overflow: hidden;
+}
+@media (max-width: 600px) {
+  .ms-ad-slot { margin: 8px 0 12px; padding: 7px 8px; }
+  .ms-social-bar { left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom)); }
 }
 
 </style>
@@ -2075,6 +2194,15 @@ body { background-color: var(--bg); color: var(--text); }
     <div class="menu-left">
       <svg viewBox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>
       Settings
+    </div>
+  </div>
+
+  <!-- Native ad: sidebar — container + script must be adjacent (Adsterra pattern) -->
+  <div class="ms-ad-sidebar" id="msSidebarAd" aria-label="Sponsored">
+    <div class="ms-ad-label">Sponsored</div>
+    <div class="ms-ad-body" id="msSidebarAdBody">
+      <div id="container-028c1c95121d18a1c4e12a9303134f45"></div>
+      <script async fetchpriority="high" data-cfasync="false" src="https://bauval.org/21/028c1c95121d18a1c4e12a9303134f45"></script>
     </div>
   </div>
 
@@ -2166,6 +2294,12 @@ body { background-color: var(--bg); color: var(--text); }
 
 <script>
 const API_URL = "https://term-paper-n4kl.onrender.com";
+/* Adsterra / bauval native zones */
+const MS_AD_NATIVE_SRC = "https://bauval.org/21/028c1c95121d18a1c4e12a9303134f45";
+const MS_AD_SOCIAL_SRC = "https://bauval.org/14/7823f046e5c4c47913d44aab4c660c07";
+const MS_AD_NATIVE_CONTAINER_ID = "container-028c1c95121d18a1c4e12a9303134f45";
+let msNativeScriptLoaded = false;
+let msSocialScriptLoaded = false;
 let currentUser = null;
 let appSettings = {theme: 'system', fontSize: 16, notifications: true};
 let isGenerating = false;
@@ -3374,6 +3508,8 @@ document.addEventListener("contextmenu", (e) => { e.preventDefault(); });
 document.addEventListener("DOMContentLoaded", async () => {
   ensureWorkflowDelegation();
   loadAppSettings();
+  // Sidebar native unit — script must sit next to the container
+  try { msEnsureNativeAdScript(); } catch (_) {}
 
   const userId = localStorage.getItem("user_id") || "";
 
@@ -3524,6 +3660,144 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 function getWorkflowUserId(){const id=localStorage.getItem("user_id")||"";return /^\d+$/.test(String(id))?String(id):"";}
+
+/**
+ * Adsterra/bauval units only fill when the <script> is inserted *next to*
+ * the placement in the document (not in <head>). Container-native zones
+ * also require the fixed container id to exist before/with the script.
+ */
+function msInjectScript(src, parent, attrs) {
+  if (!parent || !src) return null;
+  // Avoid stacking duplicate scripts inside the same parent
+  if (parent.querySelector(`script[data-ms-ad-src="${src}"]`)) return null;
+  const s = document.createElement("script");
+  s.async = true;
+  s.setAttribute("data-cfasync", "false");
+  s.setAttribute("data-ms-ad-src", src);
+  if (attrs && attrs.fetchpriority) s.setAttribute("fetchpriority", attrs.fetchpriority);
+  s.src = src;
+  parent.appendChild(s);
+  return s;
+}
+
+/** Sidebar: ensure native container + script (official Adsterra pattern). */
+function msEnsureNativeAdScript() {
+  try {
+    const body = document.getElementById("msSidebarAdBody");
+    if (!body) return;
+    let host = document.getElementById(MS_AD_NATIVE_CONTAINER_ID);
+    if (!host) {
+      host = document.createElement("div");
+      host.id = MS_AD_NATIVE_CONTAINER_ID;
+      body.insertBefore(host, body.firstChild);
+    }
+    // Script must sit immediately after the container
+    if (!body.querySelector(`script[data-ms-ad-src="${MS_AD_NATIVE_SRC}"]`)) {
+      msInjectScript(MS_AD_NATIVE_SRC, body, { fetchpriority: "high" });
+    }
+    msNativeScriptLoaded = true;
+  } catch (_) {}
+}
+
+/** Inject social-bar zone script into a specific mount element. */
+function msEnsureSocialAdScript(mountEl) {
+  try {
+    const target = mountEl || document.body;
+    msInjectScript(MS_AD_SOCIAL_SRC, target);
+    msSocialScriptLoaded = true;
+  } catch (_) {}
+}
+
+/** Compact strip under a generated section (after Pull Next actions). */
+function msBuildSectionAdHTML() {
+  return (
+    `<div class="ms-ad-slot ms-ad-section" data-ms-section-ad="1" aria-label="Sponsored">` +
+      `<span class="ms-ad-label">Sponsored</span>` +
+      `<div class="ms-ad-body" data-ms-ad-body="section"></div>` +
+    `</div>`
+  );
+}
+
+/**
+ * Under each section after Pull Next: mount social zone script inside the strip.
+ * Native container id is unique — kept only in the sidebar.
+ */
+function msRefreshSectionAds() {
+  try {
+    const cards = [...document.querySelectorAll('#chatArea .chat-msg[data-kind]')].filter(
+      c => c.dataset.kind !== "status"
+    );
+    cards.forEach((card) => {
+      let slot = card.querySelector("[data-ms-section-ad]");
+      if (!slot) {
+        const actions = card.querySelector(".workflow-output-actions");
+        if (!actions) return;
+        actions.insertAdjacentHTML("afterend", msBuildSectionAdHTML());
+        slot = card.querySelector("[data-ms-section-ad]");
+      }
+      const body = slot && slot.querySelector("[data-ms-ad-body]");
+      if (!body || body.dataset.filled === "1") return;
+      body.dataset.filled = "1";
+      // Social zone: script placed inside this body so inventory can render here
+      msEnsureSocialAdScript(body);
+    });
+    msEnsureNativeAdScript();
+  } catch (_) {}
+}
+
+/** Prompt / TOC top banner — inject social script into the body. */
+function msInjectPromptAd(shell) {
+  if (!shell) return;
+  let slot = shell.querySelector(".ms-ad-prompt");
+  if (!slot) {
+    const header = shell.querySelector(".prompt-toc-header");
+    const html =
+      `<div class="ms-ad-slot ms-ad-prompt" aria-label="Sponsored">` +
+        `<span class="ms-ad-label">Sponsored</span>` +
+        `<div class="ms-ad-body" id="msPromptAdBody"></div>` +
+      `</div>`;
+    if (header) header.insertAdjacentHTML("afterend", html);
+    else shell.insertAdjacentHTML("afterbegin", html);
+    slot = shell.querySelector(".ms-ad-prompt");
+  }
+  const body = slot && (slot.querySelector("#msPromptAdBody") || slot.querySelector(".ms-ad-body"));
+  if (body && body.dataset.filled !== "1") {
+    body.dataset.filled = "1";
+    msEnsureSocialAdScript(body);
+  }
+}
+
+/** Social bar when exporting without Monkey Scout logo. */
+function msShowSocialBar() {
+  msHideSocialBar();
+  const bar = document.createElement("div");
+  bar.className = "ms-social-bar";
+  bar.id = "msSocialBar";
+  bar.innerHTML =
+    `<div class="ms-social-top">` +
+      `<strong>Sponsored</strong>` +
+      `<button type="button" data-ms-social-close>Close</button>` +
+    `</div>` +
+    `<div class="ms-social-body" id="msSocialBarBody"></div>`;
+  document.body.appendChild(bar);
+  bar.querySelector("[data-ms-social-close]").onclick = () => msHideSocialBar();
+  const body = bar.querySelector("#msSocialBarBody");
+  msEnsureSocialAdScript(body);
+  return bar;
+}
+
+function msHideSocialBar() {
+  const bar = document.getElementById("msSocialBar");
+  if (bar) bar.remove();
+}
+
+function msMaybeShowSocialOnExport(includeMonkeyScout) {
+  if (includeMonkeyScout === false) {
+    msShowSocialBar();
+  } else {
+    msHideSocialBar();
+  }
+}
 
 function setView(view) {
   appState.view = view;
@@ -3838,6 +4112,7 @@ function renderPromptBuilderView() {
         </div>
         <button style="color: white;" class="prompt-toc-switch primary" id="switchToTocBtn" type="button">Switch to Table of Contents</button>
       </div>
+      <div class="ms-ad-slot ms-ad-prompt" aria-label="Sponsored"><span class="ms-ad-label">Sponsored</span><div class="ms-ad-body" id="msPromptAdBody"></div></div>
       <div class="prompt-builder-panel">
         <form id="promptBuilderPageForm" class="prompt-builder-form">
           <div class="form-field full">
@@ -3977,6 +4252,7 @@ function renderPromptBuilderView() {
     renderPromptBuilderView();
   });
   document.getElementById("promptBuilderPageForm").addEventListener("submit", handlePromptBuilderSubmit);
+  try { msInjectPromptAd(document.querySelector(".prompt-toc-shell")); } catch (_) {}
 }
 
 function defaultPromptBuilderDraft() {
@@ -4177,6 +4453,7 @@ function renderTOCView() {
         </div>
         <button style="color: white;" class="prompt-toc-switch primary" id="switchBackToPromptBtn" type="button">Switch Back to Prompts</button>
       </div>
+      <div class="ms-ad-slot ms-ad-prompt" aria-label="Sponsored"><span class="ms-ad-label">Sponsored</span><div class="ms-ad-body" id="msPromptAdBody"></div></div>
 
       <div class="prompt-toc-panel">
         <form id="tocForm" class="toc-form">
@@ -4212,6 +4489,7 @@ function renderTOCView() {
     renderTOCView();
   });
   document.getElementById("tocForm").addEventListener("submit", handleTOCSubmit);
+  try { msInjectPromptAd(document.querySelector(".prompt-toc-shell")); } catch (_) {}
 }
 
 function renderTOCResultBoard() {
@@ -5065,9 +5343,10 @@ function rerenderWorkflowSection(container, raw, opts={}){
   const words = content_plain_text_for_count(content).split(/\s+/).filter(Boolean).length;
   const heading = `<div data-section-heading style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(title)}</div>`;
   const actions = `<div class="workflow-output-actions">${workflowActionsHTML(kind)}</div>`;
+  const sectionAd = msBuildSectionAdHTML();
   const pageOpts = {kind, startPage};
   if (kind === "toc") pageOpts.plainToc = content;
-  container.innerHTML = heading + createA4Pages(workflowContentHTML(content), words, pageOpts) + actions;
+  container.innerHTML = heading + createA4Pages(workflowContentHTML(content), words, pageOpts) + actions + sectionAd;
   try { renumberRecommendationLists(container); } catch (_) {}
   container.dataset.pageCount = String(
     kind === "toc"
@@ -5078,6 +5357,7 @@ function rerenderWorkflowSection(container, raw, opts={}){
   container.querySelectorAll(".tp-figure").forEach(fig => { delete fig.dataset.bound; });
   bindWorkflowButtons(container);
   bindFigureInteractions(container);
+  try { msRefreshSectionAds(); } catch (_) {}
   latestResultText = content;
   if(typeof toggleCopyButton === "function") toggleCopyButton(content);
 }
@@ -5187,7 +5467,7 @@ function addWorkflowSection(data,isInitial=false){
   const start=kind==="preliminary"?1:workflowArabicPage;
   const isToc=kind==="toc";
   const actions=workflowActionsHTML(kind);
-  container.innerHTML=`<div data-section-heading style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(data.title||"Generated section")}</div>${createA4Pages(workflowContentHTML(content),words,{kind,startPage:start})}<div class="workflow-output-actions">${actions}</div>`;
+  container.innerHTML=`<div data-section-heading style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(data.title||"Generated section")}</div>${createA4Pages(workflowContentHTML(content),words,{kind,startPage:start})}<div class="workflow-output-actions">${actions}</div>${msBuildSectionAdHTML()}`;
   try { renumberRecommendationLists(container); } catch (_) {}
   Object.assign(container.dataset,{title:data.title||"Generated section",raw:content,kind,projectId:String(data.project_id||activePaperProjectId||""),tocCode:data.toc_code||activeTocCode||"",pageStart:kind==="preliminary"?"i":String(start)});
   if(!isToc)container.dataset.orderNo=String(data.order_no??0);
@@ -5195,6 +5475,7 @@ function addWorkflowSection(data,isInitial=false){
   bindWorkflowButtons(container);
   bindFigureInteractions(container);
   chatArea.appendChild(container);chatArea.scrollTop=chatArea.scrollHeight;
+  try { msRefreshSectionAds(); } catch (_) {}
   const pageCount=paginateContent(workflowContentHTML(content)).length||1;
   container.dataset.pageCount=String(pageCount);
   if(kind==="preliminary")workflowArabicPage=1;
@@ -5582,11 +5863,26 @@ function renderMergedPaper(value){
   document.getElementById("chatArea").appendChild(wrap);
   document.getElementById("downloadMergedPdfBtn")?.addEventListener("click", async () => {
     const includeMonkeyScout = await chooseMonkeyScoutFooter();
-    if (includeMonkeyScout !== null) downloadMergedAsPDF(includeMonkeyScout);
+    if (includeMonkeyScout === null) { msHideSocialBar(); return; }
+    msMaybeShowSocialOnExport(includeMonkeyScout);
+    try {
+      await downloadMergedAsPDF(includeMonkeyScout);
+    } finally {
+      // Keep social bar visible briefly after without-logo export; user can close it.
+      if (includeMonkeyScout !== false) msHideSocialBar();
+    }
   });
   document.getElementById("downloadMergedDocxBtn")?.addEventListener("click", async () => {
     const includeMonkeyScout = await chooseMonkeyScoutFooter();
-    if (includeMonkeyScout !== null) downloadMergedAsDocx(includeMonkeyScout);
+    if (includeMonkeyScout === null) { msHideSocialBar(); return; }
+    msMaybeShowSocialOnExport(includeMonkeyScout);
+    try {
+      await downloadMergedAsDocx(includeMonkeyScout);
+    } finally {
+      if (includeMonkeyScout !== false) msHideSocialBar();
+      // Without-logo: auto-dismiss social bar a few seconds after Word finishes
+      if (includeMonkeyScout === false) setTimeout(() => msHideSocialBar(), 12000);
+    }
   });
 }
 
@@ -6010,6 +6306,8 @@ async function downloadMergedAsPDF(includeMonkeyScout = false){
       }
       old.remove();
     }
+    // Export flow finished — dismiss social bar shortly after preview closes
+    setTimeout(() => msHideSocialBar(), 800);
   };
 
   try {
@@ -6125,7 +6423,7 @@ async function downloadMergedAsPDF(includeMonkeyScout = false){
       "*, *::before, *::after { box-sizing:border-box; }",
       ".export-section { display:block!important; margin:0!important; padding:0!important; }",
       ".export-section:not(:first-child) { break-before:page; page-break-before:always; }",
-      ".export-pagebreak, .page-number, .a4-footer, .document-stats, .tp-figure-handles, .tp-handle, .workflow-editor, .workflow-output-actions { display:none!important; }",
+      ".export-pagebreak, .page-number, .a4-footer, .document-stats, .tp-figure-handles, .tp-handle, .workflow-editor, .workflow-output-actions, .ms-ad-slot, .ms-ad-section, .ms-social-bar { display:none!important; }",
       ".ms-print-page { position:relative!important; background:#fff!important; width:auto!important; min-height:0!important; height:auto!important; padding:0!important; margin:0!important; }",
       "p { margin:0 0 10pt; text-align:justify; orphans:2; widows:2; }",
       "li, ol, ul { margin:0 0 4pt; page-break-inside:auto; break-inside:auto; }",
