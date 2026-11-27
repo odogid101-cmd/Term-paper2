@@ -373,12 +373,13 @@ svg { display: block; }
 .dropdown-menu div {
   padding: 11px 14px;
   font-size: 13px;
-  color: var(--text);
+  color: white;
   cursor: pointer;
   transition: background 0.15s ease;
 }
 .dropdown-menu div:hover { background: rgba(255,255,255,0.05); }
 .dropdown-menu .danger { color: var(--danger); }
+.dropdown-menu .dropon { color: white; }
 
 .chat-area {
   flex: 1;
@@ -2073,9 +2074,9 @@ body { background-color: var(--bg); color: var(--text); }
         <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
       </button>
       <div class="dropdown-menu" id="dotsMenu">
-        <div id="menuNewChat">New Workspace</div>
-        <div onclick="window.location='settings.html'">Account Settings</div>
-        <div class="danger" onclick="window.location='index.html'">Sign Out</div>
+        <div class="dropon"id="menuNewChat">New Workspace</div>
+        <div class="dropon" onclick="window.location='settings.html'">Account Settings</div>
+        <div class="danger" onclick="window.location='https://monkeyscout.cv/#sign-in'">Sign Out</div>
       </div>
     </div>
   </div>
