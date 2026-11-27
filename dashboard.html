@@ -83,7 +83,7 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-html { scroll-behavior: smooth; }
+html { scroll-behavior: auto; }
 
 body {
   background: var(--bg);
@@ -2148,12 +2148,55 @@ body { background-color: var(--bg); color: var(--text); }
   .ms-social-bar { left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom)); }
 }
 
+
+/* Monkey Scout clean white + green theme; overrides the former dark/indigo skin. */
+:root,
+[data-theme="light"],
+[data-theme="dark"] {
+  --bg: #f6f8f7;
+  --bg-glow: none;
+  --sidebar: #ffffff;
+  --panel: #ffffff;
+  --card: #ffffff;
+  --card-hover: #f3f8f5;
+  --accent: #16834a;
+  --accent-hover: #116b3c;
+  --accent-soft: rgba(22,131,74,.09);
+  --accent-gradient: linear-gradient(135deg,#239b5b,#16834a);
+  --text: #17231c;
+  --muted: #66756c;
+  --border: rgba(20,65,40,.13);
+  --soft-border: rgba(20,65,40,.07);
+  --danger: #dc5656;
+  --success: #16834a;
+  --shadow-soft: 0 12px 32px rgba(15,45,28,.10);
+  --shadow-card: 0 5px 16px rgba(15,45,28,.06);
+}
+body { background:#f6f8f7!important; background-image:none!important; color:#17231c!important; }
+.sidebar { background:#fff!important; backdrop-filter:none!important; -webkit-backdrop-filter:none!important; box-shadow:4px 0 18px rgba(15,45,28,.05)!important; }
+.topbar { background:rgba(255,255,255,.96)!important; backdrop-filter:none!important; -webkit-backdrop-filter:none!important; }
+.topbar .heading { background:none!important; color:#17231c!important; -webkit-text-fill-color:#17231c!important; }
+.menu-item.active { background:#eaf5ee!important; border-color:#cce6d5!important; box-shadow:none!important; color:#176b3d!important; }
+.menu-item.active .menu-left { color:#176b3d!important; }
+.logo-dot,.profile-avatar,.btn-icon,.primary-btn,.prompt-toc-switch.primary { background:#16834a!important; box-shadow:none!important; }
+.input-bar,.ai-chat-window,.ai-chat-body,.ai-chat-input input { background:#fff!important; color:#17231c!important; }
+.input-bar:focus-within { background:#fff!important; box-shadow:0 0 0 3px rgba(22,131,74,.10)!important; border-color:#16834a!important; }
+.welcome-placeholder { background:#fff!important; box-shadow:var(--shadow-card)!important; }
+.welcome-placeholder::before { display:none!important; }
+.ai-chat-window { border-color:#dce8df!important; }
+.ms-ad-sidebar { background:#f8fbf9!important; border-color:#dce9e0!important; }
+.ms-ad-sidebar .ms-ad-label { color:#718178!important; }
+.ms-ad-slot,.ms-social-bar { display:none!important; }
+@media (prefers-reduced-motion: reduce) {
+  *,*::before,*::after { scroll-behavior:auto!important; animation-duration:.01ms!important; animation-iteration-count:1!important; transition-duration:.01ms!important; }
+}
+
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-<script src="https://unpkg.com/docx@9/dist/index.iife.js"></script>
-<script src="https://unpkg.com/docx@9/dist/math.umd.cjs"></script>
-<script src="https://unpkg.com/docx@9/dist/html.umd.cjs"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script defer src="https://unpkg.com/docx@9/dist/index.iife.js"></script>
+<script defer src="https://unpkg.com/docx@9/dist/math.umd.cjs"></script>
+<script defer src="https://unpkg.com/docx@9/dist/html.umd.cjs"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 </head>
 <body>
 
@@ -2296,10 +2339,8 @@ body { background-color: var(--bg); color: var(--text); }
 const API_URL = "https://term-paper-n4kl.onrender.com";
 /* Adsterra / bauval native zones */
 const MS_AD_NATIVE_SRC = "https://bauval.org/21/028c1c95121d18a1c4e12a9303134f45";
-const MS_AD_SOCIAL_SRC = "https://bauval.org/14/7823f046e5c4c47913d44aab4c660c07";
 const MS_AD_NATIVE_CONTAINER_ID = "container-028c1c95121d18a1c4e12a9303134f45";
 let msNativeScriptLoaded = false;
-let msSocialScriptLoaded = false;
 let currentUser = null;
 let appSettings = {theme: 'system', fontSize: 16, notifications: true};
 let isGenerating = false;
@@ -3666,137 +3707,49 @@ function getWorkflowUserId(){const id=localStorage.getItem("user_id")||"";return
  * the placement in the document (not in <head>). Container-native zones
  * also require the fixed container id to exist before/with the script.
  */
-function msInjectScript(src, parent, attrs) {
-  if (!parent || !src) return null;
-  // Avoid stacking duplicate scripts inside the same parent
-  if (parent.querySelector(`script[data-ms-ad-src="${src}"]`)) return null;
-  const s = document.createElement("script");
-  s.async = true;
-  s.setAttribute("data-cfasync", "false");
-  s.setAttribute("data-ms-ad-src", src);
-  if (attrs && attrs.fetchpriority) s.setAttribute("fetchpriority", attrs.fetchpriority);
-  s.src = src;
-  parent.appendChild(s);
-  return s;
-}
 
-/** Sidebar: ensure native container + script (official Adsterra pattern). */
+/* Lightweight ad placement manager.
+   Keep the existing native banner in the sidebar only. No social bar,
+   popunder injection, repeated section ads, or blocking ad requests. */
 function msEnsureNativeAdScript() {
   try {
     const body = document.getElementById("msSidebarAdBody");
     if (!body) return;
-    let host = document.getElementById(MS_AD_NATIVE_CONTAINER_ID);
+    const existing = body.querySelector('script[src*="bauval.org/21/028c1c95121d18a1c4e12a9303134f45"]');
+    if (existing) return;
+    let host = document.getElementById("container-028c1c95121d18a1c4e12a9303134f45");
     if (!host) {
       host = document.createElement("div");
-      host.id = MS_AD_NATIVE_CONTAINER_ID;
-      body.insertBefore(host, body.firstChild);
+      host.id = "container-028c1c95121d18a1c4e12a9303134f45";
+      body.appendChild(host);
     }
-    // Script must sit immediately after the container
-    if (!body.querySelector(`script[data-ms-ad-src="${MS_AD_NATIVE_SRC}"]`)) {
-      msInjectScript(MS_AD_NATIVE_SRC, body, { fetchpriority: "high" });
-    }
-    msNativeScriptLoaded = true;
-  } catch (_) {}
+    const script = document.createElement("script");
+    script.async = true;
+    script.setAttribute("data-cfasync", "false");
+    script.src = "https://bauval.org/21/028c1c95121d18a1c4e12a9303134f45";
+    body.appendChild(script);
+  } catch (error) {
+    console.warn("Sidebar ad could not be initialized.", error);
+  }
 }
 
-/** Inject social-bar zone script into a specific mount element. */
-function msEnsureSocialAdScript(mountEl) {
-  try {
-    const target = mountEl || document.body;
-    msInjectScript(MS_AD_SOCIAL_SRC, target);
-    msSocialScriptLoaded = true;
-  } catch (_) {}
-}
-
-/** Compact strip under a generated section (after Pull Next actions). */
-function msBuildSectionAdHTML() {
-  return (
-    `<div class="ms-ad-slot ms-ad-section" data-ms-section-ad="1" aria-label="Sponsored">` +
-      `<span class="ms-ad-label">Sponsored</span>` +
-      `<div class="ms-ad-body" data-ms-ad-body="section"></div>` +
-    `</div>`
-  );
-}
-
-/**
- * Under each section after Pull Next: mount social zone script inside the strip.
- * Native container id is unique — kept only in the sidebar.
- */
+/* Retained as no-op compatibility hooks for existing workflow renderers.
+   This prevents old workflow code from inserting social/popunder ads. */
 function msRefreshSectionAds() {
-  try {
-    const cards = [...document.querySelectorAll('#chatArea .chat-msg[data-kind]')].filter(
-      c => c.dataset.kind !== "status"
-    );
-    cards.forEach((card) => {
-      let slot = card.querySelector("[data-ms-section-ad]");
-      if (!slot) {
-        const actions = card.querySelector(".workflow-output-actions");
-        if (!actions) return;
-        actions.insertAdjacentHTML("afterend", msBuildSectionAdHTML());
-        slot = card.querySelector("[data-ms-section-ad]");
-      }
-      const body = slot && slot.querySelector("[data-ms-ad-body]");
-      if (!body || body.dataset.filled === "1") return;
-      body.dataset.filled = "1";
-      // Social zone: script placed inside this body so inventory can render here
-      msEnsureSocialAdScript(body);
-    });
-    msEnsureNativeAdScript();
-  } catch (_) {}
+  document.querySelectorAll("[data-ms-section-ad], .ms-ad-section").forEach(node => node.remove());
 }
-
-/** Prompt / TOC top banner — inject social script into the body. */
-function msInjectPromptAd(shell) {
-  if (!shell) return;
-  let slot = shell.querySelector(".ms-ad-prompt");
-  if (!slot) {
-    const header = shell.querySelector(".prompt-toc-header");
-    const html =
-      `<div class="ms-ad-slot ms-ad-prompt" aria-label="Sponsored">` +
-        `<span class="ms-ad-label">Sponsored</span>` +
-        `<div class="ms-ad-body" id="msPromptAdBody"></div>` +
-      `</div>`;
-    if (header) header.insertAdjacentHTML("afterend", html);
-    else shell.insertAdjacentHTML("afterbegin", html);
-    slot = shell.querySelector(".ms-ad-prompt");
-  }
-  const body = slot && (slot.querySelector("#msPromptAdBody") || slot.querySelector(".ms-ad-body"));
-  if (body && body.dataset.filled !== "1") {
-    body.dataset.filled = "1";
-    msEnsureSocialAdScript(body);
-  }
+function msInjectPromptAd() {
+  document.querySelectorAll(".ms-ad-prompt").forEach(node => node.remove());
 }
-
-/** Social bar when exporting without Monkey Scout logo. */
+function msHideSocialBar() {
+  document.getElementById("msSocialBar")?.remove();
+}
 function msShowSocialBar() {
   msHideSocialBar();
-  const bar = document.createElement("div");
-  bar.className = "ms-social-bar";
-  bar.id = "msSocialBar";
-  bar.innerHTML =
-    `<div class="ms-social-top">` +
-      `<strong>Sponsored</strong>` +
-      `<button type="button" data-ms-social-close>Close</button>` +
-    `</div>` +
-    `<div class="ms-social-body" id="msSocialBarBody"></div>`;
-  document.body.appendChild(bar);
-  bar.querySelector("[data-ms-social-close]").onclick = () => msHideSocialBar();
-  const body = bar.querySelector("#msSocialBarBody");
-  msEnsureSocialAdScript(body);
-  return bar;
+  return null;
 }
-
-function msHideSocialBar() {
-  const bar = document.getElementById("msSocialBar");
-  if (bar) bar.remove();
-}
-
-function msMaybeShowSocialOnExport(includeMonkeyScout) {
-  if (includeMonkeyScout === false) {
-    msShowSocialBar();
-  } else {
-    msHideSocialBar();
-  }
+function msMaybeShowSocialOnExport() {
+  msHideSocialBar();
 }
 
 function setView(view) {
