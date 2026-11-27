@@ -1492,18 +1492,35 @@ svg { display: block; }
   min-height:36px; padding:8px 14px; border:1px solid var(--border);
   border-radius:10px; color:var(--text); background:rgba(255,255,255,.05);
   font-size:12px; font-weight:600; cursor:pointer;
-  transition: transform .15s ease, background .15s ease, border-color .15s ease, box-shadow .15s ease;
+  transition: transform .15s ease, background .15s ease, border-color .15s ease, box-shadow .15s ease, color .15s ease;
 }
 .workflow-output-actions button:hover:not(:disabled), .workflow-merge-btn:hover:not(:disabled) {
-  background: rgba(255,255,255,.08);
+  background: #ffffff;
+  color: #0f172a;
+  border-color: rgba(15, 23, 42, 0.14);
   transform: translateY(-1px);
 }
+.workflow-output-actions button:active:not(:disabled), .workflow-merge-btn:active:not(:disabled) {
+  background: #ffffff;
+  color: #0f172a;
+  transform: translateY(0);
+}
 .workflow-output-actions button.primary, .workflow-merge-btn {
-  color:#fff; background:var(--accent-gradient); border-color:transparent;
-  box-shadow: 0 8px 16px rgba(99,102,241,0.28), inset 0 1px 0 rgba(255,255,255,0.18);
+  color:#fff !important;
+  background:var(--accent-gradient);
+  border-color:transparent;
+  box-shadow: 0 8px 16px rgba(8,116,71,0.28), inset 0 1px 0 rgba(255,255,255,0.18);
 }
 .workflow-output-actions button.primary:hover:not(:disabled), .workflow-merge-btn:hover:not(:disabled) {
-  box-shadow: 0 12px 22px rgba(99,102,241,0.36), inset 0 1px 0 rgba(255,255,255,0.22);
+  color:#fff !important;
+  background: linear-gradient(135deg, #128653 0%, #075c3b 100%);
+  border-color: transparent;
+  box-shadow: 0 12px 22px rgba(8,116,71,0.36), inset 0 1px 0 rgba(255,255,255,0.22);
+}
+.workflow-output-actions button.primary:active:not(:disabled), .workflow-merge-btn:active:not(:disabled) {
+  color:#fff !important;
+  background: linear-gradient(135deg, #0e6b45 0%, #064a31 100%);
+  border-color: transparent;
 }
 .workflow-output-actions button:disabled, .workflow-merge-btn:disabled {opacity:.5;cursor:wait;transform:none}
 .resend-menu { position: relative; display: inline-flex; }
@@ -1511,10 +1528,20 @@ svg { display: block; }
   list-style: none; min-height: 36px; padding: 8px 14px; border: 1px solid var(--border);
   border-radius: 10px; color: var(--text); background: rgba(255,255,255,.05);
   font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+  transition: background .15s ease, color .15s ease, border-color .15s ease;
 }
 .resend-menu > summary::-webkit-details-marker { display: none; }
 .resend-menu > summary::after { content: "▾"; font-size: 10px; opacity: .8; }
-.resend-menu[open] > summary { background: rgba(255,255,255,.08); }
+.resend-menu > summary:hover {
+  background: #ffffff;
+  color: #0f172a;
+  border-color: rgba(15, 23, 42, 0.14);
+}
+.resend-menu[open] > summary {
+  background: #ffffff;
+  color: #0f172a;
+  border-color: rgba(15, 23, 42, 0.14);
+}
 .resend-menu .resend-panel {
   position: absolute; left: 0; bottom: calc(100% + 6px); z-index: 40;
   min-width: 220px; padding: 6px; border-radius: 12px;
@@ -6093,7 +6120,7 @@ async function downloadMergedAsPDF(includeMonkeyScout = false){
     const printCss = [
       "@page { size: A4 portrait; margin: 18mm 16mm 20mm; }",
       "html, body { margin:0!important; padding:0!important; background:#fff!important; }",
-      "body { color:#000!important; font-family:'Times New Roman',Times,serif!important; font-size:12pt!important; line-height:1.5!important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }",
+      "body { color:#111!important; font-family:'Times New Roman',Times,serif!important; font-size:12pt!important; line-height:1.55!important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }",
       "*, *::before, *::after { box-sizing:border-box; }",
       ".export-section { display:block!important; margin:0!important; padding:0!important; }",
       ".export-section:not(:first-child) { break-before:page; page-break-before:always; }",
@@ -6101,22 +6128,40 @@ async function downloadMergedAsPDF(includeMonkeyScout = false){
       ".ms-print-page { position:relative!important; background:#fff!important; width:auto!important; min-height:0!important; height:auto!important; padding:0!important; margin:0!important; }",
       "p { margin:0 0 10pt; text-align:justify; orphans:2; widows:2; }",
       "li, ol, ul { margin:0 0 4pt; page-break-inside:auto; break-inside:auto; }",
-      "h1, h2, h3, h4 { break-after:avoid; page-break-after:avoid; page-break-inside:auto; break-inside:auto; margin-top:14pt; }",
+      "h1 { font-size:18pt; font-weight:700; letter-spacing:-0.01em; margin:0 0 12pt; color:#0a0a0a; border-bottom:1.5pt solid #1a1a1a; padding-bottom:6pt; }",
+      "h2 { font-size:14pt; font-weight:700; margin:16pt 0 8pt; color:#111; }",
+      "h3 { font-size:12.5pt; font-weight:700; margin:12pt 0 6pt; color:#222; }",
+      "h1, h2, h3, h4 { break-after:avoid; page-break-after:avoid; page-break-inside:auto; break-inside:auto; }",
       ".ms-print-page h1,.ms-print-page h2,.ms-print-page h3,.ms-print-page h4 { font-family:'Times New Roman',Times,serif!important; break-after:avoid; page-break-after:avoid; }",
-      ".ms-print-page p,.ms-print-page li,.ms-print-page td,.ms-print-page th { font-family:'Times New Roman',Times,serif!important; font-size:12pt!important; line-height:1.5!important; }",
-      ".ms-print-page table { max-width:100%!important; margin:10pt 0; }",
+      ".ms-print-page p,.ms-print-page li,.ms-print-page td,.ms-print-page th { font-family:'Times New Roman',Times,serif!important; font-size:12pt!important; line-height:1.55!important; }",
+      ".ms-print-page table { max-width:100%!important; margin:10pt 0; border-collapse:collapse; }",
+      ".ms-print-page th, .ms-print-page td { border:0.5pt solid #bbb; padding:5pt 7pt; }",
+      ".ms-print-page th { background:#f3f4f6; font-weight:700; }",
       ".ms-print-page img, img { max-width:70%!important; height:auto!important; display:block; margin:10pt auto; }",
       ".tp-figure { display:block; width:70%; max-width:70%; margin:12pt auto; text-align:center; }",
-      ".ms-print-footer { position:fixed; left:16mm; right:16mm; bottom:8mm; display:flex; justify-content:space-between; font:9pt 'Times New Roman',Times,serif; color:#444; }",
-      ".ms-print-bar { position:sticky; top:0; z-index:5; display:flex; gap:8px; justify-content:flex-end; padding:10px 12px; background:#073f2d; }",
-      ".ms-print-bar button { border:0; border-radius:8px; padding:10px 14px; font-weight:700; cursor:pointer; }",
-      ".ms-print-bar .go { background:#fff; color:#073f2d; }",
+      ".fig-label, .fig-caption { font-size:10pt; color:#333; margin-top:4pt; }",
+      ".ms-print-footer { position:fixed; left:16mm; right:16mm; bottom:8mm; display:flex; justify-content:space-between; font:9pt 'Times New Roman',Times,serif; color:#555; border-top:0.5pt solid #ddd; padding-top:4pt; }",
+      ".ms-print-bar { position:sticky; top:0; z-index:5; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 16px; background:linear-gradient(135deg,#0a4a35 0%,#073f2d 55%,#052e22 100%); color:#fff; box-shadow:0 4px 18px rgba(0,0,0,.18); font-family:Inter,system-ui,Arial,sans-serif; }",
+      ".ms-print-bar .ms-print-title { font-size:13px; font-weight:700; letter-spacing:0.02em; opacity:.95; }",
+      ".ms-print-bar button { border:0; border-radius:9px; padding:10px 16px; font-weight:700; font-size:13px; cursor:pointer; transition:transform .12s ease, box-shadow .12s ease, background .12s ease, color .12s ease; }",
+      ".ms-print-bar .go { background:#fff; color:#073f2d; box-shadow:0 2px 8px rgba(0,0,0,.12); }",
+      ".ms-print-bar .go:hover { background:#f0fdf4; color:#052e22; transform:translateY(-1px); box-shadow:0 4px 12px rgba(0,0,0,.16); }",
+      ".ms-print-bar .go:active { background:#fff; color:#052e22; transform:translateY(0); }",
       "@media print { .ms-print-bar { display:none!important; } html, body { background:#fff!important; } }",
-      "@media screen { html, body { background:#e5e7eb!important; } .export-section { background:#fff; margin:12px auto; max-width:210mm; padding:16mm; box-shadow:0 2px 12px #0002; } }"
+      "@media screen {",
+      "  html, body { background:linear-gradient(180deg,#0f2920 0%,#1a3d32 40%,#e8ece9 40%,#e8ece9 100%)!important; min-height:100%; }",
+      "  body { padding:0 0 40px; }",
+      "  .export-section {",
+      "    background:#fff; margin:20px auto; max-width:210mm; padding:18mm 16mm;",
+      "    box-shadow:0 12px 40px rgba(0,0,0,.18), 0 2px 8px rgba(0,0,0,.08);",
+      "    border-radius:2px; border:1px solid rgba(0,0,0,.06);",
+      "  }",
+      "  .export-section:first-of-type { margin-top:18px; }",
+      "}"
     ].join("\n");
 
     const printHtml = "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>" + title + "</title><style>" + printCss + "</style></head><body>" +
-      "<div class=\"ms-print-bar\"><button class=\"go\" type=\"button\" onclick=\"window.print()\">Print / Save as PDF</button></div>" +
+      "<div class=\"ms-print-bar\"><span class=\"ms-print-title\">Monkey Scout · Print preview</span><button class=\"go\" type=\"button\" onclick=\"window.print()\">Print / Save as PDF</button></div>" +
       built.innerHTML + "</body></html>";
 
     const blob = new Blob([printHtml], { type: "text/html" });
@@ -6127,14 +6172,17 @@ async function downloadMergedAsPDF(includeMonkeyScout = false){
     overlay.id = "msPrintOverlay";
     overlay.style.cssText = "position:fixed;inset:0;z-index:2147483646;background:#0b1f18;display:flex;flex-direction:column;";
     overlay.innerHTML =
-      "<div style=\"display:flex;gap:8px;align-items:center;justify-content:space-between;padding:10px 12px;background:#073f2d;color:#fff;font-family:Arial,sans-serif;\">" +
-        "<strong style=\"font-size:14px\">Print preview</strong>" +
+      "<div style=\"display:flex;gap:10px;align-items:center;justify-content:space-between;padding:12px 16px;background:linear-gradient(135deg,#0a4a35 0%,#073f2d 55%,#052e22 100%);color:#fff;font-family:Inter,system-ui,Arial,sans-serif;box-shadow:0 4px 18px rgba(0,0,0,.22);\">" +
+        "<div style=\"display:flex;align-items:center;gap:10px\">" +
+          "<span style=\"width:10px;height:10px;border-radius:50%;background:#34d399;box-shadow:0 0 0 3px rgba(52,211,153,.25)\"></span>" +
+          "<strong style=\"font-size:14px;letter-spacing:0.01em\">Print preview</strong>" +
+        "</div>" +
         "<div style=\"display:flex;gap:8px\">" +
-          "<button type=\"button\" data-print style=\"border:0;border-radius:8px;padding:9px 12px;font-weight:700;background:#fff;color:#073f2d;cursor:pointer\">Print / Save as PDF</button>" +
-          "<button type=\"button\" data-close style=\"border:0;border-radius:8px;padding:9px 12px;font-weight:700;background:transparent;color:#fff;cursor:pointer\">Close</button>" +
+          "<button type=\"button\" data-print style=\"border:0;border-radius:9px;padding:10px 16px;font-weight:700;font-size:13px;background:#fff;color:#073f2d;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.12)\">Print / Save as PDF</button>" +
+          "<button type=\"button\" data-close style=\"border:1px solid rgba(255,255,255,.28);border-radius:9px;padding:10px 14px;font-weight:600;font-size:13px;background:transparent;color:#fff;cursor:pointer\">Close</button>" +
         "</div>" +
       "</div>" +
-      "<iframe title=\"Monkey Scout print preview\" style=\"flex:1;width:100%;border:0;background:#fff\"></iframe>";
+      "<iframe title=\"Monkey Scout print preview\" style=\"flex:1;width:100%;border:0;background:#e8ece9\"></iframe>";
     document.body.appendChild(overlay);
     const frame = overlay.querySelector("iframe");
     frame.dataset.blobUrl = blobUrl;
