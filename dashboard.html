@@ -3813,54 +3813,82 @@ function msInjectPromptAd(shell) {
   }
 }
 
-/** Open popunder gate in a new tab, then continue the download after the user closes it. */
+/** Open popunder in a new tab. Download starts after 3s away; early return asks to retry. */
+function msShowRedownloadNotice() {
+  const old = document.getElementById("msRedownloadNotice");
+  if (old) old.remove();
+  const box = document.createElement("div");
+  box.id = "msRedownloadNotice";
+  box.style.cssText = "position:fixed;inset:0;z-index:2147483646;background:rgba(8,18,14,.72);display:flex;align-items:center;justify-content:center;padding:18px;font-family:Inter,system-ui,sans-serif;";
+  box.innerHTML = '<div style="max-width:380px;background:#fff;color:#17352a;border-radius:16px;padding:22px;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,.25);"><h3 style="margin:0 0 8px;font-size:18px;">Please redownload</h3><p style="margin:0 0 16px;color:#5b7268;font-size:14px;line-height:1.45;">Please redownload and wait for 3 seconds on the sponsored page.</p><button type="button" id="msRedownloadOk" style="padding:11px 18px;border:0;border-radius:10px;background:#1f8a62;color:#fff;font-weight:700;cursor:pointer;">OK</button></div>';
+  document.body.appendChild(box);
+  box.querySelector("#msRedownloadOk").onclick = () => box.remove();
+}
+
 function msOpenAdGateThenDownload(downloadType, includeMonkeyScout) {
   return new Promise((resolve) => {
     if (includeMonkeyScout !== false) {
       resolve(true);
       return;
     }
-    const type = downloadType === "docx" ? "docx" : "pdf";
-    msPendingDownload = { type, resolve, ts: Date.now() };
-    const url = "ad-gate.html?type=" + encodeURIComponent(type);
-    const win = window.open(url, "_blank", "noopener,noreferrer");
-    if (!win) {
-      // Popup blocked — still continue so the user is not stuck
-      msPendingDownload = null;
-      resolve(true);
-      return;
-    }
-    // Safety timeout: if the gate never signals, continue after 90s
-    setTimeout(() => {
-      if (msPendingDownload && msPendingDownload.type === type) {
-        const pending = msPendingDownload;
-        msPendingDownload = null;
-        pending.resolve(true);
+    // Trigger the popunder script so the ad opens in a new tab.
+    try {
+      if (!document.querySelector('script[data-ms-popunder="1"]')) {
+        const s = document.createElement("script");
+        s.setAttribute("data-cfasync", "false");
+        s.setAttribute("data-ms-popunder", "1");
+        s.src = MS_AD_POPUNDER_SRC;
+        document.body.appendChild(s);
       }
-    }, 90000);
+    } catch (_) {}
+    // Also open a blank tab as a fallback so something opens on the click.
+    const win = window.open("about:blank", "_blank");
+    const started = Date.now();
+    let finished = false;
+    let leftEarly = false;
+
+    const finishOk = () => {
+      if (finished) return;
+      finished = true;
+      resolve(true);
+    };
+    const finishEarly = () => {
+      if (finished) return;
+      finished = true;
+      leftEarly = true;
+      msShowRedownloadNotice();
+      resolve(false);
+    };
+
+    const onBack = () => {
+      if (finished) return;
+      if (Date.now() - started < 3000) finishEarly();
+    };
+    document.addEventListener("visibilitychange", function vis() {
+      if (document.visibilityState === "visible") {
+        onBack();
+        if (finished) document.removeEventListener("visibilitychange", vis);
+      }
+    });
+    window.addEventListener("focus", function foc() {
+      onBack();
+      if (finished) window.removeEventListener("focus", foc);
+    });
+
+    setTimeout(() => {
+      if (finished) return;
+      if (document.visibilityState === "visible" && Date.now() - started < 2900) {
+        finishEarly();
+      } else {
+        finishOk();
+      }
+    }, 3000);
+
+    if (!win) {
+      // Popup blocked — still run the 3s wait so the user is not stuck forever.
+    }
   });
 }
-
-function msHandleAdGateDone(downloadType) {
-  if (!msPendingDownload) return;
-  const pending = msPendingDownload;
-  msPendingDownload = null;
-  try { pending.resolve(true); } catch (_) {}
-}
-
-window.addEventListener("message", (event) => {
-  const data = event && event.data;
-  if (!data || data.type !== "ms-ad-gate-done") return;
-  msHandleAdGateDone(data.downloadType);
-});
-
-window.addEventListener("storage", (event) => {
-  if (event.key !== "ms_ad_gate_done" || !event.newValue) return;
-  try {
-    const data = JSON.parse(event.newValue);
-    if (data && data.type === "ms-ad-gate-done") msHandleAdGateDone(data.downloadType);
-  } catch (_) {}
-});
 
 function msHideSocialBar() {
   const bar = document.getElementById("msSocialBar");
@@ -5960,7 +5988,8 @@ function renderMergedPaper(value){
   document.getElementById("downloadMergedPdfBtn")?.addEventListener("click", async () => {
     const includeMonkeyScout = await chooseMonkeyScoutFooter();
     if (includeMonkeyScout === null) { msHideSocialBar(); return; }
-    await msOpenAdGateThenDownload("pdf", includeMonkeyScout);
+    const ready = await msOpenAdGateThenDownload("pdf", includeMonkeyScout);
+    if (ready === false) return;
     try {
       await downloadMergedAsPDF(includeMonkeyScout);
     } finally {
@@ -5970,7 +5999,8 @@ function renderMergedPaper(value){
   document.getElementById("downloadMergedDocxBtn")?.addEventListener("click", async () => {
     const includeMonkeyScout = await chooseMonkeyScoutFooter();
     if (includeMonkeyScout === null) { msHideSocialBar(); return; }
-    await msOpenAdGateThenDownload("docx", includeMonkeyScout);
+    const ready = await msOpenAdGateThenDownload("docx", includeMonkeyScout);
+    if (ready === false) return;
     try {
       await downloadMergedAsDocx(includeMonkeyScout);
     } finally {
