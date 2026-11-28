@@ -2294,12 +2294,12 @@ body { background-color: var(--bg); color: var(--text); }
 
 <script>
 const API_URL = "https://term-paper-n4kl.onrender.com";
-/* Adsterra / bauval native zones */
+/* Adsterra zones */
 const MS_AD_NATIVE_SRC = "https://bauval.org/21/028c1c95121d18a1c4e12a9303134f45";
-const MS_AD_SOCIAL_SRC = "https://bauval.org/14/7823f046e5c4c47913d44aab4c660c07";
+const MS_AD_POPUNDER_SRC = "https://abscloud.org/1/1c8e6f71a0026b587596c0cc973a3db3";
 const MS_AD_NATIVE_CONTAINER_ID = "container-028c1c95121d18a1c4e12a9303134f45";
 let msNativeScriptLoaded = false;
-let msSocialScriptLoaded = false;
+let msPendingDownload = null;
 let currentUser = null;
 let appSettings = {theme: 'system', fontSize: 16, notifications: true};
 let isGenerating = false;
@@ -3714,11 +3714,9 @@ function msEnsureNativeAdScript() {
 
 /** Inject social-bar zone script into a specific mount element. */
 function msEnsureSocialAdScript(mountEl) {
-  try {
-    const target = mountEl || document.body;
-    msInjectScript(MS_AD_SOCIAL_SRC, target);
-    msSocialScriptLoaded = true;
-  } catch (_) {}
+  // Native banner is a single-container zone. Keep it in the sidebar
+  // so the same zone is not injected into multiple page slots.
+  try { msEnsureNativeAdScript(); } catch (_) {}
 }
 
 /** Compact strip under a generated section (after Pull Next actions). */
@@ -3780,36 +3778,58 @@ function msInjectPromptAd(shell) {
   }
 }
 
-/** Social bar when exporting without Monkey Scout logo. */
-function msShowSocialBar() {
-  msHideSocialBar();
-  const bar = document.createElement("div");
-  bar.className = "ms-social-bar";
-  bar.id = "msSocialBar";
-  bar.innerHTML =
-    `<div class="ms-social-top">` +
-      `<strong>Sponsored</strong>` +
-      `<button type="button" data-ms-social-close>Close</button>` +
-    `</div>` +
-    `<div class="ms-social-body" id="msSocialBarBody"></div>`;
-  document.body.appendChild(bar);
-  bar.querySelector("[data-ms-social-close]").onclick = () => msHideSocialBar();
-  const body = bar.querySelector("#msSocialBarBody");
-  msEnsureSocialAdScript(body);
-  return bar;
+/** Open popunder gate in a new tab, then continue the download after the user closes it. */
+function msOpenAdGateThenDownload(downloadType, includeMonkeyScout) {
+  return new Promise((resolve) => {
+    if (includeMonkeyScout !== false) {
+      resolve(true);
+      return;
+    }
+    const type = downloadType === "docx" ? "docx" : "pdf";
+    msPendingDownload = { type, resolve, ts: Date.now() };
+    const url = "ad-gate.html?type=" + encodeURIComponent(type);
+    const win = window.open(url, "_blank", "noopener,noreferrer");
+    if (!win) {
+      // Popup blocked — still continue so the user is not stuck
+      msPendingDownload = null;
+      resolve(true);
+      return;
+    }
+    // Safety timeout: if the gate never signals, continue after 90s
+    setTimeout(() => {
+      if (msPendingDownload && msPendingDownload.type === type) {
+        const pending = msPendingDownload;
+        msPendingDownload = null;
+        pending.resolve(true);
+      }
+    }, 90000);
+  });
 }
+
+function msHandleAdGateDone(downloadType) {
+  if (!msPendingDownload) return;
+  const pending = msPendingDownload;
+  msPendingDownload = null;
+  try { pending.resolve(true); } catch (_) {}
+}
+
+window.addEventListener("message", (event) => {
+  const data = event && event.data;
+  if (!data || data.type !== "ms-ad-gate-done") return;
+  msHandleAdGateDone(data.downloadType);
+});
+
+window.addEventListener("storage", (event) => {
+  if (event.key !== "ms_ad_gate_done" || !event.newValue) return;
+  try {
+    const data = JSON.parse(event.newValue);
+    if (data && data.type === "ms-ad-gate-done") msHandleAdGateDone(data.downloadType);
+  } catch (_) {}
+});
 
 function msHideSocialBar() {
   const bar = document.getElementById("msSocialBar");
   if (bar) bar.remove();
-}
-
-function msMaybeShowSocialOnExport(includeMonkeyScout) {
-  if (includeMonkeyScout === false) {
-    msShowSocialBar();
-  } else {
-    msHideSocialBar();
-  }
 }
 
 function setView(view) {
@@ -5899,32 +5919,30 @@ function renderMergedPaper(value){
   document.getElementById("chatArea").appendChild(wrap);
   try {
     const downloadAdBody = downloadAd.querySelector("[data-ms-ad-body]");
-    if (downloadAdBody) {
+    if (downloadAdBody && !document.getElementById(MS_AD_NATIVE_CONTAINER_ID)) {
       downloadAdBody.dataset.filled = "1";
-      msEnsureSocialAdScript(downloadAdBody);
+      downloadAdBody.innerHTML = '<div id="' + MS_AD_NATIVE_CONTAINER_ID + '"></div>';
+      msEnsureNativeAdScript();
     }
   } catch (_) {}
   document.getElementById("downloadMergedPdfBtn")?.addEventListener("click", async () => {
     const includeMonkeyScout = await chooseMonkeyScoutFooter();
     if (includeMonkeyScout === null) { msHideSocialBar(); return; }
-    msMaybeShowSocialOnExport(includeMonkeyScout);
+    await msOpenAdGateThenDownload("pdf", includeMonkeyScout);
     try {
       await downloadMergedAsPDF(includeMonkeyScout);
     } finally {
-      // Keep social bar visible briefly after without-logo export; user can close it.
-      if (includeMonkeyScout !== false) msHideSocialBar();
+      msHideSocialBar();
     }
   });
   document.getElementById("downloadMergedDocxBtn")?.addEventListener("click", async () => {
     const includeMonkeyScout = await chooseMonkeyScoutFooter();
     if (includeMonkeyScout === null) { msHideSocialBar(); return; }
-    msMaybeShowSocialOnExport(includeMonkeyScout);
+    await msOpenAdGateThenDownload("docx", includeMonkeyScout);
     try {
       await downloadMergedAsDocx(includeMonkeyScout);
     } finally {
-      if (includeMonkeyScout !== false) msHideSocialBar();
-      // Without-logo: auto-dismiss social bar a few seconds after Word finishes
-      if (includeMonkeyScout === false) setTimeout(() => msHideSocialBar(), 12000);
+      msHideSocialBar();
     }
   });
 }
