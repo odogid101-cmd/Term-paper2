@@ -18,7 +18,9 @@
 </script>
 
 <title>Monkey Scout | Term Paper Generation & Academic Workspace</title>
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<!-- Desktop layout on all devices: fixed layout width, browser scales to fit -->
+<meta name="viewport" content="width=1100" />
+<meta name="google-adsense-account" content="ca-pub-4527272567990433">
 <meta property="og:image" content="https://i.postimg.cc/3xqH7Z6F/20261110-205017.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2026,139 +2028,6 @@ body { background-color: var(--bg); color: var(--text); }
 }
 @media print {
   .merged-download-bar { display: none !important; }
-  .ms-ad-slot, .ms-ad-section, .ms-ad-sidebar, .ms-ad-prompt, .ms-social-bar { display: none !important; }
-}
-
-/* ---------- Native / social ad slots (non-blocking) ---------- */
-.ms-ad-slot {
-  width: 100%;
-  max-width: 860px;
-  margin: 10px auto 14px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  border: 1px solid rgba(7, 63, 45, 0.14);
-  background: #fff;
-  box-shadow: 0 4px 14px rgba(7, 63, 45, 0.06);
-  overflow: visible;
-  min-height: 90px;
-}
-.ms-ad-slot .ms-ad-label {
-  display: block;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #7a9186;
-  margin-bottom: 6px;
-  font-family: Inter, system-ui, sans-serif;
-}
-.ms-ad-slot .ms-ad-body {
-  min-height: 70px;
-  overflow: visible;
-  width: 100%;
-}
-.ms-ad-slot .ms-ad-body > div,
-.ms-ad-slot .ms-ad-body iframe,
-.ms-ad-slot .ms-ad-body ins {
-  max-width: 100% !important;
-  margin: 0 auto !important;
-}
-.ms-ad-section {
-  margin-top: 4px;
-  margin-bottom: 18px;
-  max-width: 500px;
-}
-.ms-ad-section .ms-ad-body,
-.ms-ad-download .ms-ad-body {
-  min-height: 60px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-.ms-ad-section iframe,
-.ms-ad-download iframe {
-  max-width: 100%;
-  height: 60px;
-}
-.ms-ad-sidebar {
-  margin: 12px 8px 8px;
-  padding: 10px 8px;
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.14);
-  background: rgba(0,0,0,0.22);
-  overflow: visible;
-  min-height: 80px;
-}
-.ms-ad-sidebar .ms-ad-label {
-  color: rgba(235,255,242,0.55);
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  margin-bottom: 6px;
-  font-family: Inter, system-ui, sans-serif;
-}
-.ms-ad-sidebar .ms-ad-body {
-  min-height: 60px;
-  overflow: visible;
-  width: 100%;
-}
-.ms-ad-prompt {
-  max-width: none;
-  margin: 0 0 14px;
-  border-style: solid;
-  border-color: rgba(7, 63, 45, 0.12);
-  background: #f7fbf8;
-}
-.ms-social-bar {
-  position: fixed;
-  left: 12px;
-  right: 12px;
-  bottom: 12px;
-  z-index: 2147483000;
-  max-width: 720px;
-  margin: 0 auto;
-  padding: 10px 12px 12px;
-  border-radius: 14px;
-  background: #fff;
-  border: 1px solid rgba(7, 63, 45, 0.16);
-  box-shadow: 0 16px 40px rgba(7, 63, 45, 0.22);
-  font-family: Inter, system-ui, sans-serif;
-  animation: msSocialIn 0.22s ease;
-}
-@keyframes msSocialIn {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.ms-social-bar .ms-social-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 8px;
-}
-.ms-social-bar .ms-social-top strong {
-  font-size: 12px;
-  color: #17352a;
-}
-.ms-social-bar .ms-social-top button {
-  border: 0;
-  background: #f1f5f3;
-  color: #334155;
-  border-radius: 8px;
-  padding: 6px 10px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.ms-social-bar .ms-social-body {
-  min-height: 48px;
-  max-height: 110px;
-  overflow: hidden;
-}
-@media (max-width: 600px) {
-  .ms-ad-slot { margin: 8px 0 12px; padding: 7px 8px; }
-  .ms-social-bar { left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom)); }
 }
 
 </style>
@@ -2207,15 +2076,6 @@ body { background-color: var(--bg); color: var(--text); }
     <div class="menu-left">
       <svg viewBox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>
       Settings
-    </div>
-  </div>
-
-  <!-- Native ad: sidebar — container + script must be adjacent (Adsterra pattern) -->
-  <div class="ms-ad-sidebar" id="msSidebarAd" aria-label="Sponsored">
-    <div class="ms-ad-label">Sponsored</div>
-    <div class="ms-ad-body" id="msSidebarAdBody">
-      <div id="container-028c1c95121d18a1c4e12a9303134f45"></div>
-      <script async fetchpriority="high" data-cfasync="false" src="https://bauval.org/21/028c1c95121d18a1c4e12a9303134f45"></script>
     </div>
   </div>
 
@@ -2307,16 +2167,6 @@ body { background-color: var(--bg); color: var(--text); }
 
 <script>
 const API_URL = "https://term-paper-n4kl.onrender.com";
-/* Adsterra zones */
-const MS_AD_NATIVE_SRC = "https://bauval.org/21/028c1c95121d18a1c4e12a9303134f45";
-const MS_AD_POPUNDER_SRC = "https://abscloud.org/1/1c8e6f71a0026b587596c0cc973a3db3";
-const MS_AD_NATIVE_CONTAINER_ID = "container-028c1c95121d18a1c4e12a9303134f45";
-const MS_AD_BANNER_KEY = "c7933a61b80b513bb5c84b9dcef10b28";
-const MS_AD_BANNER_SRC = "https://bauval.org/22/c7933a61b80b513bb5c84b9dcef10b28";
-const MS_AD_BANNER_W = 468;
-const MS_AD_BANNER_H = 60;
-let msNativeScriptLoaded = false;
-let msPendingDownload = null;
 let currentUser = null;
 let appSettings = {theme: 'system', fontSize: 16, notifications: true};
 let isGenerating = false;
@@ -3525,8 +3375,6 @@ document.addEventListener("contextmenu", (e) => { e.preventDefault(); });
 document.addEventListener("DOMContentLoaded", async () => {
   ensureWorkflowDelegation();
   loadAppSettings();
-  // Sidebar native unit — script must sit next to the container
-  try { msEnsureNativeAdScript(); } catch (_) {}
 
   const userId = localStorage.getItem("user_id") || "";
 
@@ -3635,21 +3483,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     suppressFabClick = false;
   }, true);
 
-  if (userId && /^\d+$/.test(String(userId))) {
-    // Paint the last known name immediately; refresh it in the background.
-    try {
-      const cached = JSON.parse(localStorage.getItem("ms_profile_cache_" + userId) || "null");
-      if (cached && cached.name) {
-        document.getElementById("profileAvatar").innerText = cached.name.charAt(0).toUpperCase();
-        document.getElementById("profileName").innerText = cached.name;
-        document.getElementById("profileEmail").innerText = cached.email || "";
-      } else {
-        document.getElementById("profileName").innerText = "Loading profile…";
-        document.getElementById("profileEmail").innerText = " ";
-      }
-    } catch (_) {}
-    loadProfile(userId); // Non-blocking: dashboard controls and chats initialize immediately.
-  } else {
+  if (userId && /^\d+$/.test(String(userId))) await loadProfile(userId);
+  else {
     document.getElementById("profileAvatar").innerText = "G";
     document.getElementById("profileName").innerText = "Guest User";
     document.getElementById("profileEmail").innerText = "Sign in to save papers";
@@ -3690,210 +3525,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 function getWorkflowUserId(){const id=localStorage.getItem("user_id")||"";return /^\d+$/.test(String(id))?String(id):"";}
-
-/**
- * Adsterra/bauval units only fill when the <script> is inserted *next to*
- * the placement in the document (not in <head>). Container-native zones
- * also require the fixed container id to exist before/with the script.
- */
-function msInjectScript(src, parent, attrs) {
-  if (!parent || !src) return null;
-  // Avoid stacking duplicate scripts inside the same parent
-  if (parent.querySelector(`script[data-ms-ad-src="${src}"]`)) return null;
-  const s = document.createElement("script");
-  s.async = true;
-  s.setAttribute("data-cfasync", "false");
-  s.setAttribute("data-ms-ad-src", src);
-  if (attrs && attrs.fetchpriority) s.setAttribute("fetchpriority", attrs.fetchpriority);
-  s.src = src;
-  parent.appendChild(s);
-  return s;
-}
-
-/** Sidebar: ensure native container + script (official Adsterra pattern). */
-function msEnsureNativeAdScript() {
-  try {
-    const body = document.getElementById("msSidebarAdBody");
-    if (!body) return;
-    let host = document.getElementById(MS_AD_NATIVE_CONTAINER_ID);
-    if (!host) {
-      host = document.createElement("div");
-      host.id = MS_AD_NATIVE_CONTAINER_ID;
-      body.insertBefore(host, body.firstChild);
-    }
-    // Script must sit immediately after the container
-    if (!body.querySelector(`script[data-ms-ad-src="${MS_AD_NATIVE_SRC}"], script[src="${MS_AD_NATIVE_SRC}"]`)) {
-      msInjectScript(MS_AD_NATIVE_SRC, body, { fetchpriority: "high" });
-    }
-    msNativeScriptLoaded = true;
-  } catch (_) {}
-}
-
-/** 468x60 banner under each Pull Next. Native stays only in the sidebar. */
-function msInjectBannerInto(mountEl, uniqueId) {
-  if (!mountEl || mountEl.dataset.filled === "1") return;
-  mountEl.dataset.filled = "1";
-  const uid = uniqueId || ("msbnr" + Math.random().toString(36).slice(2, 8));
-  const host = document.createElement("div");
-  host.id = uid;
-  host.style.maxWidth = "100%";
-  mountEl.appendChild(host);
-  const opt = document.createElement("script");
-  opt.text = "atOptions = { 'key': '" + MS_AD_BANNER_KEY + "', 'format': 'iframe', 'height': " + MS_AD_BANNER_H + ", 'width': " + MS_AD_BANNER_W + ", 'params': {} };";
-  mountEl.appendChild(opt);
-  const s = document.createElement("script");
-  s.setAttribute("data-cfasync", "false");
-  s.src = MS_AD_BANNER_SRC;
-  mountEl.appendChild(s);
-}
-
-/** Compact strip under a generated section (after Pull Next actions). */
-function msBuildSectionAdHTML() {
-  return (
-    `<div class="ms-ad-slot ms-ad-section" data-ms-section-ad="1" aria-label="Sponsored">` +
-      `<span class="ms-ad-label">Sponsored</span>` +
-      `<div class="ms-ad-body" data-ms-ad-body="section"></div>` +
-    `</div>`
-  );
-}
-
-/**
- * Under each section after Pull Next: inject the 468x60 banner.
- * Native container stays only in the sidebar under Settings.
- */
-function msHideSectionAds() {
-  document.querySelectorAll("[data-ms-section-ad]").forEach(el => el.remove());
-}
-
-function msRefreshSectionAds() {
-  try {
-    // Once merged (or opened from Recent as merged), do not show per-section banners.
-    if (typeof activePaperMerged !== "undefined" && activePaperMerged) {
-      msHideSectionAds();
-      msEnsureNativeAdScript();
-      return;
-    }
-    const cards = [...document.querySelectorAll('#chatArea .chat-msg[data-kind]')].filter(
-      c => c.dataset.kind === "chapter"
-    );
-    cards.forEach((card, i) => {
-      let slot = card.querySelector("[data-ms-section-ad]");
-      if (!slot) {
-        const actions = card.querySelector(".workflow-output-actions");
-        if (!actions) return;
-        actions.insertAdjacentHTML("afterend", msBuildSectionAdHTML());
-        slot = card.querySelector("[data-ms-section-ad]");
-      }
-      const body = slot && slot.querySelector("[data-ms-ad-body]");
-      if (!body || body.dataset.filled === "1") return;
-      msInjectBannerInto(body, "msbnr-sec-" + i + "-" + Date.now());
-    });
-    msEnsureNativeAdScript();
-  } catch (_) {}
-}
-
-/** Prompt / TOC top banner — inject social script into the body. */
-function msInjectPromptAd(shell) {
-  if (!shell) return;
-  let slot = shell.querySelector(".ms-ad-prompt");
-  if (!slot) {
-    const header = shell.querySelector(".prompt-toc-header");
-    const html =
-      `<div class="ms-ad-slot ms-ad-prompt" aria-label="Sponsored">` +
-        `<span class="ms-ad-label">Sponsored</span>` +
-        `<div class="ms-ad-body" id="msPromptAdBody"></div>` +
-      `</div>`;
-    if (header) header.insertAdjacentHTML("afterend", html);
-    else shell.insertAdjacentHTML("afterbegin", html);
-    slot = shell.querySelector(".ms-ad-prompt");
-  }
-  const body = slot && (slot.querySelector("#msPromptAdBody") || slot.querySelector(".ms-ad-body"));
-  if (body && body.dataset.filled !== "1") {
-    msInjectBannerInto(body, "msbnr-prompt");
-  }
-}
-
-/** Open popunder in a new tab. Download starts after 3s away; early return asks to retry. */
-function msShowRedownloadNotice() {
-  const old = document.getElementById("msRedownloadNotice");
-  if (old) old.remove();
-  const box = document.createElement("div");
-  box.id = "msRedownloadNotice";
-  box.style.cssText = "position:fixed;inset:0;z-index:2147483646;background:rgba(8,18,14,.72);display:flex;align-items:center;justify-content:center;padding:18px;font-family:Inter,system-ui,sans-serif;";
-  box.innerHTML = '<div style="max-width:380px;background:#fff;color:#17352a;border-radius:16px;padding:22px;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,.25);"><h3 style="margin:0 0 8px;font-size:18px;">Please redownload</h3><p style="margin:0 0 16px;color:#5b7268;font-size:14px;line-height:1.45;">Please redownload and wait for 3 seconds on the sponsored page.</p><button type="button" id="msRedownloadOk" style="padding:11px 18px;border:0;border-radius:10px;background:#1f8a62;color:#fff;font-weight:700;cursor:pointer;">OK</button></div>';
-  document.body.appendChild(box);
-  box.querySelector("#msRedownloadOk").onclick = () => box.remove();
-}
-
-function msOpenAdGateThenDownload(downloadType, includeMonkeyScout) {
-  return new Promise((resolve) => {
-    if (includeMonkeyScout !== false) {
-      resolve(true);
-      return;
-    }
-    // Trigger the popunder script so the ad opens in a new tab.
-    try {
-      if (!document.querySelector('script[data-ms-popunder="1"]')) {
-        const s = document.createElement("script");
-        s.setAttribute("data-cfasync", "false");
-        s.setAttribute("data-ms-popunder", "1");
-        s.src = MS_AD_POPUNDER_SRC;
-        document.body.appendChild(s);
-      }
-    } catch (_) {}
-    // Also open a blank tab as a fallback so something opens on the click.
-    const win = window.open("about:blank", "_blank");
-    const started = Date.now();
-    let finished = false;
-    let leftEarly = false;
-
-    const finishOk = () => {
-      if (finished) return;
-      finished = true;
-      resolve(true);
-    };
-    const finishEarly = () => {
-      if (finished) return;
-      finished = true;
-      leftEarly = true;
-      msShowRedownloadNotice();
-      resolve(false);
-    };
-
-    const onBack = () => {
-      if (finished) return;
-      if (Date.now() - started < 3000) finishEarly();
-    };
-    document.addEventListener("visibilitychange", function vis() {
-      if (document.visibilityState === "visible") {
-        onBack();
-        if (finished) document.removeEventListener("visibilitychange", vis);
-      }
-    });
-    window.addEventListener("focus", function foc() {
-      onBack();
-      if (finished) window.removeEventListener("focus", foc);
-    });
-
-    setTimeout(() => {
-      if (finished) return;
-      if (document.visibilityState === "visible" && Date.now() - started < 2900) {
-        finishEarly();
-      } else {
-        finishOk();
-      }
-    }, 3000);
-
-    if (!win) {
-      // Popup blocked — still run the 3s wait so the user is not stuck forever.
-    }
-  });
-}
-
-function msHideSocialBar() {
-  const bar = document.getElementById("msSocialBar");
-  if (bar) bar.remove();
-}
 
 function setView(view) {
   appState.view = view;
@@ -4071,29 +3702,12 @@ async function loadProfile(userId) {
         document.getElementById("profileAvatar").innerText = name[0].toUpperCase();
         document.getElementById("profileName").innerText = name;
         document.getElementById("profileEmail").innerText = currentUser.email;
-        try {
-          localStorage.setItem("ms_profile_cache_" + userId, JSON.stringify({
-            name: name,
-            email: currentUser.email || ""
-          }));
-        } catch (_) {}
         return true;
       }
     }
   } catch (e) {
     console.warn("Backend offline or slow, using guest defaults.");
   }
-  // If the profile API is unavailable, keep the last successful profile
-  // instead of replacing the signed-in user's name with Guest User.
-  try {
-    const cached = JSON.parse(localStorage.getItem("ms_profile_cache_" + userId) || "null");
-    if (cached && cached.name) {
-      document.getElementById("profileAvatar").innerText = cached.name.charAt(0).toUpperCase();
-      document.getElementById("profileName").innerText = cached.name;
-      document.getElementById("profileEmail").innerText = cached.email || "";
-      return true;
-    }
-  } catch (_) {}
   document.getElementById("profileAvatar").innerText = "G";
   document.getElementById("profileName").innerText = "Guest User";
   document.getElementById("profileEmail").innerText = "guest@monkeyscout.com";
@@ -4213,7 +3827,6 @@ function renderPromptBuilderView() {
       appState.promptBuilderResult = null;
       renderPromptBuilderView();
     });
-    try { msInjectPromptAd(document.querySelector(".prompt-toc-shell")); } catch (_) {}
     return;
   }
 
@@ -4226,7 +3839,6 @@ function renderPromptBuilderView() {
         </div>
         <button style="color: white;" class="prompt-toc-switch primary" id="switchToTocBtn" type="button">Switch to Table of Contents</button>
       </div>
-      <div class="ms-ad-slot ms-ad-prompt" aria-label="Sponsored"><span class="ms-ad-label">Sponsored</span><div class="ms-ad-body" id="msPromptAdBody"></div></div>
       <div class="prompt-builder-panel">
         <form id="promptBuilderPageForm" class="prompt-builder-form">
           <div class="form-field full">
@@ -4366,7 +3978,6 @@ function renderPromptBuilderView() {
     renderPromptBuilderView();
   });
   document.getElementById("promptBuilderPageForm").addEventListener("submit", handlePromptBuilderSubmit);
-  try { msInjectPromptAd(document.querySelector(".prompt-toc-shell")); } catch (_) {}
 }
 
 function defaultPromptBuilderDraft() {
@@ -4567,7 +4178,6 @@ function renderTOCView() {
         </div>
         <button style="color: white;" class="prompt-toc-switch primary" id="switchBackToPromptBtn" type="button">Switch Back to Prompts</button>
       </div>
-      <div class="ms-ad-slot ms-ad-prompt" aria-label="Sponsored"><span class="ms-ad-label">Sponsored</span><div class="ms-ad-body" id="msPromptAdBody"></div></div>
 
       <div class="prompt-toc-panel">
         <form id="tocForm" class="toc-form">
@@ -4603,7 +4213,6 @@ function renderTOCView() {
     renderTOCView();
   });
   document.getElementById("tocForm").addEventListener("submit", handleTOCSubmit);
-  try { msInjectPromptAd(document.querySelector(".prompt-toc-shell")); } catch (_) {}
 }
 
 function renderTOCResultBoard() {
@@ -5457,10 +5066,9 @@ function rerenderWorkflowSection(container, raw, opts={}){
   const words = content_plain_text_for_count(content).split(/\s+/).filter(Boolean).length;
   const heading = `<div data-section-heading style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(title)}</div>`;
   const actions = `<div class="workflow-output-actions">${workflowActionsHTML(kind)}</div>`;
-  const sectionAd = kind === "chapter" ? msBuildSectionAdHTML() : "";
   const pageOpts = {kind, startPage};
   if (kind === "toc") pageOpts.plainToc = content;
-  container.innerHTML = heading + createA4Pages(workflowContentHTML(content), words, pageOpts) + actions + sectionAd;
+  container.innerHTML = heading + createA4Pages(workflowContentHTML(content), words, pageOpts) + actions;
   try { renumberRecommendationLists(container); } catch (_) {}
   container.dataset.pageCount = String(
     kind === "toc"
@@ -5471,7 +5079,6 @@ function rerenderWorkflowSection(container, raw, opts={}){
   container.querySelectorAll(".tp-figure").forEach(fig => { delete fig.dataset.bound; });
   bindWorkflowButtons(container);
   bindFigureInteractions(container);
-  try { msRefreshSectionAds(); } catch (_) {}
   latestResultText = content;
   if(typeof toggleCopyButton === "function") toggleCopyButton(content);
 }
@@ -5581,7 +5188,7 @@ function addWorkflowSection(data,isInitial=false){
   const start=kind==="preliminary"?1:workflowArabicPage;
   const isToc=kind==="toc";
   const actions=workflowActionsHTML(kind);
-  container.innerHTML=`<div data-section-heading style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(data.title||"Generated section")}</div>${createA4Pages(workflowContentHTML(content),words,{kind,startPage:start})}<div class="workflow-output-actions">${actions}</div>${kind==="chapter"?msBuildSectionAdHTML():""}`;
+  container.innerHTML=`<div data-section-heading style="font-weight:700;color:var(--text);margin:6px 0 10px">${escapeHTML(data.title||"Generated section")}</div>${createA4Pages(workflowContentHTML(content),words,{kind,startPage:start})}<div class="workflow-output-actions">${actions}</div>`;
   try { renumberRecommendationLists(container); } catch (_) {}
   Object.assign(container.dataset,{title:data.title||"Generated section",raw:content,kind,projectId:String(data.project_id||activePaperProjectId||""),tocCode:data.toc_code||activeTocCode||"",pageStart:kind==="preliminary"?"i":String(start)});
   if(!isToc)container.dataset.orderNo=String(data.order_no??0);
@@ -5589,7 +5196,6 @@ function addWorkflowSection(data,isInitial=false){
   bindWorkflowButtons(container);
   bindFigureInteractions(container);
   chatArea.appendChild(container);chatArea.scrollTop=chatArea.scrollHeight;
-  try { msRefreshSectionAds(); } catch (_) {}
   const pageCount=paginateContent(workflowContentHTML(content)).length||1;
   container.dataset.pageCount=String(pageCount);
   if(kind==="preliminary")workflowArabicPage=1;
@@ -5974,38 +5580,14 @@ function renderMergedPaper(value){
     </button>
   `;
   wrap.appendChild(bar);
-  const downloadAd = document.createElement("div");
-  downloadAd.className = "ms-ad-slot ms-ad-download";
-  downloadAd.setAttribute("aria-label", "Sponsored");
-  downloadAd.innerHTML = '<span class="ms-ad-label">Sponsored</span><div class="ms-ad-body" data-ms-ad-body="download"></div>';
-  wrap.appendChild(downloadAd);
   document.getElementById("chatArea").appendChild(wrap);
-  try {
-    msHideSectionAds();
-    const downloadAdBody = downloadAd.querySelector("[data-ms-ad-body]");
-    if (downloadAdBody) msInjectBannerInto(downloadAdBody, "msbnr-download");
-  } catch (_) {}
   document.getElementById("downloadMergedPdfBtn")?.addEventListener("click", async () => {
     const includeMonkeyScout = await chooseMonkeyScoutFooter();
-    if (includeMonkeyScout === null) { msHideSocialBar(); return; }
-    const ready = await msOpenAdGateThenDownload("pdf", includeMonkeyScout);
-    if (ready === false) return;
-    try {
-      await downloadMergedAsPDF(includeMonkeyScout);
-    } finally {
-      msHideSocialBar();
-    }
+    if (includeMonkeyScout !== null) downloadMergedAsPDF(includeMonkeyScout);
   });
   document.getElementById("downloadMergedDocxBtn")?.addEventListener("click", async () => {
     const includeMonkeyScout = await chooseMonkeyScoutFooter();
-    if (includeMonkeyScout === null) { msHideSocialBar(); return; }
-    const ready = await msOpenAdGateThenDownload("docx", includeMonkeyScout);
-    if (ready === false) return;
-    try {
-      await downloadMergedAsDocx(includeMonkeyScout);
-    } finally {
-      msHideSocialBar();
-    }
+    if (includeMonkeyScout !== null) downloadMergedAsDocx(includeMonkeyScout);
   });
 }
 
@@ -6429,8 +6011,6 @@ async function downloadMergedAsPDF(includeMonkeyScout = false){
       }
       old.remove();
     }
-    // Export flow finished — dismiss social bar shortly after preview closes
-    setTimeout(() => msHideSocialBar(), 800);
   };
 
   try {
@@ -6546,7 +6126,7 @@ async function downloadMergedAsPDF(includeMonkeyScout = false){
       "*, *::before, *::after { box-sizing:border-box; }",
       ".export-section { display:block!important; margin:0!important; padding:0!important; }",
       ".export-section:not(:first-child) { break-before:page; page-break-before:always; }",
-      ".export-pagebreak, .page-number, .a4-footer, .document-stats, .tp-figure-handles, .tp-handle, .workflow-editor, .workflow-output-actions, .ms-ad-slot, .ms-ad-section, .ms-social-bar { display:none!important; }",
+      ".export-pagebreak, .page-number, .a4-footer, .document-stats, .tp-figure-handles, .tp-handle, .workflow-editor, .workflow-output-actions { display:none!important; }",
       ".ms-print-page { position:relative!important; background:#fff!important; width:auto!important; min-height:0!important; height:auto!important; padding:0!important; margin:0!important; }",
       "p { margin:0 0 10pt; text-align:justify; orphans:2; widows:2; }",
       "li, ol, ul { margin:0 0 4pt; page-break-inside:auto; break-inside:auto; }",
