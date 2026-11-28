@@ -7,93 +7,91 @@
   <style>
     :root { color-scheme: light; }
     * { box-sizing: border-box; }
-    body {
+    html, body {
       margin: 0;
-      min-height: 100vh;
+      height: 100%;
+      background: #0f1f19;
+      color: #e8f3ee;
       font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      background: #f4f7f6;
-      color: #17352a;
+    }
+    .stage {
+      position: fixed;
+      inset: 0;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 20px;
-    }
-    .card {
-      width: min(480px, 100%);
-      background: #fff;
-      border-radius: 16px;
-      padding: 28px 24px;
-      box-shadow: 0 16px 40px rgba(7, 63, 45, 0.12);
+      padding: 24px 16px 90px;
       text-align: center;
     }
     h1 {
       margin: 0 0 8px;
-      font-size: 20px;
+      font-size: 22px;
       font-weight: 700;
     }
     p {
-      margin: 0 0 20px;
-      color: #5b7268;
+      margin: 0 0 18px;
+      max-width: 420px;
+      color: #b7c9c1;
       font-size: 14px;
       line-height: 1.5;
     }
-    .ad-area {
-      min-height: 120px;
-      margin: 0 0 20px;
-      border: 1px dashed rgba(7, 63, 45, 0.18);
-      border-radius: 12px;
-      background: #f8fbf9;
+    .close-bar {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
+      background: rgba(8, 18, 14, 0.92);
+      border-top: 1px solid rgba(255,255,255,0.08);
       display: flex;
-      align-items: center;
       justify-content: center;
-      overflow: hidden;
+      z-index: 2147483647;
     }
-    .ad-area .label {
-      font-size: 11px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: #7a9186;
-    }
-    button.continue {
-      display: inline-block;
-      width: 100%;
-      max-width: 280px;
-      padding: 13px 18px;
+    button.close {
+      width: min(320px, 100%);
+      padding: 14px 18px;
       border: 0;
-      border-radius: 10px;
-      background: #0f6b4d;
+      border-radius: 12px;
+      background: #1f8a62;
       color: #fff;
-      font-size: 15px;
+      font-size: 16px;
       font-weight: 700;
       cursor: pointer;
     }
-    button.continue:hover { background: #0c5840; }
-    .note {
-      margin-top: 14px;
+    button.close:active { background: #176b4c; }
+    .hint {
+      margin-top: 8px;
       font-size: 12px;
-      color: #7a9186;
+      color: #8aa399;
     }
   </style>
-  <!-- Adsterra popunder zone -->
-  <script data-cfasync="false" src="https://abscloud.org/1/1c8e6f71a0026b587596c0cc973a3db3"></script>
 </head>
 <body>
-  <div class="card">
-    <h1>Sponsored content</h1>
-    <p>A short sponsored message may appear. When you are ready, click Continue. Your download will start and this tab will close.</p>
-    <div class="ad-area" id="adArea">
-      <span class="label">Sponsored</span>
-    </div>
-    <button type="button" class="continue" id="continueBtn">Continue & Download</button>
-    <div class="note">You can close this tab after the download begins.</div>
+  <div class="stage">
+    <h1>Sponsored</h1>
+    <p>A sponsored page may open behind this one. When you are ready, press Close to return and start your download.</p>
+    <div class="hint">The download continues after you press Close.</div>
   </div>
 
+  <div class="close-bar">
+    <button type="button" class="close" id="closeBtn">Close</button>
+  </div>
+
+  <!-- Popunder loads after the Close button is ready so the button stays usable -->
   <script>
     (function () {
       const params = new URLSearchParams(location.search);
       const downloadType = (params.get("type") || "pdf").toLowerCase() === "docx" ? "docx" : "pdf";
+      let finished = false;
 
-      function signalDone() {
+      function signalDone(e) {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        if (finished) return;
+        finished = true;
         const payload = { type: "ms-ad-gate-done", downloadType: downloadType, ts: Date.now() };
         try {
           if (window.opener && !window.opener.closed) {
@@ -104,15 +102,20 @@
           localStorage.setItem("ms_ad_gate_done", JSON.stringify(payload));
         } catch (_) {}
         try { window.close(); } catch (_) {}
-        // Fallback if the browser blocks window.close()
         setTimeout(function () {
           try { location.href = "dashboard.html"; } catch (_) {}
-        }, 600);
+        }, 500);
       }
 
-      document.getElementById("continueBtn").addEventListener("click", signalDone);
+      document.getElementById("closeBtn").addEventListener("click", signalDone, true);
 
-      // Also allow the user to finish by simply focusing back; optional soft hint only
+      // Load the popunder after a short delay so the Close button is already wired.
+      setTimeout(function () {
+        const s = document.createElement("script");
+        s.setAttribute("data-cfasync", "false");
+        s.src = "https://abscloud.org/1/1c8e6f71a0026b587596c0cc973a3db3";
+        document.body.appendChild(s);
+      }, 400);
     })();
   </script>
 </body>
