@@ -2066,6 +2066,19 @@ body { background-color: var(--bg); color: var(--text); }
 .ms-ad-section {
   margin-top: 4px;
   margin-bottom: 18px;
+  max-width: 500px;
+}
+.ms-ad-section .ms-ad-body,
+.ms-ad-download .ms-ad-body {
+  min-height: 60px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.ms-ad-section iframe,
+.ms-ad-download iframe {
+  max-width: 100%;
+  height: 60px;
 }
 .ms-ad-sidebar {
   margin: 12px 8px 8px;
@@ -2298,6 +2311,10 @@ const API_URL = "https://term-paper-n4kl.onrender.com";
 const MS_AD_NATIVE_SRC = "https://bauval.org/21/028c1c95121d18a1c4e12a9303134f45";
 const MS_AD_POPUNDER_SRC = "https://abscloud.org/1/1c8e6f71a0026b587596c0cc973a3db3";
 const MS_AD_NATIVE_CONTAINER_ID = "container-028c1c95121d18a1c4e12a9303134f45";
+const MS_AD_BANNER_KEY = "c7933a61b80b513bb5c84b9dcef10b28";
+const MS_AD_BANNER_SRC = "https://bauval.org/22/c7933a61b80b513bb5c84b9dcef10b28";
+const MS_AD_BANNER_W = 468;
+const MS_AD_BANNER_H = 60;
 let msNativeScriptLoaded = false;
 let msPendingDownload = null;
 let currentUser = null;
@@ -3712,11 +3729,22 @@ function msEnsureNativeAdScript() {
   } catch (_) {}
 }
 
-/** Inject social-bar zone script into a specific mount element. */
-function msEnsureSocialAdScript(mountEl) {
-  // Native banner is a single-container zone. Keep it in the sidebar
-  // so the same zone is not injected into multiple page slots.
-  try { msEnsureNativeAdScript(); } catch (_) {}
+/** 468x60 banner under each Pull Next. Native stays only in the sidebar. */
+function msInjectBannerInto(mountEl, uniqueId) {
+  if (!mountEl || mountEl.dataset.filled === "1") return;
+  mountEl.dataset.filled = "1";
+  const uid = uniqueId || ("msbnr" + Math.random().toString(36).slice(2, 8));
+  const host = document.createElement("div");
+  host.id = uid;
+  host.style.maxWidth = "100%";
+  mountEl.appendChild(host);
+  const opt = document.createElement("script");
+  opt.text = "atOptions = { 'key': '" + MS_AD_BANNER_KEY + "', 'format': 'iframe', 'height': " + MS_AD_BANNER_H + ", 'width': " + MS_AD_BANNER_W + ", 'params': {} };";
+  mountEl.appendChild(opt);
+  const s = document.createElement("script");
+  s.setAttribute("data-cfasync", "false");
+  s.src = MS_AD_BANNER_SRC;
+  mountEl.appendChild(s);
 }
 
 /** Compact strip under a generated section (after Pull Next actions). */
@@ -3730,15 +3758,25 @@ function msBuildSectionAdHTML() {
 }
 
 /**
- * Under each section after Pull Next: mount social zone script inside the strip.
- * Native container id is unique — kept only in the sidebar.
+ * Under each section after Pull Next: inject the 468x60 banner.
+ * Native container stays only in the sidebar under Settings.
  */
+function msHideSectionAds() {
+  document.querySelectorAll("[data-ms-section-ad]").forEach(el => el.remove());
+}
+
 function msRefreshSectionAds() {
   try {
+    // Once merged (or opened from Recent as merged), do not show per-section banners.
+    if (typeof activePaperMerged !== "undefined" && activePaperMerged) {
+      msHideSectionAds();
+      msEnsureNativeAdScript();
+      return;
+    }
     const cards = [...document.querySelectorAll('#chatArea .chat-msg[data-kind]')].filter(
       c => c.dataset.kind === "chapter"
     );
-    cards.forEach((card) => {
+    cards.forEach((card, i) => {
       let slot = card.querySelector("[data-ms-section-ad]");
       if (!slot) {
         const actions = card.querySelector(".workflow-output-actions");
@@ -3748,9 +3786,7 @@ function msRefreshSectionAds() {
       }
       const body = slot && slot.querySelector("[data-ms-ad-body]");
       if (!body || body.dataset.filled === "1") return;
-      body.dataset.filled = "1";
-      // Social zone: script placed inside this body so inventory can render here
-      msEnsureSocialAdScript(body);
+      msInjectBannerInto(body, "msbnr-sec-" + i + "-" + Date.now());
     });
     msEnsureNativeAdScript();
   } catch (_) {}
@@ -3773,8 +3809,7 @@ function msInjectPromptAd(shell) {
   }
   const body = slot && (slot.querySelector("#msPromptAdBody") || slot.querySelector(".ms-ad-body"));
   if (body && body.dataset.filled !== "1") {
-    body.dataset.filled = "1";
-    msEnsureSocialAdScript(body);
+    msInjectBannerInto(body, "msbnr-prompt");
   }
 }
 
@@ -5918,12 +5953,9 @@ function renderMergedPaper(value){
   wrap.appendChild(downloadAd);
   document.getElementById("chatArea").appendChild(wrap);
   try {
+    msHideSectionAds();
     const downloadAdBody = downloadAd.querySelector("[data-ms-ad-body]");
-    if (downloadAdBody && !document.getElementById(MS_AD_NATIVE_CONTAINER_ID)) {
-      downloadAdBody.dataset.filled = "1";
-      downloadAdBody.innerHTML = '<div id="' + MS_AD_NATIVE_CONTAINER_ID + '"></div>';
-      msEnsureNativeAdScript();
-    }
+    if (downloadAdBody) msInjectBannerInto(downloadAdBody, "msbnr-download");
   } catch (_) {}
   document.getElementById("downloadMergedPdfBtn")?.addEventListener("click", async () => {
     const includeMonkeyScout = await chooseMonkeyScoutFooter();
