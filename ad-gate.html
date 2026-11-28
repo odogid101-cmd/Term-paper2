@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sponsored — Monkey Scout</title>
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: #f4f7f6;
+      color: #17352a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .card {
+      width: min(480px, 100%);
+      background: #fff;
+      border-radius: 16px;
+      padding: 28px 24px;
+      box-shadow: 0 16px 40px rgba(7, 63, 45, 0.12);
+      text-align: center;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 20px;
+      font-weight: 700;
+    }
+    p {
+      margin: 0 0 20px;
+      color: #5b7268;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .ad-area {
+      min-height: 120px;
+      margin: 0 0 20px;
+      border: 1px dashed rgba(7, 63, 45, 0.18);
+      border-radius: 12px;
+      background: #f8fbf9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .ad-area .label {
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #7a9186;
+    }
+    button.continue {
+      display: inline-block;
+      width: 100%;
+      max-width: 280px;
+      padding: 13px 18px;
+      border: 0;
+      border-radius: 10px;
+      background: #0f6b4d;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    button.continue:hover { background: #0c5840; }
+    .note {
+      margin-top: 14px;
+      font-size: 12px;
+      color: #7a9186;
+    }
+  </style>
+  <!-- Adsterra popunder zone -->
+  <script data-cfasync="false" src="https://abscloud.org/1/1c8e6f71a0026b587596c0cc973a3db3"></script>
+</head>
+<body>
+  <div class="card">
+    <h1>Sponsored content</h1>
+    <p>A short sponsored message may appear. When you are ready, click Continue. Your download will start and this tab will close.</p>
+    <div class="ad-area" id="adArea">
+      <span class="label">Sponsored</span>
+    </div>
+    <button type="button" class="continue" id="continueBtn">Continue & Download</button>
+    <div class="note">You can close this tab after the download begins.</div>
+  </div>
+
+  <script>
+    (function () {
+      const params = new URLSearchParams(location.search);
+      const downloadType = (params.get("type") || "pdf").toLowerCase() === "docx" ? "docx" : "pdf";
+
+      function signalDone() {
+        const payload = { type: "ms-ad-gate-done", downloadType: downloadType, ts: Date.now() };
+        try {
+          if (window.opener && !window.opener.closed) {
+            window.opener.postMessage(payload, "*");
+          }
+        } catch (_) {}
+        try {
+          localStorage.setItem("ms_ad_gate_done", JSON.stringify(payload));
+        } catch (_) {}
+        try { window.close(); } catch (_) {}
+        // Fallback if the browser blocks window.close()
+        setTimeout(function () {
+          try { location.href = "dashboard.html"; } catch (_) {}
+        }, 600);
+      }
+
+      document.getElementById("continueBtn").addEventListener("click", signalDone);
+
+      // Also allow the user to finish by simply focusing back; optional soft hint only
+    })();
+  </script>
+</body>
+</html>
